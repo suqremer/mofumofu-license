@@ -11,8 +11,8 @@ class IapConfig {
   // RevenueCat API Keys
   // ─────────────────────────────────────────────
 
-  /// TODO: RevenueCatダッシュボードで取得したAPIキーに差し替える
-  static const String _appleApiKey = 'appl_XXXXXXXXXXXXXXXXXX';
+  static const String _appleApiKey = 'test_OnTkjyVSKfGgHxVviskyQLmwCmd';
+  // TODO: Google Play対応時にRevenueCatダッシュボードで取得したキーに差し替える
   static const String _googleApiKey = 'goog_XXXXXXXXXXXXXXXXXX';
 
   /// 現在のプラットフォームに応じたAPIキーを返す
@@ -26,7 +26,7 @@ class IapConfig {
   // ─────────────────────────────────────────────
 
   /// RevenueCatのEntitlement ID（ダッシュボードで設定）
-  static const String premiumEntitlementId = 'premium';
+  static const String premiumEntitlementId = 'Uchino Ko License Pro';
 
   /// プレミアム商品ID（App Store / Google Play に登録する商品IDと一致させる）
   static const String premiumProductId = 'mofumofu_premium';

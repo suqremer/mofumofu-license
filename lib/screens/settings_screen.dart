@@ -12,7 +12,7 @@ import '../theme/colors.dart';
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
-  static const _supportEmail = 'support@mofumofu-license.com';
+  static const _supportEmail = 'sasuke22rui1@gmail.com';
   static const _privacyPolicyUrl =
       'https://suqremer.github.io/mofumofu-license/privacy-policy';
   static const _termsUrl =

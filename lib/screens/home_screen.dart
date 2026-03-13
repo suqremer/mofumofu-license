@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../config/dev_config.dart';
 import '../models/license_card.dart';
 import '../models/license_template.dart';
 import '../providers/database_provider.dart';
@@ -97,8 +96,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 const SizedBox(height: 20),
                 _buildTicketCta(context),
                 const SizedBox(height: 10),
-                // 月間残数バッジ（無料ユーザーのみ）
-                if (!kDevMode) _buildMonthlyCounter(),
+                // 残数バッジ（無料ユーザーのみ）
+                if (!AppPreferences.isPremium) _buildMonthlyCounter(),
                 const SizedBox(height: 20),
                 _buildCounterGuide(context),
                 const SizedBox(height: 24),

@@ -152,31 +152,20 @@ class PurchaseManager {
     }
   }
 
-  /// サーバーの作成数とローカルを同期
+  /// ローカルの作成数をサーバーに同期（書き込みのみ）
   ///
-  /// 再インストール時: サーバーの値 > ローカル(0) → サーバーの値で上書き
-  /// 通常時: ローカルの値 >= サーバーの値 → サーバーを更新
+  /// RevenueCat Flutter SDK 8.x では subscriber attributes の読み取りは
+  /// クライアントからできないため、ローカル→サーバーへの書き込みのみ行う。
+  /// 再インストール時の復元はプレミアム購入状態（Entitlement）のみ。
   Future<void> _syncCreationCount() async {
     try {
-      final info = await Purchases.getCustomerInfo();
-      final serverCountStr =
-          info.subscriberAttributes[IapConfig.attrTotalCreations]?.value;
-      final serverCount = int.tryParse(serverCountStr ?? '') ?? 0;
       final localCount = AppPreferences.totalCreationCount;
-
-      if (serverCount > localCount) {
-        // 再インストール検出: サーバーの値で上書き
-        await AppPreferences.setTotalCreationCount(serverCount);
-        debugPrint(
-          'RevenueCat: Synced creation count from server: $serverCount (local was $localCount)',
-        );
-      } else if (localCount > serverCount) {
-        // ローカルが進んでる: サーバーを更新
+      if (localCount > 0) {
         await Purchases.setAttributes({
           IapConfig.attrTotalCreations: localCount.toString(),
         });
         debugPrint(
-          'RevenueCat: Synced creation count to server: $localCount (server was $serverCount)',
+          'RevenueCat: Synced creation count to server: $localCount',
         );
       }
     } catch (e) {

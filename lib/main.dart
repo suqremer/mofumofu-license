@@ -1,13 +1,14 @@
-import 'dart:async';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_background_remover/image_background_remover.dart';
 
+import 'config/ad_config.dart';
+import 'config/dev_config.dart';
 import 'router.dart';
 import 'services/ad_manager.dart';
 import 'services/app_preferences.dart';
@@ -16,6 +17,25 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // リリースビルドで開発フラグが残っていたら即座にエラー（出荷事故防止）
+  if (kReleaseMode) {
+    if (kDevMode) {
+      throw StateError(
+        'kDevMode が true のままリリースビルドされています！'
+        'lib/config/dev_config.dart を false に変更してください',
+      );
+    }
+    if (AdConfig.kUseTestAds) {
+      throw StateError(
+        'kUseTestAds が true のままリリースビルドされています！'
+        'lib/config/ad_config.dart を false に変更してください',
+      );
+    }
+  }
+
+  // フォントはアプリにバンドル済み。ネットからのダウンロードを禁止
+  GoogleFonts.config.allowRuntimeFetching = false;
 
   // Firebase初期化
   await Firebase.initializeApp();
