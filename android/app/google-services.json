@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "729131699426",
+    "project_id": "uchino-ko-license",
+    "storage_bucket": "uchino-ko-license.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:729131699426:android:f9ccf0a2574f2fb52e62bb",
+        "android_client_info": {
+          "package_name": "com.suqremer.mofumofu_license"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD3MgQSpehG7y1eUBl7blpKzMGVAL2fQVg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
