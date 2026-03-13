@@ -86,7 +86,7 @@ class Costume {
     Costume(
       id: 'crown',
       name: '王冠',
-      category: CostumeCategory.free,
+      category: CostumeCategory.premium,
       type: CostumeType.accessory,
       assetPath: 'assets/costumes/acc_4.png',
       thumbnailPath: 'assets/costumes/thumb_acc_4.png',
@@ -257,7 +257,7 @@ class Costume {
     Costume(
       id: 'carrot',
       name: 'にんじん',
-      category: CostumeCategory.free,
+      category: CostumeCategory.premium,
       type: CostumeType.stamp,
       assetPath: 'assets/costumes/05_carrot.png',
       thumbnailPath: 'assets/costumes/thumb_05_carrot.png',
@@ -287,7 +287,7 @@ class Costume {
     Costume(
       id: 'rabbit',
       name: 'うさぎ',
-      category: CostumeCategory.free,
+      category: CostumeCategory.premium,
       type: CostumeType.stamp,
       assetPath: 'assets/costumes/08_rabbit.png',
       thumbnailPath: 'assets/costumes/thumb_08_rabbit.png',
@@ -297,7 +297,7 @@ class Costume {
     Costume(
       id: 'cat_calico',
       name: '三毛猫',
-      category: CostumeCategory.free,
+      category: CostumeCategory.premium,
       type: CostumeType.stamp,
       assetPath: 'assets/costumes/09_cat_calico.png',
       thumbnailPath: 'assets/costumes/thumb_09_cat_calico.png',
@@ -479,7 +479,7 @@ class Costume {
     Costume(
       id: 'police',
       name: '警察官',
-      category: CostumeCategory.premium,
+      category: CostumeCategory.free,
       type: CostumeType.outfit,
       assetPath: 'assets/costumes/police.png',
       thumbnailPath: 'assets/costumes/thumb_police.png',
