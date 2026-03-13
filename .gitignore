@@ -53,3 +53,4 @@ android/key.properties
 lib_backup_*/
 *.png
 !assets/**/*.png
+!android/app/src/main/res/**/*.png
