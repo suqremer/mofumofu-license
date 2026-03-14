@@ -30,9 +30,14 @@ class AdManager {
   Future<void> initialize() async {
     if (_initialized || !shouldShowAds) return;
 
-    // UMP 同意フロー
+    // UMP 同意フロー（10秒でタイムアウト → 無限ハング防止）
     try {
-      await _requestConsent();
+      await _requestConsent().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('AdMob: Consent flow timed out (continuing)');
+        },
+      );
       debugPrint('AdMob: Consent flow completed');
     } catch (e) {
       // 同意フロー失敗でも広告初期化は続行（非パーソナライズ広告になる）

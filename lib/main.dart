@@ -38,15 +38,20 @@ void main() async {
   GoogleFonts.config.allowRuntimeFetching = false;
 
   // Firebase初期化
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp();
 
-  // Crashlytics設定（デバッグ時は無効）
-  if (!kDebugMode) {
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-    PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true;
-    };
+    // Crashlytics設定（デバッグ時は無効）
+    if (!kDebugMode) {
+      FlutterError.onError =
+          FirebaseCrashlytics.instance.recordFlutterFatalError;
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+    }
+  } catch (e) {
+    debugPrint('Firebase init failed: $e');
   }
 
   await AppPreferences.init();
