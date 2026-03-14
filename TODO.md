@@ -51,6 +51,9 @@
 | 34 | 年齢レーティング回答 | しゅーと | Done（4+、サードパーティ広告のみ「はい」） |
 | 35 | App Privacy（栄養ラベル）申告 | しゅーと+Claude | Done（7データ種別入力完了。トラッキング: デバイスID+広告データ） |
 | 36 | 最終TestFlight実機テスト | しゅーと | |
+| 36.1 | RevenueCat APIキーを本番用(appl_)に差し替え | しゅーと+Claude | ⚠️提出前必須。現在test_キー（Sandbox専用） |
+| 36.2 | In-App Purchase entitlements追加 | Claude | ⚠️提出前必須。Xcodeで capability追加→.entitlements生成 |
+| 36.3 | AdMob UMP同意フローにタイムアウト追加 | Claude | 推奨。Completer.future.timeout(10秒)で起動ブロック防止 |
 | 36.5 | 申請前チーム最終レビュー（法務/ASO/技術の総点検） | Claude | 提出直前にチームで全体横断チェック。著作権/なめ猫回避/ガイドライン抵触/メタデータ整合性/IAP動作を一括検証 |
 | 37 | App Store審査申請・提出 | しゅーと+Claude | |
 
