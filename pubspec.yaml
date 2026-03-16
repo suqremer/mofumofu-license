@@ -26,6 +26,7 @@ dependencies:
   # 写真選択・加工
   image_picker: ^1.1.2
   image_cropper: ^8.0.2
+  camera: ^0.11.0+2
 
   # 設定・永続化
   shared_preferences: ^2.3.5
@@ -55,6 +56,9 @@ dependencies:
   firebase_core: ^3.12.1
   firebase_crashlytics: ^4.3.2
 
+  # NFC
+  nfc_manager: ^3.5.0
+
   # ユーティリティ
   intl: ^0.20.2
   path: ^1.9.1
@@ -80,6 +84,7 @@ flutter:
     - assets/costumes/
     - assets/tutorial/
     - assets/fonts/
+    - assets/product_photos/
 
   fonts:
     - family: Zen Maru Gothic

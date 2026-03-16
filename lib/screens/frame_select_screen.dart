@@ -52,6 +52,7 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
 
   // === コスチュームオーバーレイ ===
   final List<CostumeOverlay> _costumeOverlays = [];
+  final Map<String, ui.Image> _costumeImages = {};
   String? _selectedOverlayUid;
 
   // === 顔ハメ ===
@@ -182,6 +183,32 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
       }
       // 顔ハメ画像ロード
       _loadOutfitImage(newOutfitId);
+      // コスチュームオーバーレイ画像ロード
+      _loadCostumeImages();
+    }
+  }
+
+  /// コスチュームオーバーレイの画像をアセットからロード
+  Future<void> _loadCostumeImages() async {
+    final loadedIds = <String>{};
+    for (final overlay in _costumeOverlays) {
+      if (_costumeImages.containsKey(overlay.costumeId)) continue;
+      if (loadedIds.contains(overlay.costumeId)) continue;
+      loadedIds.add(overlay.costumeId);
+
+      final costume = Costume.findById(overlay.costumeId);
+      try {
+        final data = await rootBundle.load(costume.assetPath);
+        final bytes = data.buffer.asUint8List();
+        final codec = await ui.instantiateImageCodec(bytes);
+        final frame = await codec.getNextFrame();
+        if (!mounted) return;
+        setState(() {
+          _costumeImages[overlay.costumeId] = frame.image;
+        });
+      } catch (e) {
+        debugPrint('Costume asset not found: ${costume.assetPath}');
+      }
     }
   }
 
@@ -225,8 +252,30 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
         ? TemplateType.fromId(templateStr)
         : TemplateType.japan;
     _selectedValidityId = extra['validityId'] as String? ?? 'nap';
+
+    // エディタから引き継いだデータを復元
+    _photoScale = (extra['photoScale'] as num?)?.toDouble() ?? 1.0;
+    _photoOffsetX = (extra['photoOffsetX'] as num?)?.toDouble() ?? 0.0;
+    _photoOffsetY = (extra['photoOffsetY'] as num?)?.toDouble() ?? 0.0;
+    _selectedOutfitId = extra['outfitId'] as String?;
+    _originalPhotoPath = extra['originalPhotoPath'] as String?;
+
+    // 証明写真の背景色を復元
+    final bgColorValue = extra['photoBgColor'] as int?;
+    if (bgColorValue != null) {
+      _photoBgColor = Color(bgColorValue);
+    }
+
+    // コスチュームオーバーレイ復元
     _costumeOverlays.clear();
     _selectedOverlayUid = null;
+    final overlayMaps = extra['costumeOverlays'] as List<dynamic>?;
+    if (overlayMaps != null) {
+      for (final map in overlayMaps) {
+        _costumeOverlays
+            .add(CostumeOverlay.fromMap(map as Map<String, dynamic>));
+      }
+    }
 
     // 写真を再ロード
     _photoImage = null;
@@ -236,8 +285,11 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
     }
 
     // 顔ハメ画像をロード
-    if (_selectedOutfitId != null) {
-      _loadOutfitImage(_selectedOutfitId);
+    _loadOutfitImage(_selectedOutfitId);
+
+    // コスチューム画像をロード
+    if (_costumeOverlays.isNotEmpty) {
+      _loadCostumeImages();
     }
   }
 
@@ -365,7 +417,27 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        // 編集データを持って情報入力画面に返す
+        context.pop(<String, dynamic>{
+          'photoPath': _photoPath,
+          'photoScale': _photoScale,
+          'photoOffsetX': _photoOffsetX,
+          'photoOffsetY': _photoOffsetY,
+          'costumeOverlays':
+              _costumeOverlays.map((o) => o.toMap()).toList(),
+          'outfitId': _selectedOutfitId,
+          'originalPhotoPath': _originalPhotoPath,
+          'templateType': _selectedTemplateType.id,
+          'frameColor': _selectedFrameColorId,
+          'validityId': _selectedValidityId,
+          'photoBgColor': _photoBgColor.value,
+        });
+      },
+      child: Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('フレーム&デコ'),
@@ -421,6 +493,7 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
         ],
       ),
       bottomNavigationBar: _buildBottomButton(context),
+    ),
     );
   }
 
@@ -477,6 +550,7 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
             frameColorId: _selectedFrameColorId,
             photoImage: _photoImage,
             costumeOverlays: _costumeOverlays,
+            costumeImages: _costumeImages,
             photoScale: _photoScale,
             photoOffsetX: _photoOffsetX,
             photoOffsetY: _photoOffsetY,
@@ -1028,8 +1102,8 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
   }
 
   /// 次の画面（プレビュー）へ遷移
-  void _navigateToPreview() {
-    context.push('/create/preview', extra: {
+  Future<void> _navigateToPreview() async {
+    final resultEditId = await context.push<int?>('/create/preview', extra: {
       if (_editId != null) 'editId': _editId,
       if (_editCreatedAt != null) 'createdAt': _editCreatedAt,
       'photoPath': _photoPath,
@@ -1058,6 +1132,10 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
       'outfitId': _selectedOutfitId,
       'photoBgColor': _photoBgColor.value,
     });
+    // プレビューから戻ったとき、保存済みのeditIdを反映（重複insert防止）
+    if (resultEditId != null) {
+      _editId = resultEditId;
+    }
   }
 
   // ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@ class AdConfig {
   AdConfig._();
 
   /// テスト広告を使うか（開発中は true）
-  static const bool kUseTestAds = false;
+  static const bool kUseTestAds = true;
 
   // ── 本番用 Ad Unit ID（リリース前にセット） ──
   static const String _prodBannerAndroid =

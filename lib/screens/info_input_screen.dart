@@ -57,8 +57,21 @@ class _InfoInputScreenState extends State<InfoInputScreen>
   String? _frameColor;
   String? _costumeId;
 
+  /// フレーム&デコ/エディタから引き継ぐデータ（中継用）
+  double _photoScale = 1.0;
+  double _photoOffsetX = 0.0;
+  double _photoOffsetY = 0.0;
+  List<Map<String, dynamic>>? _costumeOverlays;
+  String? _outfitId;
+  String? _originalPhotoPath;
+  String? _validityId;
+  int? _photoBgColor;
+
   /// ドラフト復元済みフラグ
   bool _draftRestored = false;
+
+  /// 初期化済みフラグ（didChangeDependenciesの再発火防止）
+  bool _initialized = false;
 
   @override
   void initState() {
@@ -69,17 +82,18 @@ class _InfoInputScreenState extends State<InfoInputScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+
     final extra = GoRouterState.of(context).extra;
 
     // 編集モード: extraがMapで editId を含む
     if (extra is Map<String, dynamic> && extra.containsKey('editId')) {
-      if (!_editLoaded) {
-        _editLoaded = true;
-        _editId = extra['editId'] as int;
-        _editCreatedAt = extra['createdAt'] as DateTime?;
-        _photoPath = extra['photoPath'] as String?;
-        _loadEditData(extra);
-      }
+      _editLoaded = true;
+      _editId = extra['editId'] as int;
+      _editCreatedAt = extra['createdAt'] as DateTime?;
+      _photoPath = extra['photoPath'] as String?;
+      _loadEditData(extra);
       return;
     }
 
@@ -337,10 +351,10 @@ class _InfoInputScreenState extends State<InfoInputScreen>
   }
 
   /// 次へ遷移
-  void _goNext() {
+  Future<void> _goNext() async {
     if (!_isFormValid) return;
 
-    context.push('/create/frame', extra: {
+    final result = await context.push<Map<String, dynamic>>('/create/frame', extra: {
       if (_editId != null) 'editId': _editId,
       if (_editCreatedAt != null) 'createdAt': _editCreatedAt,
       'photoPath': _photoPath,
@@ -367,7 +381,34 @@ class _InfoInputScreenState extends State<InfoInputScreen>
       if (_templateType != null) 'templateType': _templateType,
       if (_frameColor != null) 'frameColor': _frameColor,
       if (_costumeId != null) 'costumeId': _costumeId,
+      'photoScale': _photoScale,
+      'photoOffsetX': _photoOffsetX,
+      'photoOffsetY': _photoOffsetY,
+      if (_costumeOverlays != null) 'costumeOverlays': _costumeOverlays,
+      if (_outfitId != null) 'outfitId': _outfitId,
+      if (_originalPhotoPath != null) 'originalPhotoPath': _originalPhotoPath,
+      if (_validityId != null) 'validityId': _validityId,
+      if (_photoBgColor != null) 'photoBgColor': _photoBgColor,
     });
+
+    // フレーム&デコ画面から戻ってきたデータを保持
+    if (result != null && mounted) {
+      setState(() {
+        _photoPath = result['photoPath'] as String? ?? _photoPath;
+        _photoScale = (result['photoScale'] as num?)?.toDouble() ?? _photoScale;
+        _photoOffsetX = (result['photoOffsetX'] as num?)?.toDouble() ?? _photoOffsetX;
+        _photoOffsetY = (result['photoOffsetY'] as num?)?.toDouble() ?? _photoOffsetY;
+        _costumeOverlays = (result['costumeOverlays'] as List<dynamic>?)
+            ?.map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        _outfitId = result['outfitId'] as String?;
+        _originalPhotoPath = result['originalPhotoPath'] as String?;
+        _templateType = result['templateType'] as String? ?? _templateType;
+        _frameColor = result['frameColor'] as String? ?? _frameColor;
+        _validityId = result['validityId'] as String?;
+        _photoBgColor = result['photoBgColor'] as int?;
+      });
+    }
   }
 
   @override

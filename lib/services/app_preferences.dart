@@ -21,6 +21,7 @@ class AppPreferences {
   static const _keyFtueCompleted = 'ftue_completed';
   static const _keyDraftData = 'draft_data';
   static const _keyTotalCreations = 'total_creation_count';
+  static const _keyHasOrdered = 'has_ordered';
   // Keychain用キー（再インストールでも消えない）
   static const _keychainTotalCreations = 'kc_total_creation_count';
 
@@ -152,4 +153,17 @@ class AppPreferences {
   /// ドラフトが存在するか
   static bool get hasDraft =>
       _prefs?.getString(_keyDraftData) != null;
+
+  // ─────────────────────────────────────────────
+  // 注文フラグ（商品スライドショーの条件分岐用）
+  // ─────────────────────────────────────────────
+
+  /// 注文ボタンを押したことがあるか
+  static bool get hasOrdered =>
+      _prefs?.getBool(_keyHasOrdered) ?? false;
+
+  /// 注文済みとしてマーク
+  static Future<void> setHasOrdered() async {
+    await _prefs?.setBool(_keyHasOrdered, true);
+  }
 }

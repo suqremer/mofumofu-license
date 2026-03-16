@@ -115,6 +115,9 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   final List<CostumeOverlay> _costumeOverlays = [];
   String? _selectedOverlayUid;
   double _dragStartScale = 1.0;
+  double _dragStartRotation = 0.0;
+  bool _isDraggingOverlay = false; // ゴミ箱表示用
+  bool _isOverTrash = false; // ゴミ箱ホバー中
   CostumeType _selectedCostumeTab = CostumeType.accessory;
 
   // === 顔ハメ（outfit） ===
@@ -133,7 +136,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   double _gestureStartScale = 1.0;
 
   // === ブラシ関連 ===
-  BrushTool _brushTool = BrushTool.eraser;
+  BrushTool? _brushTool;
   double _brushSize = 30.0;
   final List<_BrushOperation> _brushOps = [];
   final List<_BrushOperation> _brushRedoStack = [];
@@ -148,16 +151,17 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
 
   /// マスク適用前の画像パス履歴（undo用）
   final List<String> _undoImageStack = [];
+  /// 画像レベルのredo用スタック
+  final List<String> _redoImageStack = [];
 
   bool _initialized = false;
 
-  /// 写真エリアのアスペクト比（license_painterのphotoRectと一致させる）
+  /// 写真エリアのアスペクト比（photoRectRatioから自動計算して一致させる）
   double get _photoAspect {
-    if (_templateType == TemplateType.japan) {
-      return 290.0 / 372.0; // カードの写真エリア実寸
-    } else {
-      return 260.0 / 340.0; // 13:17
-    }
+    final template = LicenseTemplate.fromType(_templateType);
+    final pr = template.photoRectRatio;
+    return (pr.width * template.outputSize.width) /
+        (pr.height * template.outputSize.height);
   }
 
   @override
@@ -292,9 +296,9 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 const SizedBox(height: 16),
                 _buildTutorialStepWithGif(1, 'assets/tutorial/tutorial_step1.gif', 'ピンチで拡大・縮小して\nペットのお顔をガイドの丸に合わせます'),
                 const SizedBox(height: 16),
-                _buildTutorialStepWithGif(2, 'assets/tutorial/tutorial_step2.gif', '「背景削除」で不要な部分を消します\n自動削除・ブラシ・投げ縄ツールが使えます'),
+                _buildTutorialStepWithGif(2, 'assets/tutorial/tutorial_step2.gif', 'お好みのコスチュームを選んで\nペットに着せましょう'),
                 const SizedBox(height: 16),
-                _buildTutorialStepWithGif(3, 'assets/tutorial/tutorial_step3.gif', 'お好みの顔ハメ衣装を選んで\nペットに着せましょう'),
+                _buildTutorialStepWithGif(3, 'assets/tutorial/tutorial_step3.gif', '「背景削除」で不要な部分を消します\n自動削除・ブラシ・投げ縄ツールが使えます'),
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
@@ -426,6 +430,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
     // 適用前の画像パスを履歴に保存（undo用）
     if (_photoPath != null) {
       _undoImageStack.add(_photoPath!);
+      _redoImageStack.clear(); // 新操作が入ったのでredoは無効化
     }
 
     try {
@@ -577,17 +582,36 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
     }
     // 適用済みの操作を巻き戻し（画像履歴から復元）
     if (_undoImageStack.isNotEmpty) {
+      // 現在の画像をredoスタックに保存
+      if (_photoPath != null) {
+        _redoImageStack.add(_photoPath!);
+      }
       final prevPath = _undoImageStack.removeLast();
       _photoPath = prevPath;
-      _loadPhoto(prevPath, saveAsOriginal: true);
+      _hasAutoRemoved = false; // 背景除去をundoした場合、再実行可能にする
+      _loadPhoto(prevPath);
     }
   }
 
   void _brushRedo() {
-    if (_brushRedoStack.isEmpty) return;
-    setState(() {
-      _brushOps.add(_brushRedoStack.removeLast());
-    });
+    // ブラシ操作のredoがあればそちらを優先
+    if (_brushRedoStack.isNotEmpty) {
+      setState(() {
+        _brushOps.add(_brushRedoStack.removeLast());
+      });
+      return;
+    }
+    // 画像レベルのredo
+    if (_redoImageStack.isNotEmpty) {
+      // 現在の画像をundoスタックに戻す
+      if (_photoPath != null) {
+        _undoImageStack.add(_photoPath!);
+      }
+      final nextPath = _redoImageStack.removeLast();
+      _photoPath = nextPath;
+      _hasAutoRemoved = true; // redo = 背景除去を再適用した状態
+      _loadPhoto(nextPath);
+    }
   }
 
   /// 画像のベースクロップ領域を計算（photoScale/Offset適用前）
@@ -741,7 +765,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                         _gestureStartScale = _photoScale;
                         _gestureIsPhotoMove = false;
                         // ブラシモードで1本指の場合はブラシ開始
-                        if (_mode == EditorMode.brush && details.pointerCount == 1) {
+                        if (_mode == EditorMode.brush && _brushTool != null && details.pointerCount == 1) {
                           final imgCoord = _toImageCoords(
                               details.localFocalPoint, previewSize);
                           setState(() {
@@ -880,7 +904,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                             currentLassoPoints: _currentLassoPoints,
                             currentBrushSize:
                                 _brushSizeToImage(previewSize),
-                            currentTool: _brushTool,
+                            currentTool: _brushTool ?? BrushTool.eraser,
                           ),
                           size: Size.infinite,
                         ),
@@ -890,13 +914,44 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                           painter: _GuideOverlayPainter(),
                           size: Size.infinite,
                         ),
-                      // デコ・ブラシモードでコスチュームオーバーレイ表示
-                      if (_mode == EditorMode.deco || _mode == EditorMode.brush)
+                      // コスチュームオーバーレイ表示（全タブで表示・操作可能）
+                      if (_costumeOverlays.isNotEmpty)
                         ..._costumeOverlays.map(
                           (overlay) => _buildDraggableOverlay(
                             overlay,
                             previewSize,
-                            interactive: _mode == EditorMode.deco,
+                            interactive: true,
+                          ),
+                        ),
+                      // ゴミ箱ゾーン（ドラッグ中のみ表示）
+                      if (_isDraggingOverlay)
+                        Positioned(
+                          bottom: 16,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              width: _isOverTrash ? 64 : 52,
+                              height: _isOverTrash ? 64 : 52,
+                              decoration: BoxDecoration(
+                                color: _isOverTrash
+                                    ? Colors.red
+                                    : Colors.red.withValues(alpha: 0.5),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.delete,
+                                size: _isOverTrash ? 32 : 26,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                         ),
                       // ガイド説明バナー + ？ボタン
@@ -1002,132 +1057,70 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
     final isSelected = interactive && _selectedOverlayUid == overlay.uid;
     final typeColor = _costumeTypeColor(costume.type);
 
-    final content = Stack(
-          clipBehavior: Clip.none,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Image.asset(
-                costume.assetPath,
-                width: baseW,
-                height: baseH,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  decoration: BoxDecoration(
-                    color: typeColor.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: isSelected ? AppColors.primary : typeColor,
-                      width: isSelected ? 2.5 : 1.5,
-                    ),
+    final imageWidget = ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: Image.asset(
+        costume.assetPath,
+        width: baseW,
+        height: baseH,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => Container(
+          decoration: BoxDecoration(
+            color: typeColor.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isSelected ? AppColors.primary : typeColor,
+              width: isSelected ? 2.5 : 1.5,
+            ),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _costumeIcon(overlay.costumeId),
+                  size: baseW * 0.35,
+                  color: typeColor.withValues(alpha: 0.8),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  costume.name,
+                  style: TextStyle(
+                    fontSize: (baseW * 0.12).clamp(8.0, 14.0),
+                    color: typeColor,
+                    fontWeight: FontWeight.bold,
                   ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _costumeIcon(overlay.costumeId),
-                          size: baseW * 0.35,
-                          color: typeColor.withValues(alpha: 0.8),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          costume.name,
-                          style: TextStyle(
-                            fontSize: (baseW * 0.12).clamp(8.0, 14.0),
-                            color: typeColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // 選択枠 + 回転適用
+    final content = Transform.rotate(
+      angle: overlay.rotation,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          imageWidget,
+          if (isSelected)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: AppColors.primary,
+                    width: 2.5,
                   ),
                 ),
               ),
             ),
-            if (isSelected)
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: AppColors.primary,
-                      width: 2.5,
-                    ),
-                  ),
-                ),
-              ),
-            // リサイズハンドル
-            if (isSelected)
-              Positioned(
-                left: -12,
-                top: -12,
-                child: GestureDetector(
-                  onPanStart: (_) {
-                    _dragStartScale = overlay.scale;
-                  },
-                  onPanUpdate: (details) {
-                    setState(() {
-                      final delta =
-                          (details.delta.dx + details.delta.dy) / 2;
-                      final scaleDelta =
-                          delta / (previewSize.width * 0.3);
-                      overlay.scale =
-                          (overlay.scale + scaleDelta).clamp(0.3, 4.0);
-                    });
-                  },
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: AppColors.secondary,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 3,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.open_in_full,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            // 削除ボタン
-            if (isSelected)
-              Positioned(
-                right: -8,
-                top: -8,
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _costumeOverlays
-                          .removeWhere((o) => o.uid == overlay.uid);
-                      _selectedOverlayUid = null;
-                    });
-                  },
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.close,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        );
+        ],
+      ),
+    );
 
     return Positioned(
       left: left,
@@ -1143,19 +1136,54 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 });
               },
               onScaleStart: (details) {
-                _selectedOverlayUid = overlay.uid;
-                _dragStartScale = overlay.scale;
+                setState(() {
+                  _selectedOverlayUid = overlay.uid;
+                  _dragStartScale = overlay.scale;
+                  _dragStartRotation = overlay.rotation;
+                  _isDraggingOverlay = true;
+                  _isOverTrash = false;
+                });
               },
               onScaleUpdate: (details) {
                 setState(() {
+                  // 1本指: 移動のみ
                   overlay.cx +=
                       details.focalPointDelta.dx / previewSize.width;
                   overlay.cy +=
                       details.focalPointDelta.dy / previewSize.height;
-                  if (details.scale != 1.0) {
+                  // 2本指: ピンチ拡大縮小 + 回転
+                  if (details.pointerCount >= 2) {
                     overlay.scale =
                         (_dragStartScale * details.scale).clamp(0.3, 4.0);
+                    var newRotation =
+                        _dragStartRotation + details.rotation;
+                    // 水平・垂直スナップ（0°/90°/180°/270°付近±5°で吸着）
+                    const snapAngles = [0.0, 1.5708, 3.1416, 4.7124, 6.2832, -1.5708, -3.1416];
+                    const snapThreshold = 0.087; // 約5°
+                    for (final snap in snapAngles) {
+                      if ((newRotation - snap).abs() < snapThreshold) {
+                        newRotation = snap;
+                        break;
+                      }
+                    }
+                    overlay.rotation = newRotation;
                   }
+                  // ゴミ箱判定: アイテム中心がプレビュー下端付近か
+                  _isOverTrash = overlay.cy > 0.85;
+                });
+              },
+              onScaleEnd: (_) {
+                if (_isOverTrash) {
+                  // ゴミ箱エリアでドロップ → 削除
+                  setState(() {
+                    _costumeOverlays
+                        .removeWhere((o) => o.uid == overlay.uid);
+                    _selectedOverlayUid = null;
+                  });
+                }
+                setState(() {
+                  _isDraggingOverlay = false;
+                  _isOverTrash = false;
                 });
               },
               child: content,
@@ -1191,15 +1219,18 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   }
 
   Widget _buildModeTabs() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildModeTab(EditorMode.outfit, Icons.checkroom, '顔ハメ'),
-        const SizedBox(width: 20),
-        _buildModeTab(EditorMode.brush, Icons.content_cut, '背景削除'),
-        const SizedBox(width: 20),
-        _buildModeTab(EditorMode.deco, Icons.auto_awesome, 'デコ'),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Flexible(child: _buildModeTab(EditorMode.outfit, Icons.checkroom, 'コスチューム')),
+          const SizedBox(width: 8),
+          Flexible(child: _buildModeTab(EditorMode.brush, Icons.content_cut, '背景削除')),
+          const SizedBox(width: 8),
+          Flexible(child: _buildModeTab(EditorMode.deco, Icons.auto_awesome, 'デコ')),
+        ],
+      ),
     );
   }
 
@@ -1221,7 +1252,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isActive
               ? AppColors.primary.withValues(alpha: 0.2)
@@ -1236,14 +1267,14 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon,
-                size: 18, color: isActive ? AppColors.primary : Colors.grey),
-            const SizedBox(width: 6),
+                size: 16, color: isActive ? AppColors.primary : Colors.grey),
+            const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
                 color: isActive ? AppColors.primary : Colors.grey,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                fontSize: 14,
+                fontSize: 12,
               ),
             ),
           ],
@@ -1274,18 +1305,13 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
               final isLocked = costume.isPremium && !PurchaseManager.instance.isPremium;
 
               return GestureDetector(
-                onTap: isLocked
+                onTap: isLocked || isSelected
                     ? null
                     : () {
-                        final newId = isSelected ? null : costume.id;
                         setState(() {
-                          _selectedOutfitId = newId;
+                          _selectedOutfitId = costume.id;
                         });
-                        if (newId != null) {
-                          _loadOutfitImage(Costume.findById(newId).assetPath);
-                        } else {
-                          _outfitUiImage = null;
-                        }
+                        _loadOutfitImage(Costume.findById(costume.id).assetPath);
                       },
                 child: Container(
                   width: 56,
@@ -1432,14 +1458,14 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
               _buildUndoRedoButton(
                 icon: Icons.redo,
                 label: '進む',
-                enabled: _brushRedoStack.isNotEmpty,
+                enabled: _brushRedoStack.isNotEmpty || _redoImageStack.isNotEmpty,
                 onPressed: _brushRedo,
               ),
             ],
           ),
           const SizedBox(height: 8),
           // ブラシサイズスライダー（投げ縄以外）
-          if (_brushTool != BrushTool.lasso)
+          if (_brushTool != null && _brushTool != BrushTool.lasso)
             Row(
               children: [
                 Icon(Icons.circle, size: 10, color: Colors.grey[400]),
@@ -1560,6 +1586,10 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
 
     setState(() => _isAutoRemoving = true);
 
+    // 背景除去前の画像パスをundoスタックに保存（「戻す」で戻れるように）
+    _undoImageStack.add(_photoPath!);
+    _redoImageStack.clear(); // 新操作が入ったのでredoは無効化
+
     try {
       final inputBytes = await File(_photoPath!).readAsBytes();
 
@@ -1591,6 +1621,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
         });
       }
     } on TimeoutException {
+      _undoImageStack.removeLast(); // 失敗時はスタックから除去
       if (mounted) {
         setState(() => _isAutoRemoving = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1601,6 +1632,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
         );
       }
     } catch (e) {
+      _undoImageStack.removeLast(); // 失敗時はスタックから除去
       if (mounted) {
         setState(() => _isAutoRemoving = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1862,17 +1894,24 @@ class _PhotoOnlyPainter extends CustomPainter {
       final drawWidth = size.width * costume.defaultScale;
       final drawHeight = drawWidth / oSrcAspect;
       final verticalRatio = switch (costume.id) {
-        'tuxedo' => 0.51,
-        'pirate' => 0.37,
-        'sailor' => 0.45,
-        'gakuran' => 0.46,
-        'kimono' => 0.39,
+        'tuxedo' => 0.56,
+        'pirate' => 0.56,
+        'sailor' => 0.43,
+        'gakuran' => 0.32,
+        'kimono' => 0.57,
+        'police' => 0.66,
+        'fire' => 0.6,
+        'astro' => 0.58,
+        'angel' => 0.75,
+        'santa' => 0.55,
         _ => 0.41,
       };
       final horizontalShift = switch (costume.id) {
-        'pirate' => size.width * 0.015,
-        'sailor' => size.width * 0.03,
-        'gakuran' => size.width * 0.01,
+        'pirate' => 0.0,
+        'sailor' => size.width * 0.002,
+        'gakuran' => size.width * 0.005,
+        'kimono' => size.width * 0.02,
+        'police' => size.width * 0.01,
         _ => 0.0,
       };
       final drawLeft = (size.width - drawWidth) / 2 + horizontalShift;
@@ -2135,9 +2174,9 @@ class _GuideOverlayPainter extends CustomPainter {
 
     // 頭（楕円）— 衣装の首位置に合わせて配置
     final headCx = cx;
-    final headCy = size.height * 0.43;
-    final headRx = size.width * 0.286; // 横幅 (0.22*1.3)
-    final headRy = size.height * 0.221; // 縦幅 (0.17*1.3)
+    final headCy = size.height * 0.397;
+    final headRx = size.width * 0.329;
+    final headRy = size.height * 0.254;
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(headCx, headCy),
@@ -2189,9 +2228,9 @@ class _GuideOverlayPainter extends CustomPainter {
     drawDashedOvalClipped(leftEarCenter, earRx, earRy);
     drawDashedOvalClipped(rightEarCenter, earRx, earRy);
 
-    // 首
-    final neckTop = headCy + headRy;
-    final neckBottom = neckTop + size.height * 0.06;
+    // 首（頭楕円の内側から開始して視覚的に接続）
+    final neckTop = headCy + headRy * 0.92;
+    final neckBottom = headCy + headRy + size.height * 0.06;
     final neckHalfW = size.width * 0.17;
     canvas.drawLine(
       Offset(cx - neckHalfW, neckTop),
@@ -2204,9 +2243,9 @@ class _GuideOverlayPainter extends CustomPainter {
       paint,
     );
 
-    // 肩（台形）
+    // 肩（台形）— 下端を画面最下部まで
     final shoulderTop = neckBottom;
-    final shoulderBottom = size.height * 0.90;
+    final shoulderBottom = size.height * 0.96;
     final shoulderOuterW = size.width * 0.48;
     final path = Path()
       ..moveTo(cx - neckHalfW, shoulderTop)

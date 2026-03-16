@@ -109,6 +109,7 @@ class LicensePainter extends CustomPainter {
     return oldDelegate.petName != petName ||
         oldDelegate.frameColorId != frameColorId ||
         oldDelegate.costumeOverlays.length != costumeOverlays.length ||
+        _overlaysChanged(oldDelegate.costumeOverlays) ||
         oldDelegate.template.type != template.type ||
         oldDelegate.photoImage != photoImage ||
         oldDelegate.validityText != validityText ||
@@ -119,6 +120,21 @@ class LicensePainter extends CustomPainter {
         oldDelegate.photoOffsetX != photoOffsetX ||
         oldDelegate.photoOffsetY != photoOffsetY ||
         oldDelegate.photoBgColor != photoBgColor;
+  }
+
+  bool _overlaysChanged(List<CostumeOverlay> old) {
+    for (var i = 0; i < costumeOverlays.length && i < old.length; i++) {
+      final a = costumeOverlays[i];
+      final b = old[i];
+      if (a.uid != b.uid ||
+          a.cx != b.cx ||
+          a.cy != b.cy ||
+          a.scale != b.scale ||
+          a.rotation != b.rotation) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // ===========================================================================
@@ -1183,18 +1199,25 @@ class LicensePainter extends CustomPainter {
       final heightScale = isOverseas ? (400.0 / 372.0) : 1.0;
       // コスチュームごとの縦位置調整（大きいほど上に表示）
       final verticalRatio = switch (costume.id) {
-        'tuxedo' => 0.51,
-        'pirate' => 0.37,
-        'sailor' => 0.45,
-        'gakuran' => 0.46,
-        'kimono' => 0.39,
+        'tuxedo' => 0.56,
+        'pirate' => 0.56,
+        'sailor' => 0.43,
+        'gakuran' => 0.32,
+        'kimono' => 0.57,
+        'police' => 0.66,
+        'fire' => 0.6,
+        'astro' => 0.58,
+        'angel' => 0.75,
+        'santa' => 0.55,
         _ => 0.41,
       };
       // コスチュームごとの横オフセット（正=右、負=左）
       final horizontalShift = switch (costume.id) {
-        'pirate' => photoRect.width * 0.015,
-        'sailor' => photoRect.width * 0.03,
-        'gakuran' => photoRect.width * 0.01,
+        'pirate' => 0.0,
+        'sailor' => photoRect.width * 0.002,
+        'gakuran' => photoRect.width * 0.005,
+        'kimono' => photoRect.width * 0.02,
+        'police' => photoRect.width * 0.01,
         _ => 0.0,
       };
       final drawLeft = photoRect.left + (photoRect.width - drawWidth) / 2 + horizontalShift;
@@ -1219,7 +1242,17 @@ class LicensePainter extends CustomPainter {
     final s = size.width / _refW;
     // 写真エリアの比率（座標変換用）
     final pr = template.photoRectRatio;
-    final photoW = size.width * pr.width;
+    final photoRect = Rect.fromLTWH(
+      pr.left * size.width, pr.top * size.height,
+      pr.width * size.width, pr.height * size.height,
+    );
+    final photoW = photoRect.width;
+
+    // 写真エリア内に制限（photoScale/Offsetは適用しない：
+    // エディタでWidgetとして配置した座標がそのまま写真エリア内の位置を表すため、
+    // Canvas変換を適用すると二重変換でズレる）
+    canvas.save();
+    canvas.clipRect(photoRect);
 
     for (final overlay in costumeOverlays) {
       final costume = Costume.findById(overlay.costumeId);
@@ -1235,19 +1268,27 @@ class LicensePainter extends CustomPainter {
         final baseW = photoW * costume.defaultScale * overlay.scale;
         final baseH = baseW / aspect;
         // 位置: 写真ローカル座標→カード座標に変換
-        final x = (pr.left + overlay.cx * pr.width) * size.width - baseW / 2;
-        final y = (pr.top + overlay.cy * pr.height) * size.height - baseH / 2;
+        final cx = (pr.left + overlay.cx * pr.width) * size.width;
+        final cy = (pr.top + overlay.cy * pr.height) * size.height;
 
+        canvas.save();
+        canvas.translate(cx, cy);
+        canvas.rotate(overlay.rotation);
         final src = Rect.fromLTWH(0, 0, imgW, imgH);
-        final dst = Rect.fromLTWH(x, y, baseW, baseH);
+        final dst = Rect.fromLTWH(-baseW / 2, -baseH / 2, baseW, baseH);
         canvas.drawImageRect(costumeImg, src, dst, Paint());
+        canvas.restore();
       } else {
         // アセット未ロード時はプレースホルダ
         final baseW = photoW * costume.defaultScale * overlay.scale;
         final baseH = baseW;
-        final x = (pr.left + overlay.cx * pr.width) * size.width - baseW / 2;
-        final y = (pr.top + overlay.cy * pr.height) * size.height - baseH / 2;
-        final rect = Rect.fromLTWH(x, y, baseW, baseH);
+        final cx = (pr.left + overlay.cx * pr.width) * size.width;
+        final cy = (pr.top + overlay.cy * pr.height) * size.height;
+
+        canvas.save();
+        canvas.translate(cx, cy);
+        canvas.rotate(overlay.rotation);
+        final rect = Rect.fromLTWH(-baseW / 2, -baseH / 2, baseW, baseH);
 
         final color = _overlayPlaceholderColor(costume.type);
         canvas.drawRRect(
@@ -1264,14 +1305,16 @@ class LicensePainter extends CustomPainter {
         _drawText(
           canvas,
           costume.name,
-          Offset(rect.center.dx, rect.center.dy - 8 * s),
+          Offset(0, -8 * s),
           fontSize: 12 * s,
           color: color,
           center: true,
           maxWidth: baseW,
         );
+        canvas.restore();
       }
     }
+    canvas.restore(); // 写真スケール/オフセット変換を解除
   }
 
   /// コスチュームタイプ別のプレースホルダ色

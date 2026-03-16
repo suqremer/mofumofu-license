@@ -12,7 +12,7 @@ import '../theme/colors.dart';
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
-  static const _supportEmail = 'sasuke22rui1@gmail.com';
+  static const _supportEmail = 'uchino.ko.license@gmail.com';
   static const _privacyPolicyUrl =
       'https://suqremer.github.io/mofumofu-license/privacy-policy';
   static const _termsUrl =
@@ -104,7 +104,7 @@ class SettingsScreen extends ConsumerWidget {
                 '今月の無料枠を使い切りました',
                 style: TextStyle(color: Colors.red.shade400),
               ),
-              subtitle: const Text('プレミアムで無制限に作れるで'),
+              subtitle: const Text('プレミアムで無制限に作れます'),
             ),
           ],
 
@@ -143,7 +143,7 @@ class SettingsScreen extends ConsumerWidget {
             title: const Text('レビューを書く'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () =>
-                _showSnack(context, 'ストア公開後にリンクするで'),
+                _showSnack(context, 'ストア公開後にリンクします'),
           ),
           const Divider(height: 1),
           ListTile(

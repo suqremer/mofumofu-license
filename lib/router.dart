@@ -11,7 +11,13 @@ import 'screens/preview_screen.dart';
 import 'screens/mask_edit_screen.dart';
 import 'screens/pet_notebook_screen.dart';
 import 'screens/order_screen.dart';
+import 'screens/order_card_screen.dart';
+import 'screens/order_tag_screen.dart';
+import 'screens/tag_design_screen.dart';
 import 'screens/photo_editor_screen.dart';
+import 'screens/camera_guide_screen.dart';
+import 'screens/nfc_write_screen.dart';
+import 'models/license_card.dart';
 
 /// 作成フロー用のスライドアニメーション（右からスライドイン）
 CustomTransitionPage<void> _slideTransition({
@@ -99,6 +105,11 @@ final router = GoRouter(
       pageBuilder: (context, state) =>
           _slideTransition(state: state, child: const PreviewScreen()),
     ),
+    GoRoute(
+      path: '/create/camera',
+      pageBuilder: (context, state) =>
+          _slideTransition(state: state, child: const CameraGuideScreen()),
+    ),
 
     // その他の画面（フェードイン）
     GoRoute(
@@ -110,6 +121,41 @@ final router = GoRouter(
       path: '/order',
       pageBuilder: (context, state) =>
           _fadeTransition(state: state, child: const OrderScreen()),
+    ),
+    GoRoute(
+      path: '/order/card',
+      pageBuilder: (context, state) =>
+          _slideTransition(state: state, child: const OrderCardScreen()),
+    ),
+    GoRoute(
+      path: '/order/tag',
+      pageBuilder: (context, state) =>
+          _slideTransition(state: state, child: const OrderTagScreen()),
+    ),
+    GoRoute(
+      path: '/order/set',
+      pageBuilder: (context, state) =>
+          _slideTransition(state: state, child: const OrderCardScreen(isSet: true)),
+    ),
+    GoRoute(
+      path: '/order/tag-design',
+      pageBuilder: (context, state) {
+        final card = state.extra as LicenseCard;
+        return _slideTransition(
+          state: state,
+          child: TagDesignScreen(card: card),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/nfc-write',
+      pageBuilder: (context, state) {
+        final card = state.extra as LicenseCard;
+        return _fadeTransition(
+          state: state,
+          child: NfcWriteScreen(card: card),
+        );
+      },
     ),
   ],
 );

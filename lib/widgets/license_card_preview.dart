@@ -8,6 +8,7 @@ class LicenseCardPreview extends StatelessWidget {
   final String species;
   final String licenseType;
   final String? photoPath;
+  final String? savedImagePath;
   final VoidCallback? onTap;
 
   static const _gold = Color(0xFFFFD54F);
@@ -18,6 +19,7 @@ class LicenseCardPreview extends StatelessWidget {
     required this.species,
     required this.licenseType,
     this.photoPath,
+    this.savedImagePath,
     this.onTap,
   });
 
@@ -51,19 +53,13 @@ class LicenseCardPreview extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 写真 or プレースホルダ
+              // 写真プレビュー → 素の写真 → プレースホルダの優先順位で表示
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: SizedBox(
                   width: 100,
                   height: 100,
-                  child: photoPath != null
-                      ? Image.file(
-                          File(photoPath!),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _placeholder(),
-                        )
-                      : _placeholder(),
+                  child: _buildImage(),
                 ),
               ),
               const SizedBox(height: 8),
@@ -111,6 +107,31 @@ class LicenseCardPreview extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildImage() {
+    // 写真プレビュー画像（_photo.png）があればそれを表示
+    if (savedImagePath != null) {
+      final photoPreviewPath =
+          savedImagePath!.replaceAll('.png', '_photo.png');
+      final photoPreviewFile = File(photoPreviewPath);
+      if (photoPreviewFile.existsSync()) {
+        return Image.file(
+          photoPreviewFile,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _placeholder(),
+        );
+      }
+    }
+    // フォールバック: 素の写真
+    if (photoPath != null && File(photoPath!).existsSync()) {
+      return Image.file(
+        File(photoPath!),
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _placeholder(),
+      );
+    }
+    return _placeholder();
   }
 
   Widget _placeholder() {

@@ -116,7 +116,7 @@ class Costume {
     Costume(
       id: 'sunglasses',
       name: 'サングラス',
-      category: CostumeCategory.free,
+      category: CostumeCategory.premium,
       type: CostumeType.accessory,
       assetPath: 'assets/costumes/acc_8.png',
       thumbnailPath: 'assets/costumes/thumb_acc_8.png',
@@ -212,6 +212,16 @@ class Costume {
       thumbnailPath: 'assets/costumes/thumb_acc_17.png',
       sortOrder: 15,
       defaultScale: 0.25,
+    ),
+    Costume(
+      id: 'megane',
+      name: 'メガネ',
+      category: CostumeCategory.free,
+      type: CostumeType.accessory,
+      assetPath: 'assets/costumes/acc_18.png',
+      thumbnailPath: 'assets/costumes/thumb_acc_18.png',
+      sortOrder: 16,
+      defaultScale: 0.20,
     ),
     // === B: スタンプ/デコ（21種） ===
     Costume(
@@ -365,16 +375,6 @@ class Costume {
       defaultScale: 0.15,
     ),
     Costume(
-      id: 'dog_spot',
-      name: 'ぶち犬',
-      category: CostumeCategory.premium,
-      type: CostumeType.stamp,
-      assetPath: 'assets/costumes/16_dog_spot.png',
-      thumbnailPath: 'assets/costumes/thumb_16_dog_spot.png',
-      sortOrder: 25,
-      defaultScale: 0.15,
-    ),
-    Costume(
       id: 'soccer',
       name: 'サッカーボール',
       category: CostumeCategory.premium,
@@ -444,7 +444,7 @@ class Costume {
       assetPath: 'assets/costumes/sailor.png',
       thumbnailPath: 'assets/costumes/thumb_sailor.png',
       sortOrder: 41,
-      defaultScale: 1.9,
+      defaultScale: 1.7,
     ),
     Costume(
       id: 'kimono',
@@ -454,7 +454,7 @@ class Costume {
       assetPath: 'assets/costumes/kimono.png',
       thumbnailPath: 'assets/costumes/thumb_kimono.png',
       sortOrder: 42,
-      defaultScale: 3.5,
+      defaultScale: 2.0,
     ),
     Costume(
       id: 'tuxedo',
@@ -464,7 +464,7 @@ class Costume {
       assetPath: 'assets/costumes/tuxedo.png',
       thumbnailPath: 'assets/costumes/thumb_tuxedo.png',
       sortOrder: 43,
-      defaultScale: 2.5,
+      defaultScale: 2.2,
     ),
     Costume(
       id: 'pirate',
@@ -474,7 +474,7 @@ class Costume {
       assetPath: 'assets/costumes/pirate.png',
       thumbnailPath: 'assets/costumes/thumb_pirate.png',
       sortOrder: 44,
-      defaultScale: 3.0,
+      defaultScale: 2.1,
     ),
     Costume(
       id: 'police',
@@ -484,7 +484,7 @@ class Costume {
       assetPath: 'assets/costumes/police.png',
       thumbnailPath: 'assets/costumes/thumb_police.png',
       sortOrder: 45,
-      defaultScale: 2.5,
+      defaultScale: 2.1,
     ),
     Costume(
       id: 'fire',
@@ -494,7 +494,7 @@ class Costume {
       assetPath: 'assets/costumes/fire.png',
       thumbnailPath: 'assets/costumes/thumb_fire.png',
       sortOrder: 46,
-      defaultScale: 2.5,
+      defaultScale: 2.2,
     ),
     Costume(
       id: 'astro',
@@ -504,7 +504,7 @@ class Costume {
       assetPath: 'assets/costumes/astro.png',
       thumbnailPath: 'assets/costumes/thumb_astro.png',
       sortOrder: 47,
-      defaultScale: 2.5,
+      defaultScale: 2.2,
     ),
     Costume(
       id: 'angel',
@@ -514,7 +514,7 @@ class Costume {
       assetPath: 'assets/costumes/angel.png',
       thumbnailPath: 'assets/costumes/thumb_angel.png',
       sortOrder: 48,
-      defaultScale: 2.5,
+      defaultScale: 2.2,
     ),
     Costume(
       id: 'santa',
@@ -524,7 +524,7 @@ class Costume {
       assetPath: 'assets/costumes/santa.png',
       thumbnailPath: 'assets/costumes/thumb_santa.png',
       sortOrder: 49,
-      defaultScale: 2.5,
+      defaultScale: 2.2,
     ),
   ];
 
@@ -536,9 +536,14 @@ class Costume {
   static List<Costume> get premiumOnly =>
       all.where((c) => c.isPremium).toList();
 
-  /// タイプ別に返す
+  /// タイプ別に返す（無料を先頭、プレミアムを後方に配置）
   static List<Costume> byType(CostumeType type) =>
-      all.where((c) => c.type == type).toList();
+      all.where((c) => c.type == type).toList()
+        ..sort((a, b) {
+          final catCmp = a.category.index.compareTo(b.category.index);
+          if (catCmp != 0) return catCmp;
+          return a.sortOrder.compareTo(b.sortOrder);
+        });
 
   /// IDからコスチュームを取得（見つからなければ帽子をデフォルト返却）
   static Costume findById(String id) {

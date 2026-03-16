@@ -4,4 +4,4 @@
 /// false: 課金要素はロック（本番用）
 ///
 /// ★★★ 公開前に必ず false に変更すること！ ★★★
-const bool kDevMode = false;
+const bool kDevMode = true;

@@ -75,6 +75,6 @@ No login or account is required. The app works entirely offline after download.
 - Recommended age rating: 4+ (with ads disclosure).
 
 ## Support
-- Email: sasuke22rui1@gmail.com
+- Email: uchino.ko.license@gmail.com
 - Support page: https://suqremer.github.io/mofumofu-license/
 - Privacy Policy: https://suqremer.github.io/mofumofu-license/privacy-policy/

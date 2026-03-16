@@ -72,6 +72,31 @@ class _PhotoSelectScreenState extends State<PhotoSelectScreen> {
     }
   }
 
+  /// ガイド付きカメラ画面を開く
+  Future<void> _openCameraGuide() async {
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+
+    try {
+      final result = await context.push<String>('/create/camera');
+      setState(() => _isProcessing = false);
+
+      if (result != null && mounted) {
+        await context.push('/create/info', extra: result);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('カメラの起動に失敗しました。もう一度試してね'),
+            backgroundColor: Colors.red.shade400,
+          ),
+        );
+      }
+    }
+  }
+
   /// 権限拒否時のダイアログ（設定画面への誘導）
   void _showPermissionDeniedDialog(ImageSource source) {
     final isCamera = source == ImageSource.camera;
@@ -226,9 +251,7 @@ class _PhotoSelectScreenState extends State<PhotoSelectScreen> {
           width: double.infinity,
           height: 56,
           child: OutlinedButton.icon(
-            onPressed: _isProcessing
-                ? null
-                : () => _pickImage(ImageSource.camera),
+            onPressed: _isProcessing ? null : _openCameraGuide,
             icon: const Icon(Icons.camera_alt_outlined),
             label: const Text(
               'カメラで撮影',

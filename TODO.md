@@ -24,9 +24,19 @@
 | 15 | エラーメッセージ日本語化・統一 | Claude | Done |
 | 16 | TestFlight実機テスト（IAP Sandbox含む、随時） | しゅーと | |
 | 17 | アプリアイコン作成 | しゅーと | Done（柴犬アイコン、flutter_launcher_iconsで全サイズ生成済） |
-| 18 | コスチューム素材作成（Midjourney） | しゅーと | |
-| 19 | コスチューム課金区分決定 | しゅーと | Done（無料12種/プレミアム47種。顔ハメ無料: 学ラン・セーラー・警察。季節限定: 12月サンタ・4月着物） |
-| 20 | コスチューム画像組み込み・テスト | Claude | |
+| 18 | デコ素材ペイント編集後実装 | しゅーと+Claude | Done |
+| 19 | コスチューム課金区分決定 | しゅーと | Done（無料12種/プレミアム35種、計47種。顔ハメ無料: 学ラン・セーラー・警察。季節限定: 12月サンタ・4月着物） |
+| 20 | コスチューム画像組み込み・テスト | Claude | Done |
+| 20.1 | デコ位置ズレ修正（photoScale/Offset適用時のLicensePainter/Composer座標変換） | Claude | Done（二重変換を削除、clipRectのみ維持） |
+| 20.2 | カメラ撮影ガイドの位置調整（実機テストで微調整） | しゅーと+Claude | |
+| 20.3 | NFC書き込み機能実装 | Claude | Done（nfc_service.dart + nfc_write_screen.dart + コレクション画面NFCボタン） |
+| 20.4 | NFC iOS対応（Info.plist + Capabilities設定） | Claude | |
+| 20.5 | NFC プライバシーポリシー更新（飼い主名・電話番号の記載追加） | Claude | |
+| 20.6 | NFC 実機テスト（NTAG215書き込み確認） | しゅーと | |
+| 20.7 | 商品スライドショー実装（ホーム+注文画面、条件分岐レイアウト） | Claude | Done（ProductGalleryウィジェット、hasOrderedフラグで表示切替） |
+| 20.8 | ホーム画面リデザイン（窓口2×2グリッド化+条件分岐レイアウト） | Claude | Done |
+| 20.9 | 注文画面修正（Φ33mm→Φ25mm、関西弁→標準語、overflow修正） | Claude | Done |
+| 20.10 | サポートメアド変更（sasuke22rui1→uchino.ko.license@gmail.com、全9箇所） | Claude | Done |
 
 ## Phase 3: 法務・ドキュメント+QA（Day 8-14）
 | # | タスク | 担当 | 状態 |
@@ -52,8 +62,8 @@
 | 35 | App Privacy（栄養ラベル）申告 | しゅーと+Claude | Done（7データ種別入力完了。トラッキング: デバイスID+広告データ） |
 | 36 | 最終TestFlight実機テスト | しゅーと | |
 | 36.1 | RevenueCat APIキーを本番用(appl_)に差し替え | しゅーと+Claude | ⚠️提出前必須。現在test_キー（Sandbox専用） |
-| 36.2 | In-App Purchase entitlements追加 | Claude | ⚠️提出前必須。Xcodeで capability追加→.entitlements生成 |
-| 36.3 | AdMob UMP同意フローにタイムアウト追加 | Claude | 推奨。Completer.future.timeout(10秒)で起動ブロック防止 |
+| 36.2 | In-App Purchase entitlements追加 | Claude | Done（追加不要。StoreKit IAPはプロビジョニングプロファイルで自動有効化、entitlementsキー不要） |
+| 36.3 | AdMob UMP同意フローにタイムアウト追加 | Claude | Done（ad_manager.dart:35-40で10秒タイムアウト実装済み） |
 | 36.5 | 申請前チーム最終レビュー（法務/ASO/技術の総点検） | Claude | 提出直前にチームで全体横断チェック。著作権/なめ猫回避/ガイドライン抵触/メタデータ整合性/IAP動作を一括検証 |
 | 37 | App Store審査申請・提出 | しゅーと+Claude | |
 
@@ -73,8 +83,15 @@
 ### 決済・注文システム（↑と並行OK）
 | # | タスク | 担当 | 状態 |
 |---|--------|------|------|
-| 45 | Stripeアカウント開設 | しゅーと | |
-| 46 | 注文フロー実装 | Claude | |
-| 47 | 注文管理ワークフロー構築 | しゅーと | |
-| 48 | 注文確認・発送通知メールの仕組み | しゅーと+Claude | |
-| 49 | 返品ポリシー更新（PVCカード部分追加） | Claude | |
+| 45 | Stripeアカウント開設+Payment Links作成（カード¥1,980/タグ¥1,980/セット¥2,980） | しゅーと | |
+| 45.1 | Googleフォーム作成（注文番号/お名前/写真アップロード/備考） | しゅーと | |
+| 46 | タグ用丸形デザイン画面（Φ25mm丸形トリミング+PNG書き出し） | Claude | Done |
+| 46.1 | 注文トップ画面（カード/タグ/セット選択） | Claude | Done |
+| 46.2 | カード注文画面（免許証選択→Stripe Payment Link遷移） | Claude | Done |
+| 46.3 | タグ注文画面（免許証選択+丸形プレビュー→Stripe→Googleフォーム案内） | Claude | Done |
+| 46.4 | ルーティング+コレクション画面に注文ボタン追加 | Claude | Done |
+| 46.5 | Stripe Payment Links URL差し替え（order_card_screen.dart / order_tag_screen.dart の PLACEHOLDER） | Claude | #45完了後 |
+| 46.6 | Googleフォーム URL差し替え（order_card_screen.dart / order_tag_screen.dart の PLACEHOLDER） | Claude | #45.1完了後 |
+| 47 | 注文管理ワークフロー構築（Stripe×Googleフォーム突き合わせ） | しゅーと | |
+| 48 | 注文確認・発送通知メールの仕組み（Stripe標準通知） | しゅーと | |
+| 49 | 返品ポリシー更新（物理商品部分追加） | Claude | |

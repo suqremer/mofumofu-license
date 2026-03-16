@@ -209,8 +209,8 @@ class LicenseTemplate {
   static const LicenseTemplate japan = LicenseTemplate(
     type: TemplateType.japan,
     outputSize: Size(1024, 646),
-    // 右側中段に写真を配置（比率指定）
-    photoRectRatio: Rect.fromLTWH(0.62, 0.28, 0.30, 0.50),
+    // 右側中段に写真を配置（_paintJapanTemplate の 722,167,290,372 と一致）
+    photoRectRatio: Rect.fromLTWH(722 / 1024, 167 / 646, 290 / 1024, 372 / 646),
     issuerText: 'うちの子免許センター',
     headerText: 'うちの子公安委員会',
     validityText: 'うたた寝するまで有効',
@@ -223,8 +223,8 @@ class LicenseTemplate {
   static const LicenseTemplate usa = LicenseTemplate(
     type: TemplateType.usa,
     outputSize: Size(1024, 646),
-    // 左側に写真を配置
-    photoRectRatio: Rect.fromLTWH(0.05, 0.30, 0.28, 0.50),
+    // 左側に写真を配置（_paintUsaTemplate の 30,110,280,400 と一致）
+    photoRectRatio: Rect.fromLTWH(30 / 1024, 110 / 646, 280 / 1024, 400 / 646),
     issuerText: 'MOFUMOFU LICENSE CENTER',
     headerText: 'STATE OF MOFUMOFU',
     validityText: 'Valid until nap time',

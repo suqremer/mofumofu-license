@@ -248,6 +248,160 @@ class LicenseComposer {
     return compose(request, scale: 2.0);
   }
 
+  /// 写真エリアだけ（写真+顔ハメ+コスチューム、フレーム/テキストなし）を合成
+  ///
+  /// ホーム画面のプレビュー用。テキストやフレームが重ならないクリーンな写真。
+  Future<Uint8List> composePhotoPreview(LicenseComposeRequest request) async {
+    final template = LicenseTemplate.fromId(request.templateType);
+    final pr = template.photoRectRatio;
+    // 出力サイズ = 写真エリアのピクセルサイズ
+    final outW = (template.outputSize.width * pr.width).toInt();
+    final outH = (template.outputSize.height * pr.height).toInt();
+
+    final ui.Image photoImage = await _decodeImage(request.photoBytes);
+    final costumeImages = await _loadCostumeImages(request.costumeOverlays);
+
+    // 顔ハメ画像をロード
+    ui.Image? outfitImage;
+    if (request.outfitId != null) {
+      final costume = Costume.findById(request.outfitId!);
+      try {
+        final data = await rootBundle.load(costume.assetPath);
+        outfitImage = await _decodeImage(data.buffer.asUint8List());
+      } catch (_) {}
+    }
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(
+      recorder,
+      Rect.fromLTWH(0, 0, outW.toDouble(), outH.toDouble()),
+    );
+
+    final photoRect = Rect.fromLTWH(0, 0, outW.toDouble(), outH.toDouble());
+
+    // 背景色
+    final bgColor = request.photoBgColor != null
+        ? Color(request.photoBgColor!)
+        : const Color(0xFFFFFFFF);
+    canvas.drawRect(photoRect, Paint()..color = bgColor);
+
+    // 写真を描画
+    {
+      final imgW = photoImage.width.toDouble();
+      final imgH = photoImage.height.toDouble();
+      final imgAspect = imgW / imgH;
+      final rectAspect = photoRect.width / photoRect.height;
+
+      Rect srcRect;
+      if (imgAspect > rectAspect) {
+        final cropW = imgH * rectAspect;
+        srcRect = Rect.fromLTWH((imgW - cropW) / 2, 0, cropW, imgH);
+      } else {
+        final cropH = imgW / rectAspect;
+        srcRect = Rect.fromLTWH(0, (imgH - cropH) / 2, imgW, cropH);
+      }
+
+      canvas.save();
+      canvas.clipRect(photoRect);
+      canvas.translate(
+        request.photoOffsetX * photoRect.width,
+        request.photoOffsetY * photoRect.height,
+      );
+      if (request.photoScale != 1.0) {
+        canvas.translate(
+            photoRect.width / 2, photoRect.height / 2);
+        canvas.scale(request.photoScale);
+        canvas.translate(
+            -photoRect.width / 2, -photoRect.height / 2);
+      }
+      canvas.drawImageRect(photoImage, srcRect, photoRect, Paint());
+      canvas.restore();
+    }
+
+    // 顔ハメ描画
+    if (request.outfitId != null && outfitImage != null) {
+      final costume = Costume.findById(request.outfitId!);
+      final oImgW = outfitImage.width.toDouble();
+      final oImgH = outfitImage.height.toDouble();
+      final cropRatio = switch (costume.id) {
+        'sailor' => 0.90,
+        'gakuran' => 0.90,
+        _ => 0.50,
+      };
+      final srcRect = Rect.fromLTWH(0, 0, oImgW, oImgH * cropRatio);
+      final srcAspect = srcRect.width / srcRect.height;
+      final drawWidth = photoRect.width * costume.defaultScale;
+      final drawHeight = drawWidth / srcAspect;
+      final isOverseas = photoRect.height / photoRect.width > 1.35;
+      final heightScale = isOverseas ? (400.0 / 372.0) : 1.0;
+      final verticalRatio = switch (costume.id) {
+        'tuxedo' => 0.56,
+        'pirate' => 0.56,
+        'sailor' => 0.43,
+        'gakuran' => 0.32,
+        'kimono' => 0.57,
+        'police' => 0.66,
+        'fire' => 0.6,
+        'astro' => 0.58,
+        'angel' => 0.75,
+        'santa' => 0.55,
+        _ => 0.41,
+      };
+      final horizontalShift = switch (costume.id) {
+        'pirate' => 0.0,
+        'sailor' => photoRect.width * 0.002,
+        'gakuran' => photoRect.width * 0.005,
+        'kimono' => photoRect.width * 0.02,
+        'police' => photoRect.width * 0.01,
+        _ => 0.0,
+      };
+      final drawLeft =
+          (photoRect.width - drawWidth) / 2 + horizontalShift;
+      final drawTop =
+          photoRect.height - drawHeight * verticalRatio * heightScale;
+      final fitRect =
+          Rect.fromLTWH(drawLeft, drawTop, drawWidth, drawHeight);
+      canvas.save();
+      canvas.clipRect(photoRect);
+      canvas.drawImageRect(outfitImage, srcRect, fitRect, Paint());
+      canvas.restore();
+    }
+
+    // コスチュームオーバーレイ（写真エリア内に制限、photoScale/Offsetは適用しない：
+    // エディタでWidgetとして配置した座標がそのまま位置を表すため）
+    canvas.save();
+    canvas.clipRect(photoRect);
+    for (final overlay in request.costumeOverlays) {
+      final costume = Costume.findById(overlay.costumeId);
+      final costumeImg = costumeImages[overlay.costumeId];
+      if (costumeImg == null) continue;
+
+      final cImgW = costumeImg.width.toDouble();
+      final cImgH = costumeImg.height.toDouble();
+      final aspect = cImgW / cImgH;
+      final baseW =
+          photoRect.width * costume.defaultScale * overlay.scale;
+      final baseH = baseW / aspect;
+      // overlay.cx/cy は写真エリア内の比率座標
+      final cx = overlay.cx * photoRect.width;
+      final cy = overlay.cy * photoRect.height;
+
+      canvas.save();
+      canvas.translate(cx, cy);
+      canvas.rotate(overlay.rotation);
+      final src = Rect.fromLTWH(0, 0, cImgW, cImgH);
+      final dst = Rect.fromLTWH(-baseW / 2, -baseH / 2, baseW, baseH);
+      canvas.drawImageRect(costumeImg, src, dst, Paint());
+      canvas.restore();
+    }
+    canvas.restore();
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(outW, outH);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    return byteData!.buffer.asUint8List();
+  }
+
   /// 完成画像をアプリのローカルストレージに保存し、ファイルパスを返す
   ///
   /// 保存先: アプリドキュメントディレクトリ/licenses/license_(timestamp).png

@@ -12,6 +12,7 @@ import '../theme/typography.dart';
 import '../widgets/license_card_preview.dart';
 import '../widgets/paywall_bottom_sheet.dart';
 import '../widgets/banner_ad_widget.dart';
+import '../widgets/product_gallery.dart';
 import '../widgets/section_header.dart';
 
 /// ホーム画面 — 「もふもふ免許センター」受付窓口
@@ -87,21 +88,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // メインコンテンツ
+          // メインコンテンツ（注文済みかどうかで配置を変える）
           SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSignboardHeader(context),
                 const SizedBox(height: 20),
-                _buildTicketCta(context),
-                const SizedBox(height: 10),
-                // 残数バッジ（無料ユーザーのみ）
-                if (!AppPreferences.isPremium) _buildMonthlyCounter(),
-                const SizedBox(height: 20),
-                _buildCounterGuide(context),
-                const SizedBox(height: 24),
-                _buildIssuedLicenses(context, licensesAsync),
+
+                if (!AppPreferences.hasOrdered) ...[
+                  // 未注文: スライドショーを目立つ位置に
+                  _buildProductShowcase(),
+                  const SizedBox(height: 20),
+                  _buildTicketCta(context),
+                  const SizedBox(height: 10),
+                  if (!AppPreferences.isPremium) _buildMonthlyCounter(),
+                  const SizedBox(height: 20),
+                  _buildCounterGuide(context),
+                  const SizedBox(height: 24),
+                  _buildIssuedLicenses(context, licensesAsync),
+                ] else ...[
+                  // 注文済み: 免許証を上部に、スライドショーは下部
+                  _buildIssuedLicenses(context, licensesAsync),
+                  const SizedBox(height: 20),
+                  _buildTicketCta(context),
+                  const SizedBox(height: 10),
+                  if (!AppPreferences.isPremium) _buildMonthlyCounter(),
+                  const SizedBox(height: 20),
+                  _buildCounterGuide(context),
+                  const SizedBox(height: 20),
+                  _buildProductShowcase(compact: true),
+                ],
+
                 const SizedBox(height: 16),
                 const BannerAdWidget(),
                 const SizedBox(height: 32),
@@ -412,8 +430,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               style: AppTypography.headingSmall,
             ),
           ),
+          // 2×2 グリッド
           Row(
             children: [
+              Expanded(
+                child: _CounterCard(
+                  icon: Icons.photo_library_rounded,
+                  label: 'コレクション',
+                  subtitle: '発行済み一覧',
+                  onTap: () => context.push('/collection'),
+                ),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: _CounterCard(
                   icon: Icons.menu_book_rounded,
@@ -422,16 +450,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   onTap: () => context.push('/pet-notebook'),
                 ),
               ),
-              const SizedBox(width: 12),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
               Expanded(
                 child: _CounterCard(
                   icon: Icons.local_shipping_rounded,
-                  label: '実物カード',
-                  subtitle: '発行窓口',
+                  label: '実物グッズ',
+                  subtitle: '注文する',
                   onTap: () => context.push('/order'),
                 ),
               ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _CounterCard(
+                  icon: Icons.settings_rounded,
+                  label: '設定',
+                  subtitle: 'アプリ設定',
+                  onTap: () => context.push('/settings'),
+                ),
+              ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  // 商品スライドショー
+  // ─────────────────────────────────────────────
+
+  Widget _buildProductShowcase({bool compact = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 10),
+            child: Text(
+              compact ? 'うちの子グッズ' : 'うちの子グッズ',
+              style: AppTypography.headingSmall,
+            ),
+          ),
+          ProductGallery(
+            photos: kAllProductPhotos,
+            height: compact ? 140 : 200,
+            compact: compact,
           ),
         ],
       ),
@@ -513,6 +581,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     licenseType:
                         LicenseType.findById(card.licenseType).label,
                     photoPath: card.photoPath,
+                    savedImagePath: card.savedImagePath,
                     onTap: () => context.push('/collection'),
                   );
                 },
