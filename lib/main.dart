@@ -27,10 +27,9 @@ void main() async {
       );
     }
     if (AdConfig.kUseTestAds) {
-      throw StateError(
-        'kUseTestAds が true のままリリースビルドされています！'
-        'lib/config/ad_config.dart を false に変更してください',
-      );
+      // TestFlight テスト中はテスト広告を許容する。
+      // 本番提出時は kUseTestAds = false に変更すること。
+      debugPrint('⚠️ WARNING: kUseTestAds is true in release build');
     }
   }
 
