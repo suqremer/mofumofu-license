@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/license_card.dart';
+import '../models/license_template.dart';
 import '../theme/colors.dart';
 
 /// タグ用丸形デザイン画面:
@@ -37,11 +38,81 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
   bool _isSaving = false;
   String? _savedPath;
 
+  /// savedImagePath から photoRect をクロップした画像ファイル
+  File? _croppedPhotoFile;
+  bool _isCropping = true;
+
   /// 出力サイズ: Φ25mm @ 300dpi ≈ 295px
   static const int _exportSize = 295;
 
   /// 画面上のプレビューサイズ
   static const double _previewSize = 240.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _cropPhotoFromSavedImage();
+  }
+
+  /// savedImagePath から証明写真エリアをクロップしてテンポラリファイルに保存
+  Future<void> _cropPhotoFromSavedImage() async {
+    final savedPath = widget.card.savedImagePath;
+    if (savedPath == null || !File(savedPath).existsSync()) {
+      // savedImagePath がなければ生写真をそのまま使う
+      if (mounted) setState(() => _isCropping = false);
+      return;
+    }
+
+    try {
+      // 画像をデコード
+      final bytes = await File(savedPath).readAsBytes();
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+
+      // photoRect（ピクセル座標）でクロップ
+      final template = LicenseTemplate.fromId(widget.card.templateType);
+      final r = template.photoRect;
+
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      canvas.drawImageRect(
+        image,
+        Rect.fromLTWH(r.left, r.top, r.width, r.height),
+        Rect.fromLTWH(0, 0, r.width, r.height),
+        Paint(),
+      );
+
+      final picture = recorder.endRecording();
+      final croppedImage =
+          await picture.toImage(r.width.toInt(), r.height.toInt());
+      final byteData =
+          await croppedImage.toByteData(format: ui.ImageByteFormat.png);
+
+      image.dispose();
+      croppedImage.dispose();
+
+      if (byteData == null) {
+        if (mounted) setState(() => _isCropping = false);
+        return;
+      }
+
+      // テンポラリファイルに保存
+      final dir = await getApplicationDocumentsDirectory();
+      final tempPath = '${dir.path}/tag_crop_temp.png';
+      final file = File(tempPath);
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+
+      if (mounted) {
+        setState(() {
+          _croppedPhotoFile = file;
+          _isCropping = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isCropping = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,62 +237,72 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
 
   /// 丸形エディタ: ドラッグ＋ピンチで調整
   Widget _buildCircularEditor() {
-    final photoFile = File(widget.card.photoPath);
+    // クロップ済み画像 > 生写真 の優先順で使用
+    final photoFile = _croppedPhotoFile ?? File(widget.card.photoPath);
 
     return Center(
-      child: GestureDetector(
-        onScaleStart: (details) {
-          _prevScale = _scale;
-          _prevOffset = _offset;
-          _focalStart = details.focalPoint;
-        },
-        onScaleUpdate: (details) {
-          setState(() {
-            _scale = (_prevScale * details.scale).clamp(0.5, 4.0);
-            _offset = _prevOffset + (details.focalPoint - _focalStart);
-          });
-        },
-        child: Container(
-          width: _previewSize,
-          height: _previewSize,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.accent, width: 3),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: RepaintBoundary(
-            key: _captureKey,
-            child: Container(
+      child: _isCropping
+          ? const SizedBox(
               width: _previewSize,
               height: _previewSize,
-              color: Colors.white,
-              child: photoFile.existsSync()
-                  ? Transform.translate(
-                      offset: _offset,
-                      child: Transform.scale(
-                        scale: _scale,
-                        child: Image.file(
-                          photoFile,
-                          fit: BoxFit.cover,
-                          width: _previewSize,
-                          height: _previewSize,
-                        ),
-                      ),
-                    )
-                  : const Center(
-                      child: Icon(Icons.pets, size: 60, color: AppColors.textLight),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+            )
+          : GestureDetector(
+              onScaleStart: (details) {
+                _prevScale = _scale;
+                _prevOffset = _offset;
+                _focalStart = details.focalPoint;
+              },
+              onScaleUpdate: (details) {
+                setState(() {
+                  _scale = (_prevScale * details.scale).clamp(0.5, 4.0);
+                  _offset = _prevOffset + (details.focalPoint - _focalStart);
+                });
+              },
+              child: Container(
+                width: _previewSize,
+                height: _previewSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.accent, width: 3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
+                  ],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: RepaintBoundary(
+                  key: _captureKey,
+                  child: Container(
+                    width: _previewSize,
+                    height: _previewSize,
+                    color: Colors.white,
+                    child: photoFile.existsSync()
+                        ? Transform.translate(
+                            offset: _offset,
+                            child: Transform.scale(
+                              scale: _scale,
+                              child: Image.file(
+                                photoFile,
+                                fit: BoxFit.cover,
+                                width: _previewSize,
+                                height: _previewSize,
+                              ),
+                            ),
+                          )
+                        : const Center(
+                            child: Icon(Icons.pets,
+                                size: 60, color: AppColors.textLight),
+                          ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
     );
   }
 

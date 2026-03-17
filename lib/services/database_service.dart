@@ -7,7 +7,7 @@ import '../models/pet.dart';
 class DatabaseService {
   static Database? _database;
   static const _dbName = 'mofumofu.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 2;
 
   /// DBインスタンスを取得（初回は自動作成）
   Future<Database> get database async {
@@ -24,7 +24,16 @@ class DatabaseService {
       path,
       version: _dbVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
+  }
+
+  /// マイグレーション
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute(
+          'ALTER TABLE licenses ADD COLUMN extra_data TEXT');
+    }
   }
 
   /// テーブル作成
@@ -45,6 +54,7 @@ class DatabaseService {
         frame_color TEXT NOT NULL DEFAULT 'gold',
         template_type TEXT NOT NULL DEFAULT 'japan',
         saved_image_path TEXT,
+        extra_data TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )

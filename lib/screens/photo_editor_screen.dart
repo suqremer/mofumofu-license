@@ -908,8 +908,8 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                           ),
                           size: Size.infinite,
                         ),
-                      // ガイドオーバーレイ（人型シルエット）
-                      if (_showGuide)
+                      // ガイドオーバーレイ（人型シルエット）— ツール使用中は非表示
+                      if (_showGuide && _brushTool == null)
                         CustomPaint(
                           painter: _GuideOverlayPainter(),
                           size: Size.infinite,
@@ -954,8 +954,8 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                             ),
                           ),
                         ),
-                      // ガイド説明バナー + ？ボタン
-                      if (_showGuide)
+                      // ガイド説明バナー + ？ボタン — ツール使用中は非表示
+                      if (_showGuide && _brushTool == null)
                         Positioned(
                           top: 8,
                           left: 8,

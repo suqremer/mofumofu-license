@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -8,6 +6,7 @@ import '../models/license_card.dart';
 import '../providers/database_provider.dart';
 import '../services/app_preferences.dart';
 import '../theme/colors.dart';
+import '../widgets/photo_crop_preview.dart';
 import '../widgets/product_gallery.dart';
 
 /// カード注文画面: 免許証を選んで Stripe Payment Link へ遷移
@@ -22,18 +21,34 @@ class OrderCardScreen extends ConsumerStatefulWidget {
 }
 
 class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
-  LicenseCard? _selectedCard;
+  final List<LicenseCard> _selectedCards = [];
 
   // TODO: しゅーとが Stripe Payment Links 作成後に差し替え
+  // TODO: 複数枚注文時の数量パラメータ対応（#46.5）
   String get _paymentUrl => widget.isSet
       ? 'https://buy.stripe.com/SET_PLACEHOLDER'
       : 'https://buy.stripe.com/CARD_PLACEHOLDER';
 
   String get _title => widget.isSet ? 'セット注文' : 'PVCカード注文';
-  String get _price => widget.isSet ? '¥2,980' : '¥1,980';
+  int get _unitPrice => widget.isSet ? 2980 : 1980;
   String get _description => widget.isSet
       ? 'PVCカード + レジンタグのセット'
       : 'PVC製クレジットカードサイズの免許証';
+
+  String _formatPrice(int yen) => '¥${yen.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}';
+
+  bool _isSelected(LicenseCard card) =>
+      _selectedCards.any((c) => c.id == card.id);
+
+  void _toggleSelection(LicenseCard card) {
+    setState(() {
+      if (_isSelected(card)) {
+        _selectedCards.removeWhere((c) => c.id == card.id);
+      } else {
+        _selectedCards.add(card);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,18 +126,19 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                       color: widget.isSet ? AppColors.accent : AppColors.secondary,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      _description,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: AppColors.textMedium,
+                    Expanded(
+                      child: Text(
+                        _description,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textMedium,
+                        ),
                       ),
                     ),
-                    const Spacer(),
                     Text(
-                      _price,
+                      '${_formatPrice(_unitPrice)} / 枚',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: widget.isSet ? AppColors.accent : AppColors.secondary,
                       ),
@@ -131,10 +147,16 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Step 1: 免許証を選択
-                _buildStepHeader(1, '印刷する免許証を選んでください'),
+                // Step 1: 免許証を選択（複数選択可）
+                _buildStepHeader(1, '印刷する免許証を選んでください（複数可）'),
                 const SizedBox(height: 12),
                 _buildLicenseGrid(licenses),
+
+                // 選択済み免許証の横スクロールプレビュー
+                if (_selectedCards.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _buildSelectedPreview(),
+                ],
                 const SizedBox(height: 24),
 
                 // Step 2: 注文フロー説明
@@ -224,11 +246,10 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
       itemCount: licenses.length,
       itemBuilder: (context, index) {
         final card = licenses[index];
-        final isSelected = _selectedCard?.id == card.id;
-        final imagePath = card.savedImagePath ?? card.photoPath;
+        final isSelected = _isSelected(card);
 
         return GestureDetector(
-          onTap: () => setState(() => _selectedCard = card),
+          onTap: () => _toggleSelection(card),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
@@ -248,62 +269,61 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                   : null,
             ),
             clipBehavior: Clip.antiAlias,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // 免許証画像
-                File(imagePath).existsSync()
-                    ? Image.file(File(imagePath), fit: BoxFit.cover)
-                    : Container(
-                        color: AppColors.primary.withValues(alpha: 0.08),
-                        child: Icon(Icons.pets,
-                            color: AppColors.primary.withValues(alpha: 0.3)),
+            child: LayoutBuilder(
+              builder: (context, constraints) => Stack(
+                fit: StackFit.expand,
+                children: [
+                  // 証明写真エリアをクロップ表示
+                  PhotoCropPreview(
+                    card: card,
+                    size: constraints.maxWidth,
+                  ),
+                  // 選択チェック
+                  if (isSelected)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.check, size: 14, color: Colors.white),
                       ),
-                // 選択チェック
-                if (isSelected)
+                    ),
+                  // ペット名
                   Positioned(
-                    top: 4,
-                    right: 4,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
                     child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.6),
+                          ],
+                        ),
                       ),
-                      child: const Icon(Icons.check, size: 14, color: Colors.white),
+                      child: Text(
+                        card.petName,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
-                // ペット名
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.6),
-                        ],
-                      ),
-                    ),
-                    child: Text(
-                      card.petName,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -311,8 +331,103 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
     );
   }
 
+  /// 選択済み免許証の横スクロールプレビュー
+  Widget _buildSelectedPreview() {
+    final count = _selectedCards.length;
+    final total = _unitPrice * count;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              '選択中: $count枚',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
+            ),
+            const Spacer(),
+            if (count > 1)
+              Text(
+                '${_formatPrice(_unitPrice)} x $count = ${_formatPrice(total)}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: widget.isSet ? AppColors.accent : AppColors.secondary,
+                ),
+              )
+            else
+              Text(
+                _formatPrice(total),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: widget.isSet ? AppColors.accent : AppColors.secondary,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 100,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _selectedCards.length,
+            itemBuilder: (context, index) {
+              final card = _selectedCards[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppColors.primary,
+                          width: 2,
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: PhotoCropPreview(
+                        card: card,
+                        size: 70,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      width: 70,
+                      child: Text(
+                        card.petName,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textMedium,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildOrderButton() {
-    final isEnabled = _selectedCard != null;
+    final isEnabled = _selectedCards.isNotEmpty;
+    final count = _selectedCards.length;
+    final total = _unitPrice * count;
+    final buttonLabel = count > 0
+        ? '注文する（${_formatPrice(total)}・$count枚）'
+        : '免許証を選択してください';
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       decoration: BoxDecoration(
@@ -332,7 +447,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
           onPressed: isEnabled ? _launchPayment : null,
           icon: const Icon(Icons.open_in_new, size: 18),
           label: Text(
-            '注文する（$_price）',
+            buttonLabel,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           style: ElevatedButton.styleFrom(

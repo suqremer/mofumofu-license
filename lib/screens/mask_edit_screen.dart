@@ -82,6 +82,18 @@ class _MaskEditScreenState extends State<MaskEditScreen> {
   // -- ツール状態 --
   _EditTool _currentTool = _EditTool.eraser;
   double _brushSize = 30.0;
+  bool _offsetMode = false;
+  int _offsetDirection = 0; // 0=左上, 1=右上, 2=左下, 3=右下
+  Offset? _cursorImagePos; // クロスヘア表示用（画像座標系）
+
+  /// オフセット方向ごとの補正量（画面座標系、斜め45度で約50px距離）
+  static const List<Offset> _offsetDirections = [
+    Offset(-35, -35), // ↖ 左上
+    Offset(35, -35),  // ↗ 右上
+    Offset(-35, 35),  // ↙ 左下
+    Offset(35, 35),   // ↘ 右下
+  ];
+  static const List<String> _offsetLabels = ['↖', '↗', '↙', '↘'];
 
   // -- 操作履歴 --
   final List<MaskOperation> _operations = [];
@@ -159,10 +171,15 @@ class _MaskEditScreenState extends State<MaskEditScreen> {
   Offset _toImageCoords(Offset localPosition, Size widgetSize) {
     if (_originalImage == null) return localPosition;
 
+    // オフセットモード: 指から斜め方向にずらした位置を操作点にする
+    final adjusted = _offsetMode
+        ? localPosition + _offsetDirections[_offsetDirection]
+        : localPosition;
+
     final matrix = _transformController.value;
     // InteractiveViewer の逆変換
     final inverseMatrix = Matrix4.inverted(matrix);
-    final transformed = MatrixUtils.transformPoint(inverseMatrix, localPosition);
+    final transformed = MatrixUtils.transformPoint(inverseMatrix, adjusted);
 
     // ウィジェット内での画像の表示領域を計算（BoxFit.contain 相当）
     final imgW = _originalImage!.width.toDouble();
@@ -198,6 +215,7 @@ class _MaskEditScreenState extends State<MaskEditScreen> {
     if (_activePointers >= 2) return; // 2本指操作中は描画しない
     final pt = _toImageCoords(details.localPosition, widgetSize);
     setState(() {
+      _cursorImagePos = _offsetMode ? pt : null;
       if (_currentTool == _EditTool.eraser || _currentTool == _EditTool.restore) {
         _currentStrokePoints = [pt];
       } else {
@@ -210,6 +228,7 @@ class _MaskEditScreenState extends State<MaskEditScreen> {
     if (_activePointers >= 2) return;
     final pt = _toImageCoords(details.localPosition, widgetSize);
     setState(() {
+      _cursorImagePos = _offsetMode ? pt : null;
       if ((_currentTool == _EditTool.eraser || _currentTool == _EditTool.restore)
           && _currentStrokePoints != null) {
         _currentStrokePoints!.add(pt);
@@ -228,7 +247,10 @@ class _MaskEditScreenState extends State<MaskEditScreen> {
           EraserStroke(List.of(_currentStrokePoints!), _brushSize),
         );
       }
-      setState(() => _currentStrokePoints = null);
+      setState(() {
+        _currentStrokePoints = null;
+        _cursorImagePos = null;
+      });
     } else if (_currentTool == _EditTool.restore && _currentStrokePoints != null) {
       if (_currentStrokePoints!.length >= 2) {
         _redoStack.clear();
@@ -236,13 +258,19 @@ class _MaskEditScreenState extends State<MaskEditScreen> {
           RestoreStroke(List.of(_currentStrokePoints!), _brushSize),
         );
       }
-      setState(() => _currentStrokePoints = null);
+      setState(() {
+        _currentStrokePoints = null;
+        _cursorImagePos = null;
+      });
     } else if (_currentTool == _EditTool.lasso && _currentLassoPoints != null) {
       if (_currentLassoPoints!.length >= 3) {
         _redoStack.clear();
         _operations.add(LassoPath(List.of(_currentLassoPoints!)));
       }
-      setState(() => _currentLassoPoints = null);
+      setState(() {
+        _currentLassoPoints = null;
+        _cursorImagePos = null;
+      });
     }
   }
 
@@ -464,6 +492,7 @@ class _MaskEditScreenState extends State<MaskEditScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildToolbar(),
+                    _buildOffsetToggle(),
                     if (_currentTool != _EditTool.lasso) _buildBrushSlider(),
                     _buildActionButtons(),
                     const SizedBox(height: 8),
@@ -552,6 +581,7 @@ class _MaskEditScreenState extends State<MaskEditScreen> {
                     currentLasso: _currentLassoPoints,
                     currentBrushSize: _brushSize,
                     currentTool: _currentTool,
+                    cursorImagePos: _cursorImagePos,
                   ),
                 ),
               ),
@@ -601,6 +631,77 @@ class _MaskEditScreenState extends State<MaskEditScreen> {
             }
             return Colors.black54;
           }),
+        ),
+      ),
+    );
+  }
+
+  /// オフセットモードトグル + 4方向選択
+  Widget _buildOffsetToggle() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+      child: Row(
+        children: [
+          // ON/OFFチェックボックス
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: Checkbox(
+              value: _offsetMode,
+              onChanged: (v) => setState(() => _offsetMode = v ?? false),
+              activeColor: AppColors.primary,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: () => setState(() => _offsetMode = !_offsetMode),
+            child: Text(
+              '指ずらし',
+              style: TextStyle(
+                fontSize: 12,
+                color: _offsetMode ? AppColors.primary : AppColors.textMedium,
+                fontWeight: _offsetMode ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+          // 4方向ボタン（ONの時だけ表示）
+          if (_offsetMode) ...[
+            const SizedBox(width: 12),
+            for (int i = 0; i < 4; i++) ...[
+              if (i > 0) const SizedBox(width: 4),
+              _buildDirectionButton(i),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDirectionButton(int index) {
+    final isSelected = _offsetDirection == index;
+    return GestureDetector(
+      onTap: () => setState(() => _offsetDirection = index),
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.15)
+              : AppColors.surface,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.textLight,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          _offsetLabels[index],
+          style: TextStyle(
+            fontSize: 14,
+            color: isSelected ? AppColors.primary : AppColors.textMedium,
+          ),
         ),
       ),
     );
@@ -779,6 +880,7 @@ class _MaskPainter extends CustomPainter {
   final List<Offset>? currentLasso;
   final double currentBrushSize;
   final _EditTool currentTool;
+  final Offset? cursorImagePos;
 
   _MaskPainter({
     required this.image,
@@ -787,6 +889,7 @@ class _MaskPainter extends CustomPainter {
     required this.currentLasso,
     required this.currentBrushSize,
     required this.currentTool,
+    this.cursorImagePos,
   });
 
   @override
@@ -912,6 +1015,26 @@ class _MaskPainter extends CustomPainter {
     // -- 描画中の投げ縄（点線） --
     if (currentLasso != null && currentLasso!.length >= 2) {
       _drawDashedPath(canvas, currentLasso!);
+    }
+
+    // -- クロスヘアカーソル（オフセットモード時） --
+    if (cursorImagePos != null) {
+      final cp = cursorImagePos!;
+      const crossSize = 12.0;
+      final crossPaint = Paint()
+        ..color = Colors.white
+        ..strokeWidth = 2.0
+        ..style = PaintingStyle.stroke;
+      final shadowPaint = Paint()
+        ..color = Colors.black54
+        ..strokeWidth = 3.0
+        ..style = PaintingStyle.stroke;
+      // 影
+      canvas.drawLine(Offset(cp.dx - crossSize, cp.dy), Offset(cp.dx + crossSize, cp.dy), shadowPaint);
+      canvas.drawLine(Offset(cp.dx, cp.dy - crossSize), Offset(cp.dx, cp.dy + crossSize), shadowPaint);
+      // 白線
+      canvas.drawLine(Offset(cp.dx - crossSize, cp.dy), Offset(cp.dx + crossSize, cp.dy), crossPaint);
+      canvas.drawLine(Offset(cp.dx, cp.dy - crossSize), Offset(cp.dx, cp.dy + crossSize), crossPaint);
     }
 
     canvas.restore();

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// 免許証データモデル
 class LicenseCard {
   final int? id;
@@ -13,6 +15,7 @@ class LicenseCard {
   final String frameColor; // ゴールド, シルバー 等
   final String templateType; // japan, usa
   final String? savedImagePath; // 完成画像のパス
+  final Map<String, dynamic>? extraData; // コスチューム配置・写真調整等のJSON
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -30,6 +33,7 @@ class LicenseCard {
     this.frameColor = 'gold',
     this.templateType = 'japan',
     this.savedImagePath,
+    this.extraData,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -52,6 +56,9 @@ class LicenseCard {
       frameColor: map['frame_color'] as String? ?? 'gold',
       templateType: map['template_type'] as String? ?? 'japan',
       savedImagePath: map['saved_image_path'] as String?,
+      extraData: map['extra_data'] != null
+          ? jsonDecode(map['extra_data'] as String) as Map<String, dynamic>
+          : null,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );
@@ -73,6 +80,7 @@ class LicenseCard {
       'frame_color': frameColor,
       'template_type': templateType,
       'saved_image_path': savedImagePath,
+      'extra_data': extraData != null ? jsonEncode(extraData) : null,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -93,6 +101,7 @@ class LicenseCard {
     String? frameColor,
     String? templateType,
     String? savedImagePath,
+    Map<String, dynamic>? extraData,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -110,6 +119,7 @@ class LicenseCard {
       frameColor: frameColor ?? this.frameColor,
       templateType: templateType ?? this.templateType,
       savedImagePath: savedImagePath ?? this.savedImagePath,
+      extraData: extraData ?? this.extraData,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

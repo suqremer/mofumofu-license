@@ -4,11 +4,16 @@ import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+import '../models/license_card.dart';
 import '../models/pet.dart';
 import '../providers/database_provider.dart';
 import '../services/database_service.dart';
 import '../theme/colors.dart';
+import '../widgets/photo_crop_preview.dart';
 
 // === 定数 ===
 const _speciesList = ['猫', '犬', 'うさぎ', 'ハムスター', '鳥', 'その他'];
@@ -38,6 +43,8 @@ class PetNotebookScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final petsAsync = ref.watch(petsProvider);
+    final licensesAsync = ref.watch(licensesProvider);
+    final licenses = licensesAsync.valueOrNull ?? [];
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -49,7 +56,7 @@ class PetNotebookScreen extends ConsumerWidget {
       body: petsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('エラー: $e')),
-        data: (pets) => pets.isEmpty ? _buildEmptyState(context, ref) : _buildPetList(context, ref, pets),
+        data: (pets) => pets.isEmpty ? _buildEmptyState(context, ref) : _buildPetList(context, ref, pets, licenses),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showPetForm(context, ref),
@@ -79,14 +86,19 @@ class PetNotebookScreen extends ConsumerWidget {
   }
 
   /// ペット一覧のリスト表示
-  Widget _buildPetList(BuildContext context, WidgetRef ref, List<Pet> pets) {
+  Widget _buildPetList(BuildContext context, WidgetRef ref, List<Pet> pets, List<LicenseCard> licenses) {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
       itemCount: pets.length,
       itemBuilder: (context, index) {
         final pet = pets[index];
+        // ペット名で一致する最新の免許証を検索（licensesは created_at DESC）
+        final matchingLicense = licenses
+            .where((l) => l.petName == pet.name && l.savedImagePath != null)
+            .firstOrNull;
         return _PetCard(
           pet: pet,
+          licenseCard: matchingLicense,
           onTap: () => _showPetDetail(context, ref, pet),
         );
       },
@@ -119,9 +131,10 @@ class PetNotebookScreen extends ConsumerWidget {
 // =====================================================================
 
 class _PetCard extends StatelessWidget {
-  const _PetCard({required this.pet, required this.onTap});
+  const _PetCard({required this.pet, this.licenseCard, required this.onTap});
 
   final Pet pet;
+  final LicenseCard? licenseCard;
   final VoidCallback onTap;
 
   @override
@@ -149,17 +162,8 @@ class _PetCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              // アイコン
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                backgroundImage: pet.photoPath != null && File(pet.photoPath!).existsSync()
-                    ? FileImage(File(pet.photoPath!))
-                    : null,
-                child: pet.photoPath != null && File(pet.photoPath!).existsSync()
-                    ? null
-                    : Icon(_speciesIcon(pet.species), size: 28, color: AppColors.primary),
-              ),
+              // アイコン: 免許証があればコスチューム付き証明写真、なければ生写真 or 種別アイコン
+              _buildAvatar(),
               const SizedBox(width: 16),
               // 情報
               Expanded(
@@ -185,6 +189,36 @@ class _PetCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    // 免許証があればコスチューム付き証明写真をクロップ表示
+    if (licenseCard != null) {
+      return ClipOval(
+        child: Container(
+          width: 56,
+          height: 56,
+          color: AppColors.primary.withValues(alpha: 0.15),
+          child: PhotoCropPreview(
+            card: licenseCard!,
+            circular: true,
+            size: 56,
+          ),
+        ),
+      );
+    }
+
+    // 免許証なし: 生写真 or 種別アイコン
+    return CircleAvatar(
+      radius: 28,
+      backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+      backgroundImage: pet.photoPath != null && File(pet.photoPath!).existsSync()
+          ? FileImage(File(pet.photoPath!))
+          : null,
+      child: pet.photoPath != null && File(pet.photoPath!).existsSync()
+          ? null
+          : Icon(_speciesIcon(pet.species), size: 28, color: AppColors.primary),
     );
   }
 }
@@ -215,6 +249,7 @@ class _PetFormSheetState extends State<_PetFormSheet> {
   String _species = '猫';
   String? _gender;
   DateTime? _birthDate;
+  String? _photoPath;
 
   bool get _isEditing => widget.pet != null;
 
@@ -232,6 +267,7 @@ class _PetFormSheetState extends State<_PetFormSheet> {
       _species = p.species;
       _gender = p.gender;
       _birthDate = p.birthDate;
+      _photoPath = p.photoPath;
     }
   }
 
@@ -271,6 +307,44 @@ class _PetFormSheetState extends State<_PetFormSheet> {
             const SizedBox(height: 16),
             Text(_isEditing ? 'ペット情報を編集' : 'ペットを追加', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
+
+            // 写真（任意）
+            Center(
+              child: GestureDetector(
+                onTap: _pickPhoto,
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                      backgroundImage: _photoPath != null && File(_photoPath!).existsSync()
+                          ? FileImage(File(_photoPath!))
+                          : null,
+                      child: _photoPath != null && File(_photoPath!).existsSync()
+                          ? null
+                          : const Icon(Icons.pets, size: 36, color: AppColors.primary),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Center(
+              child: Text('タップして写真を設定', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ),
+            const SizedBox(height: 16),
 
             // 名前（必須）
             TextFormField(
@@ -448,6 +522,21 @@ class _PetFormSheetState extends State<_PetFormSheet> {
     );
   }
 
+  /// 写真を選択
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 512);
+    if (picked == null) return;
+
+    // アプリ内にコピーして保存
+    final dir = await getApplicationDocumentsDirectory();
+    final ext = p.extension(picked.path);
+    final fileName = 'pet_${DateTime.now().millisecondsSinceEpoch}$ext';
+    final savedFile = await File(picked.path).copy('${dir.path}/$fileName');
+
+    setState(() => _photoPath = savedFile.path);
+  }
+
   /// ペットを保存
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
@@ -459,6 +548,7 @@ class _PetFormSheetState extends State<_PetFormSheet> {
       breed: _breedCtrl.text.trim().isEmpty ? null : _breedCtrl.text.trim(),
       birthDate: _birthDate,
       gender: _gender,
+      photoPath: _photoPath,
       hospitalName: _hospitalCtrl.text.trim().isEmpty ? null : _hospitalCtrl.text.trim(),
       microchipNumber: _microchipCtrl.text.trim().isEmpty ? null : _microchipCtrl.text.trim(),
       insuranceInfo: _insuranceCtrl.text.trim().isEmpty ? null : _insuranceCtrl.text.trim(),

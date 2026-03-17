@@ -145,6 +145,18 @@ class _InfoInputScreenState extends State<InfoInputScreen>
     _frameColor = data['frameColor'] as String?;
     _costumeId = data['costumeId'] as String?;
 
+    // extra_data から復元（コスチューム配置・写真調整等）
+    _photoScale = (data['photoScale'] as num?)?.toDouble() ?? 1.0;
+    _photoOffsetX = (data['photoOffsetX'] as num?)?.toDouble() ?? 0.0;
+    _photoOffsetY = (data['photoOffsetY'] as num?)?.toDouble() ?? 0.0;
+    _costumeOverlays = (data['costumeOverlays'] as List<dynamic>?)
+        ?.map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+    _outfitId = data['outfitId'] as String?;
+    _validityId = data['validityId'] as String?;
+    final bgColor = data['photoBgColor'];
+    if (bgColor is int) _photoBgColor = bgColor;
+
     setState(() {});
   }
 

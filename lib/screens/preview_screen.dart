@@ -293,6 +293,24 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
       final now = DateTime.now();
       final editId = data['editId'] as int?;
 
+      // コスチューム配置・写真調整等をJSON化して保存
+      final extraDataMap = <String, dynamic>{
+        if (data['costumeOverlays'] != null)
+          'costumeOverlays': data['costumeOverlays'],
+        if (data['photoBgColor'] != null)
+          'photoBgColor': data['photoBgColor'],
+        if (data['photoScale'] != null)
+          'photoScale': data['photoScale'],
+        if (data['photoOffsetX'] != null)
+          'photoOffsetX': data['photoOffsetX'],
+        if (data['photoOffsetY'] != null)
+          'photoOffsetY': data['photoOffsetY'],
+        if (data['outfitId'] != null)
+          'outfitId': data['outfitId'],
+        if (data['validityId'] != null)
+          'validityId': data['validityId'],
+      };
+
       final card = LicenseCard(
         id: editId,
         petName: data['petName'] as String,
@@ -313,6 +331,7 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
         frameColor: data['frameColor'] as String,
         templateType: data['templateType'] as String? ?? 'japan',
         savedImagePath: savedPath,
+        extraData: extraDataMap.isNotEmpty ? extraDataMap : null,
         createdAt:
             editId != null ? (data['createdAt'] as DateTime? ?? now) : now,
         updatedAt: now,
@@ -451,16 +470,22 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
       if (!mounted) return;
       setState(() => _isSharing = false);
 
+      // iPad対応: sharePositionOriginを指定しないとクラッシュする場合がある
+      final box = context.findRenderObject() as RenderBox?;
       await Share.shareXFiles(
         [XFile(tempFile.path)],
         text: 'うちの子免許証で免許証を発行したよ！',
+        sharePositionOrigin: box != null
+            ? box.localToGlobal(Offset.zero) & box.size
+            : null,
       );
     } catch (e) {
+      debugPrint('Share error: $e');
       if (!mounted) return;
       setState(() => _isSharing = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('シェアに失敗しました。もう一度試してね'),
+          content: Text('シェアに失敗しました: $e'),
           behavior: SnackBarBehavior.floating,
           backgroundColor: AppColors.error,
         ),

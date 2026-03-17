@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +7,7 @@ import '../models/license_card.dart';
 import '../providers/database_provider.dart';
 import '../services/app_preferences.dart';
 import '../theme/colors.dart';
+import '../widgets/photo_crop_preview.dart';
 import '../widgets/product_gallery.dart';
 
 /// タグ注文画面: 免許証を選んで丸形プレビュー → Stripe Payment Link → フォーム案内
@@ -20,10 +19,27 @@ class OrderTagScreen extends ConsumerStatefulWidget {
 }
 
 class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
-  LicenseCard? _selectedCard;
+  final List<LicenseCard> _selectedCards = [];
 
   // TODO: しゅーとが Stripe Payment Links 作成後に差し替え
+  // TODO: 複数枚注文時の数量パラメータ対応（#46.5）
   static const _paymentUrl = 'https://buy.stripe.com/TAG_PLACEHOLDER';
+  static const _unitPrice = 1980;
+
+  String _formatPrice(int yen) => '¥${yen.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}';
+
+  bool _isSelected(LicenseCard card) =>
+      _selectedCards.any((c) => c.id == card.id);
+
+  void _toggleSelection(LicenseCard card) {
+    setState(() {
+      if (_isSelected(card)) {
+        _selectedCards.removeWhere((c) => c.id == card.id);
+      } else {
+        _selectedCards.add(card);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,15 +112,16 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                   children: [
                     const Icon(Icons.pets, color: AppColors.primary),
                     const SizedBox(width: 8),
-                    const Text(
-                      'ハンドメイドレジンタグ（Φ25mm）',
-                      style: TextStyle(fontSize: 14, color: AppColors.textMedium),
+                    const Expanded(
+                      child: Text(
+                        'ハンドメイドレジンタグ（Φ25mm）',
+                        style: TextStyle(fontSize: 14, color: AppColors.textMedium),
+                      ),
                     ),
-                    const Spacer(),
-                    const Text(
-                      '¥1,980',
-                      style: TextStyle(
-                        fontSize: 18,
+                    Text(
+                      '${_formatPrice(_unitPrice)} / 個',
+                      style: const TextStyle(
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: AppColors.primary,
                       ),
@@ -113,13 +130,13 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Step 1: 免許証を選択
-                _buildStepHeader(1, '写真に使う免許証を選んでください'),
+                // Step 1: 免許証を選択（複数可）
+                _buildStepHeader(1, '写真に使う免許証を選んでください（複数可）'),
                 const SizedBox(height: 12),
                 _buildLicenseGrid(licenses),
 
                 // 丸形プレビュー（選択済みの場合）
-                if (_selectedCard != null) ...[
+                if (_selectedCards.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   _buildCircularPreview(),
                 ],
@@ -134,25 +151,28 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                   style: TextStyle(
                       fontSize: 13, color: AppColors.textMedium, height: 1.5),
                 ),
-                if (_selectedCard != null) ...[
+                if (_selectedCards.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () =>
-                          context.push('/order/tag-design', extra: _selectedCard),
-                      icon: const Icon(Icons.crop, size: 18),
-                      label: const Text('丸形画像を作成する'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: const BorderSide(color: AppColors.primary),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
+                  ..._selectedCards.map((card) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            context.push('/order/tag-design', extra: card),
+                        icon: const Icon(Icons.crop, size: 18),
+                        label: Text('${card.petName}の丸形画像を作成'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  )),
                 ],
                 const SizedBox(height: 24),
 
@@ -218,61 +238,95 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
     );
   }
 
-  /// 選択した免許証の証明写真を丸形でプレビュー
+  /// 選択した免許証の証明写真を丸形でプレビュー（横スクロール）
   Widget _buildCircularPreview() {
-    final card = _selectedCard!;
-    final photoFile = File(card.photoPath);
+    final count = _selectedCards.length;
+    final total = _unitPrice * count;
 
-    return Center(
-      child: Column(
-        children: [
-          const Text(
-            'タグ完成イメージ',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textMedium,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'タグ完成イメージ（$count個）',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textMedium,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          // 丸形プレビュー（実寸25mmを模擬、画面上では120px）
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.accent, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
+            const Spacer(),
+            if (count > 1)
+              Text(
+                '${_formatPrice(_unitPrice)} x $count = ${_formatPrice(total)}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
                 ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: photoFile.existsSync()
-                ? Image.file(photoFile, fit: BoxFit.cover)
-                : Container(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    child: const Icon(Icons.pets, size: 40, color: AppColors.primary),
-                  ),
+              )
+            else
+              Text(
+                _formatPrice(total),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 160,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _selectedCards.length,
+            itemBuilder: (context, index) {
+              final card = _selectedCards[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Column(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.accent, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: PhotoCropPreview(
+                        card: card,
+                        circular: true,
+                        size: 100,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      card.petName,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    const Text(
+                      'Φ25mm',
+                      style: TextStyle(fontSize: 11, color: AppColors.textLight),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
-          const SizedBox(height: 6),
-          Text(
-            card.petName,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
-            ),
-          ),
-          const Text(
-            'Φ25mm',
-            style: TextStyle(fontSize: 11, color: AppColors.textLight),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -289,11 +343,10 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
       itemCount: licenses.length,
       itemBuilder: (context, index) {
         final card = licenses[index];
-        final isSelected = _selectedCard?.id == card.id;
-        final imagePath = card.savedImagePath ?? card.photoPath;
+        final isSelected = _isSelected(card);
 
         return GestureDetector(
-          onTap: () => setState(() => _selectedCard = card),
+          onTap: () => _toggleSelection(card),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
@@ -313,60 +366,59 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                   : null,
             ),
             clipBehavior: Clip.antiAlias,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                File(imagePath).existsSync()
-                    ? Image.file(File(imagePath), fit: BoxFit.cover)
-                    : Container(
-                        color: AppColors.primary.withValues(alpha: 0.08),
-                        child: Icon(Icons.pets,
-                            color: AppColors.primary.withValues(alpha: 0.3)),
+            child: LayoutBuilder(
+              builder: (context, constraints) => Stack(
+                fit: StackFit.expand,
+                children: [
+                  PhotoCropPreview(
+                    card: card,
+                    size: constraints.maxWidth,
+                  ),
+                  if (isSelected)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child:
+                            const Icon(Icons.check, size: 14, color: Colors.white),
                       ),
-                if (isSelected)
+                    ),
                   Positioned(
-                    top: 4,
-                    right: 4,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
                     child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.6),
+                          ],
+                        ),
                       ),
-                      child:
-                          const Icon(Icons.check, size: 14, color: Colors.white),
+                      child: Text(
+                        card.petName,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.6),
-                        ],
-                      ),
-                    ),
-                    child: Text(
-                      card.petName,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -375,7 +427,12 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
   }
 
   Widget _buildOrderButton() {
-    final isEnabled = _selectedCard != null;
+    final isEnabled = _selectedCards.isNotEmpty;
+    final count = _selectedCards.length;
+    final total = _unitPrice * count;
+    final buttonLabel = count > 0
+        ? '注文する（${_formatPrice(total)}・$count個）'
+        : '免許証を選択してください';
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       decoration: BoxDecoration(
@@ -394,9 +451,9 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
         child: ElevatedButton.icon(
           onPressed: isEnabled ? _launchPayment : null,
           icon: const Icon(Icons.open_in_new, size: 18),
-          label: const Text(
-            '注文する（¥1,980）',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          label: Text(
+            buttonLabel,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,

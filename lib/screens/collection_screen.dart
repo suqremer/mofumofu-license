@@ -443,6 +443,15 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                 ),
                 const SizedBox(width: 8),
                 _detailActionButton(
+                  icon: Icons.copy,
+                  label: '複製',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _duplicateLicense(card);
+                  },
+                ),
+                const SizedBox(width: 8),
+                _detailActionButton(
                   icon: Icons.nfc,
                   label: 'NFC',
                   onTap: () {
@@ -579,11 +588,17 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
           File('${tempDir.path}/mofumofu_share_$timestamp.png');
       await tempFile.writeAsBytes(shareBytes);
 
+      // iPad対応: sharePositionOriginを指定しないとクラッシュする場合がある
+      final box = context.findRenderObject() as RenderBox?;
       await Share.shareXFiles(
         [XFile(tempFile.path)],
         text: 'うちの子免許証で免許証を発行したよ！',
+        sharePositionOrigin: box != null
+            ? box.localToGlobal(Offset.zero) & box.size
+            : null,
       );
     } catch (e) {
+      debugPrint('Share error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('シェアに失敗しました: $e')),
@@ -646,6 +661,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
 
   /// 既存免許証を編集（写真以外を変更可能）
   void _editLicense(LicenseCard card) {
+    final extra = card.extraData;
     context.push('/create/info', extra: {
       'editId': card.id,
       'photoPath': card.photoPath,
@@ -659,6 +675,56 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
       'templateType': card.templateType,
       'frameColor': card.frameColor,
       'costumeId': card.costumeId,
+      if (extra != null) ...{
+        if (extra['costumeOverlays'] != null)
+          'costumeOverlays': extra['costumeOverlays'],
+        if (extra['photoBgColor'] != null)
+          'photoBgColor': extra['photoBgColor'],
+        if (extra['photoScale'] != null)
+          'photoScale': extra['photoScale'],
+        if (extra['photoOffsetX'] != null)
+          'photoOffsetX': extra['photoOffsetX'],
+        if (extra['photoOffsetY'] != null)
+          'photoOffsetY': extra['photoOffsetY'],
+        if (extra['outfitId'] != null)
+          'outfitId': extra['outfitId'],
+        if (extra['validityId'] != null)
+          'validityId': extra['validityId'],
+      },
+    });
+  }
+
+  /// 免許証を複製して新規作成フローに入る
+  void _duplicateLicense(LicenseCard card) {
+    final extra = card.extraData;
+    context.push('/create/info', extra: {
+      // editId を渡さない → 新規作成として扱われる
+      'photoPath': card.photoPath,
+      'petName': card.petName,
+      'species': card.species,
+      'breed': card.breed ?? '',
+      'birthDate': card.birthDate?.toIso8601String(),
+      'gender': card.gender,
+      'specialty': card.specialty ?? '',
+      'templateType': card.templateType,
+      'frameColor': card.frameColor,
+      'costumeId': card.costumeId,
+      if (extra != null) ...{
+        if (extra['costumeOverlays'] != null)
+          'costumeOverlays': extra['costumeOverlays'],
+        if (extra['photoBgColor'] != null)
+          'photoBgColor': extra['photoBgColor'],
+        if (extra['photoScale'] != null)
+          'photoScale': extra['photoScale'],
+        if (extra['photoOffsetX'] != null)
+          'photoOffsetX': extra['photoOffsetX'],
+        if (extra['photoOffsetY'] != null)
+          'photoOffsetY': extra['photoOffsetY'],
+        if (extra['outfitId'] != null)
+          'outfitId': extra['outfitId'],
+        if (extra['validityId'] != null)
+          'validityId': extra['validityId'],
+      },
     });
   }
 

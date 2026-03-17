@@ -450,44 +450,62 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
           // === ライブプレビュー（上部40%） ===
           _buildPreviewArea(context),
           // === 選択UI（下部スクロール） ===
+          // === 選択UI（下部スクロール・アコーディオン） ===
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── セクション1: フレーム色 ──
-                  _buildSectionLabel('フレーム色'),
-                  const SizedBox(height: 12),
-                  _buildFrameColorSelector(),
-                  const SizedBox(height: 28),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(0, 8, 0, 80),
+              children: [
+                // ── セクション1: コスチューム・写真調整（初期展開） ──
+                _buildAccordion(
+                  title: 'コスチューム・写真調整',
+                  icon: Icons.checkroom,
+                  initiallyExpanded: true,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: _buildEditorButton(),
+                  ),
+                ),
 
-                  // ── セクション: 証明写真の背景色 ──
-                  _buildSectionLabel('証明写真の背景色'),
-                  const SizedBox(height: 12),
-                  _buildPhotoBgColorSelector(),
-                  const SizedBox(height: 28),
+                // ── セクション2: フレーム色 ──
+                _buildAccordion(
+                  title: 'フレーム色',
+                  icon: Icons.palette_outlined,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: _buildFrameColorSelector(),
+                  ),
+                ),
 
-                  // ── セクション2: 写真・デコ編集 ──
-                  _buildSectionLabel('コスチューム・写真調整'),
-                  const SizedBox(height: 12),
-                  _buildEditorButton(),
-                  const SizedBox(height: 28),
+                // ── セクション3: 証明写真の背景色 ──
+                _buildAccordion(
+                  title: '証明写真の背景色',
+                  icon: Icons.photo_outlined,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: _buildPhotoBgColorSelector(),
+                  ),
+                ),
 
-                  // ── セクション3: 有効期限テキスト ──
-                  _buildSectionLabel('有効期限テキスト'),
-                  const SizedBox(height: 12),
-                  _buildValiditySelector(),
-                  const SizedBox(height: 28),
+                // ── セクション4: 有効期限テキスト ──
+                _buildAccordion(
+                  title: '有効期限テキスト',
+                  icon: Icons.event_outlined,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: _buildValiditySelector(),
+                  ),
+                ),
 
-                  // ── セクション4: テンプレートタイプ ──
-                  _buildSectionLabel('テンプレートタイプ'),
-                  const SizedBox(height: 12),
-                  _buildTemplateTypeSelector(),
-
-                  const SizedBox(height: 80),
-                ],
-              ),
+                // ── セクション5: テンプレートタイプ ──
+                _buildAccordion(
+                  title: 'テンプレートタイプ',
+                  icon: Icons.style_outlined,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: _buildTemplateTypeSelector(),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1142,13 +1160,28 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
   // 共通UI部品
   // ---------------------------------------------------------------------------
 
-  Widget _buildSectionLabel(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: AppColors.textDark,
+  Widget _buildAccordion({
+    required String title,
+    required IconData icon,
+    required Widget child,
+    bool initiallyExpanded = false,
+  }) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        leading: Icon(icon, size: 20, color: AppColors.primary),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
+        ),
+        initiallyExpanded: initiallyExpanded,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 20),
+        childrenPadding: EdgeInsets.zero,
+        children: [child],
       ),
     );
   }
