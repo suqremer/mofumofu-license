@@ -66,6 +66,11 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
   double _photoOffsetX = 0.0;
   double _photoOffsetY = 0.0;
 
+  // === 写真色調整（明るさ/コントラスト/彩度） ===
+  double _photoBrightness = 0.0;
+  double _photoContrast = 0.0;
+  double _photoSaturation = 0.0;
+
   // === 背景削除の元画像パス（エディタ間で受け渡し） ===
   String? _originalPhotoPath;
 
@@ -143,6 +148,9 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
         'photoScale': _photoScale,
         'photoOffsetX': _photoOffsetX,
         'photoOffsetY': _photoOffsetY,
+        'photoBrightness': _photoBrightness,
+        'photoContrast': _photoContrast,
+        'photoSaturation': _photoSaturation,
         'outfitId': _selectedOutfitId,
         'originalPhotoPath': _originalPhotoPath,
       },
@@ -160,6 +168,12 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
             (result['photoOffsetX'] as num?)?.toDouble() ?? _photoOffsetX;
         _photoOffsetY =
             (result['photoOffsetY'] as num?)?.toDouble() ?? _photoOffsetY;
+        _photoBrightness =
+            (result['photoBrightness'] as num?)?.toDouble() ?? _photoBrightness;
+        _photoContrast =
+            (result['photoContrast'] as num?)?.toDouble() ?? _photoContrast;
+        _photoSaturation =
+            (result['photoSaturation'] as num?)?.toDouble() ?? _photoSaturation;
         _selectedOutfitId = newOutfitId;
         // コスチュームオーバーレイ
         final overlayMaps = result['costumeOverlays'] as List<dynamic>?;
@@ -257,6 +271,9 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
     _photoScale = (extra['photoScale'] as num?)?.toDouble() ?? 1.0;
     _photoOffsetX = (extra['photoOffsetX'] as num?)?.toDouble() ?? 0.0;
     _photoOffsetY = (extra['photoOffsetY'] as num?)?.toDouble() ?? 0.0;
+    _photoBrightness = (extra['photoBrightness'] as num?)?.toDouble() ?? 0.0;
+    _photoContrast = (extra['photoContrast'] as num?)?.toDouble() ?? 0.0;
+    _photoSaturation = (extra['photoSaturation'] as num?)?.toDouble() ?? 0.0;
     _selectedOutfitId = extra['outfitId'] as String?;
     _originalPhotoPath = extra['originalPhotoPath'] as String?;
 
@@ -435,6 +452,9 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
           'frameColor': _selectedFrameColorId,
           'validityId': _selectedValidityId,
           'photoBgColor': _photoBgColor.value,
+          'photoBrightness': _photoBrightness,
+          'photoContrast': _photoContrast,
+          'photoSaturation': _photoSaturation,
         });
       },
       child: Scaffold(
@@ -483,6 +503,16 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                     child: _buildPhotoBgColorSelector(),
+                  ),
+                ),
+
+                // ── セクション3.5: 写真の色調整 ──
+                _buildAccordion(
+                  title: '写真の色調整',
+                  icon: Icons.tune,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: _buildPhotoColorAdjustment(),
                   ),
                 ),
 
@@ -575,6 +605,11 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
             outfitId: _selectedOutfitId,
             outfitImage: _outfitImage,
             photoBgColor: _photoBgColor,
+            photoColorFilter: LicensePainter.buildPhotoColorFilter(
+              brightness: _photoBrightness,
+              contrast: _photoContrast,
+              saturation: _photoSaturation,
+            ),
             petName: _petName,
             species: _species,
             breed: _breed.isNotEmpty ? _breed : null,
@@ -958,6 +993,111 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
   }
 
   // ---------------------------------------------------------------------------
+  // セクション3.5: 写真の色調整（明るさ/コントラスト/彩度）
+  // ---------------------------------------------------------------------------
+
+  Widget _buildPhotoColorAdjustment() {
+    Widget buildSlider({
+      required String label,
+      required IconData icon,
+      required double value,
+      required ValueChanged<double> onChanged,
+    }) {
+      return Row(
+        children: [
+          Icon(icon, size: 18, color: AppColors.textMedium),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 56,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: AppColors.textDark),
+            ),
+          ),
+          Expanded(
+            child: Slider(
+              value: value,
+              min: -1.0,
+              max: 1.0,
+              divisions: 40,
+              activeColor: AppColors.primary,
+              inactiveColor: AppColors.primary.withValues(alpha: 0.15),
+              onChanged: onChanged,
+            ),
+          ),
+          SizedBox(
+            width: 36,
+            child: Text(
+              '${(value * 100).round()}',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 11,
+                color: value != 0 ? AppColors.primary : AppColors.textLight,
+                fontWeight: value != 0 ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final hasAdjustment =
+        _photoBrightness != 0.0 || _photoContrast != 0.0 || _photoSaturation != 0.0;
+
+    return Column(
+      children: [
+        buildSlider(
+          label: '明るさ',
+          icon: Icons.brightness_6,
+          value: _photoBrightness,
+          onChanged: (v) {
+            setState(() => _photoBrightness = v);
+            _animateFlip();
+          },
+        ),
+        buildSlider(
+          label: 'コントラスト',
+          icon: Icons.contrast,
+          value: _photoContrast,
+          onChanged: (v) {
+            setState(() => _photoContrast = v);
+            _animateFlip();
+          },
+        ),
+        buildSlider(
+          label: '彩度',
+          icon: Icons.palette_outlined,
+          value: _photoSaturation,
+          onChanged: (v) {
+            setState(() => _photoSaturation = v);
+            _animateFlip();
+          },
+        ),
+        if (hasAdjustment)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _photoBrightness = 0.0;
+                  _photoContrast = 0.0;
+                  _photoSaturation = 0.0;
+                });
+                _animateFlip();
+              },
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('リセット', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.textMedium,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // セクション3: 有効期限テキスト選択
   // ---------------------------------------------------------------------------
 
@@ -1147,6 +1287,9 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
       'photoScale': _photoScale,
       'photoOffsetX': _photoOffsetX,
       'photoOffsetY': _photoOffsetY,
+      'photoBrightness': _photoBrightness,
+      'photoContrast': _photoContrast,
+      'photoSaturation': _photoSaturation,
       'outfitId': _selectedOutfitId,
       'photoBgColor': _photoBgColor.value,
     });

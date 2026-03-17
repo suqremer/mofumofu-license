@@ -14,6 +14,7 @@ import '../models/costume.dart';
 import '../models/costume_overlay.dart';
 import '../models/license_template.dart';
 import '../config/dev_config.dart';
+import '../services/license_painter.dart';
 import '../services/purchase_manager.dart';
 import '../theme/colors.dart';
 
@@ -111,6 +112,18 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   double _photoOffsetY = 0.0;
   bool _gestureIsPhotoMove = false; // ジェスチャー中に2本指→写真移動モード
 
+  // === 写真色調整（明るさ/コントラスト/彩度） ===
+  double _photoBrightness = 0.0;
+  double _photoContrast = 0.0;
+  double _photoSaturation = 0.0;
+
+  // === ブラシ作業用ビューズーム（写真のサイズ/位置は変えない） ===
+  double _viewScale = 1.0;
+  double _viewOffsetX = 0.0; // ピクセル単位
+  double _viewOffsetY = 0.0;
+  double _gestureStartViewScale = 1.0;
+  Offset _gestureStartViewOffset = Offset.zero;
+
   // === コスチューム（デコ: accessory + stamp） ===
   final List<CostumeOverlay> _costumeOverlays = [];
   String? _selectedOverlayUid;
@@ -181,6 +194,9 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
     _photoScale = (extra['photoScale'] as num?)?.toDouble() ?? 1.0;
     _photoOffsetX = (extra['photoOffsetX'] as num?)?.toDouble() ?? 0.0;
     _photoOffsetY = (extra['photoOffsetY'] as num?)?.toDouble() ?? 0.0;
+    _photoBrightness = (extra['photoBrightness'] as num?)?.toDouble() ?? 0.0;
+    _photoContrast = (extra['photoContrast'] as num?)?.toDouble() ?? 0.0;
+    _photoSaturation = (extra['photoSaturation'] as num?)?.toDouble() ?? 0.0;
 
     // コスチュームオーバーレイ復元
     final overlayMaps = extra['costumeOverlays'] as List<dynamic>?;
@@ -392,6 +408,9 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
       'photoScale': _photoScale,
       'photoOffsetX': _photoOffsetX,
       'photoOffsetY': _photoOffsetY,
+      'photoBrightness': _photoBrightness,
+      'photoContrast': _photoContrast,
+      'photoSaturation': _photoSaturation,
       'costumeOverlays': _costumeOverlays.map((o) => o.toMap()).toList(),
       'outfitId': _selectedOutfitId,
       'originalPhotoPath': _originalPhotoPath,
@@ -632,10 +651,21 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   Offset _toImageCoords(Offset local, Size previewSize) {
     if (_photoImage == null) return local;
 
+    // ビューズームの逆変換（タッチ座標→元のプレビュー座標に戻す）
+    double vx = local.dx;
+    double vy = local.dy;
+    if (_viewScale != 1.0) {
+      vx = (vx - _viewOffsetX - previewSize.width / 2) / _viewScale + previewSize.width / 2;
+      vy = (vy - _viewOffsetY - previewSize.height / 2) / _viewScale + previewSize.height / 2;
+    } else {
+      vx -= _viewOffsetX;
+      vy -= _viewOffsetY;
+    }
+
     final base = _baseCropRect();
     // オフセットの逆変換
-    double px = local.dx - _photoOffsetX * previewSize.width;
-    double py = local.dy - _photoOffsetY * previewSize.height;
+    double px = vx - _photoOffsetX * previewSize.width;
+    double py = vy - _photoOffsetY * previewSize.height;
     // スケールの逆変換（中心基準）
     if (_photoScale != 1.0) {
       px = previewSize.width / 2 + (px - previewSize.width / 2) / _photoScale;
@@ -651,7 +681,8 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   double _brushSizeToImage(Size previewSize) {
     if (_photoImage == null) return _brushSize;
     final base = _baseCropRect();
-    return _brushSize * (base.width / previewSize.width) / _photoScale;
+    // ビューズームも考慮: 拡大するとブラシが細かくなる
+    return _brushSize * (base.width / previewSize.width) / _photoScale / _viewScale;
   }
 
   // ---------------------------------------------------------------------------
@@ -756,13 +787,18 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
               final previewSize =
                   Size(constraints.maxWidth, constraints.maxHeight);
 
-              return GestureDetector(
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+              GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 // 写真移動/ブラシ統合ジェスチャー
-                // outfit: 常に写真移動 / brush: 1本指→ブラシ, 2本指→写真移動
+                // outfit: 常に写真移動 / brush: 1本指→ブラシ, 2本指→ビューズーム
                 onScaleStart: (_mode == EditorMode.outfit || _mode == EditorMode.brush)
                     ? (details) {
                         _gestureStartScale = _photoScale;
+                        _gestureStartViewScale = _viewScale;
+                        _gestureStartViewOffset = Offset(_viewOffsetX, _viewOffsetY);
                         _gestureIsPhotoMove = false;
                         // ブラシモードで1本指の場合はブラシ開始
                         if (_mode == EditorMode.brush && _brushTool != null && details.pointerCount == 1) {
@@ -780,7 +816,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                     : null,
                 onScaleUpdate: (_mode == EditorMode.outfit || _mode == EditorMode.brush)
                     ? (details) {
-                        // 2本指以上 → 写真移動モードに切り替え（ブラシ中断）
+                        // 2本指以上 → モードに応じて切り替え
                         if (details.pointerCount >= 2) {
                           if (!_gestureIsPhotoMove) {
                             _gestureIsPhotoMove = true;
@@ -790,8 +826,18 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                           }
                         }
 
-                        if (_gestureIsPhotoMove || _mode == EditorMode.outfit) {
-                          // 写真の移動・ズーム
+                        if (_gestureIsPhotoMove && _mode == EditorMode.brush) {
+                          // ブラシモード: ビューズーム（写真の位置・サイズは変えない）
+                          setState(() {
+                            _viewScale = (_gestureStartViewScale * details.scale)
+                                .clamp(1.0, 5.0);
+                            _viewOffsetX = _gestureStartViewOffset.dx +
+                                details.focalPointDelta.dx;
+                            _viewOffsetY = _gestureStartViewOffset.dy +
+                                details.focalPointDelta.dy;
+                          });
+                        } else if (_gestureIsPhotoMove || _mode == EditorMode.outfit) {
+                          // outfitモード: 写真の移動・ズーム
                           setState(() {
                             _photoScale = (_gestureStartScale * details.scale)
                                 .clamp(0.3, 3.0);
@@ -874,7 +920,14 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                     : null,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Stack(
+                  child: Transform(
+                    transform: Matrix4.diagonal3Values(_viewScale, _viewScale, 1)
+                      ..setTranslationRaw(
+                        _viewOffsetX + previewSize.width / 2 * (1 - _viewScale),
+                        _viewOffsetY + previewSize.height / 2 * (1 - _viewScale),
+                        0,
+                      ),
+                    child: Stack(
                     clipBehavior: Clip.none,
                     children: [
                       // 証明写真の描画（顔ハメオーバーレイ含む）
@@ -887,6 +940,11 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                           photoAspect: _photoAspect,
                           outfitImage: _selectedOutfitId != null ? _outfitUiImage : null,
                           outfitId: _selectedOutfitId,
+                          photoColorFilter: LicensePainter.buildPhotoColorFilter(
+                            brightness: _photoBrightness,
+                            contrast: _photoContrast,
+                            saturation: _photoSaturation,
+                          ),
                         ),
                         size: Size.infinite,
                       ),
@@ -1035,6 +1093,44 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                     ],
                   ),
                 ),
+                ),
+              ),
+              // ビューズーム中のリセットボタン（ブラシモード時）
+              if (_mode == EditorMode.brush && _viewScale > 1.01)
+                Positioned(
+                  bottom: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: () => setState(() {
+                      _viewScale = 1.0;
+                      _viewOffsetX = 0.0;
+                      _viewOffsetY = 0.0;
+                    }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.zoom_out_map, size: 14, color: Colors.white),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${_viewScale.toStringAsFixed(1)}x',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               );
             },
           ),
@@ -1249,6 +1345,12 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
         setState(() {
           _mode = mode;
           _selectedOverlayUid = null;
+          // ブラシモードから離れたらビューズームをリセット
+          if (mode != EditorMode.brush) {
+            _viewScale = 1.0;
+            _viewOffsetX = 0.0;
+            _viewOffsetY = 0.0;
+          }
         });
       },
       child: Container(
@@ -1826,6 +1928,7 @@ class _PhotoOnlyPainter extends CustomPainter {
   final double photoAspect;
   final ui.Image? outfitImage;
   final String? outfitId;
+  final ColorFilter? photoColorFilter;
 
   _PhotoOnlyPainter({
     this.photoImage,
@@ -1835,6 +1938,7 @@ class _PhotoOnlyPainter extends CustomPainter {
     required this.photoAspect,
     this.outfitImage,
     this.outfitId,
+    this.photoColorFilter,
   });
 
   @override
@@ -1876,7 +1980,11 @@ class _PhotoOnlyPainter extends CustomPainter {
       canvas.scale(photoScale);
       canvas.translate(-size.width / 2, -size.height / 2);
     }
-    canvas.drawImageRect(photoImage!, srcRect, dstRect, Paint());
+    final photoPaint = Paint();
+    if (photoColorFilter != null) {
+      photoPaint.colorFilter = photoColorFilter;
+    }
+    canvas.drawImageRect(photoImage!, srcRect, dstRect, photoPaint);
     canvas.restore();
 
     // 顔ハメオーバーレイ描画（license_painterと同じロジック）
@@ -1931,7 +2039,8 @@ class _PhotoOnlyPainter extends CustomPainter {
         photoOffsetX != oldDelegate.photoOffsetX ||
         photoOffsetY != oldDelegate.photoOffsetY ||
         outfitImage != oldDelegate.outfitImage ||
-        outfitId != oldDelegate.outfitId;
+        outfitId != oldDelegate.outfitId ||
+        photoColorFilter != oldDelegate.photoColorFilter;
   }
 }
 

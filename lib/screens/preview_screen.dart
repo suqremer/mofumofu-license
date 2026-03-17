@@ -212,6 +212,9 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
         photoOffsetY: (data['photoOffsetY'] as num?)?.toDouble() ?? 0.0,
         outfitId: data['outfitId'] as String?,
         photoBgColor: data['photoBgColor'] as int?,
+        photoBrightness: (data['photoBrightness'] as num?)?.toDouble() ?? 0.0,
+        photoContrast: (data['photoContrast'] as num?)?.toDouble() ?? 0.0,
+        photoSaturation: (data['photoSaturation'] as num?)?.toDouble() ?? 0.0,
       );
 
       _lastRequest = request; // 写真プレビュー生成用に保存
@@ -309,6 +312,12 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
           'outfitId': data['outfitId'],
         if (data['validityId'] != null)
           'validityId': data['validityId'],
+        if (data['photoBrightness'] != null && data['photoBrightness'] != 0.0)
+          'photoBrightness': data['photoBrightness'],
+        if (data['photoContrast'] != null && data['photoContrast'] != 0.0)
+          'photoContrast': data['photoContrast'],
+        if (data['photoSaturation'] != null && data['photoSaturation'] != 0.0)
+          'photoSaturation': data['photoSaturation'],
       };
 
       final card = LicenseCard(

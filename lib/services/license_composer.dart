@@ -81,6 +81,15 @@ class LicenseComposeRequest {
   /// 証明写真の背景色（intでColor.value）
   final int? photoBgColor;
 
+  /// 写真の明るさ調整（-1.0〜1.0、0.0=変更なし）
+  final double photoBrightness;
+
+  /// 写真のコントラスト調整（-1.0〜1.0、0.0=変更なし）
+  final double photoContrast;
+
+  /// 写真の彩度調整（-1.0〜1.0、0.0=変更なし）
+  final double photoSaturation;
+
   const LicenseComposeRequest({
     required this.petName,
     required this.species,
@@ -104,6 +113,9 @@ class LicenseComposeRequest {
     this.photoOffsetY = 0.0,
     this.outfitId,
     this.photoBgColor,
+    this.photoBrightness = 0.0,
+    this.photoContrast = 0.0,
+    this.photoSaturation = 0.0,
   });
 
   /// LicenseCard + 写真バイトデータからリクエストを生成
@@ -205,6 +217,12 @@ class LicenseComposer {
     final validityOption = ValidityOption.findById(request.validityId);
     final validityText = validityOption.textForTemplate(template.type);
 
+    final photoColorFilter = LicensePainter.buildPhotoColorFilter(
+      brightness: request.photoBrightness,
+      contrast: request.photoContrast,
+      saturation: request.photoSaturation,
+    );
+
     final painter = LicensePainter(
       template: template,
       frameColorId: request.frameColor,
@@ -219,6 +237,7 @@ class LicenseComposer {
       photoBgColor: request.photoBgColor != null
           ? Color(request.photoBgColor!)
           : const Color(0xFFFFFFFF),
+      photoColorFilter: photoColorFilter,
       petName: request.petName,
       species: request.species,
       breed: request.breed,
@@ -314,7 +333,14 @@ class LicenseComposer {
         canvas.translate(
             -photoRect.width / 2, -photoRect.height / 2);
       }
-      canvas.drawImageRect(photoImage, srcRect, photoRect, Paint());
+      final photoPaint = Paint();
+      final pFilter = LicensePainter.buildPhotoColorFilter(
+        brightness: request.photoBrightness,
+        contrast: request.photoContrast,
+        saturation: request.photoSaturation,
+      );
+      if (pFilter != null) photoPaint.colorFilter = pFilter;
+      canvas.drawImageRect(photoImage, srcRect, photoRect, photoPaint);
       canvas.restore();
     }
 

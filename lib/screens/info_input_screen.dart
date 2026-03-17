@@ -66,6 +66,9 @@ class _InfoInputScreenState extends State<InfoInputScreen>
   String? _originalPhotoPath;
   String? _validityId;
   int? _photoBgColor;
+  double? _photoBrightness;
+  double? _photoContrast;
+  double? _photoSaturation;
 
   /// ドラフト復元済みフラグ
   bool _draftRestored = false;
@@ -156,6 +159,9 @@ class _InfoInputScreenState extends State<InfoInputScreen>
     _validityId = data['validityId'] as String?;
     final bgColor = data['photoBgColor'];
     if (bgColor is int) _photoBgColor = bgColor;
+    _photoBrightness = (data['photoBrightness'] as num?)?.toDouble();
+    _photoContrast = (data['photoContrast'] as num?)?.toDouble();
+    _photoSaturation = (data['photoSaturation'] as num?)?.toDouble();
 
     setState(() {});
   }
@@ -401,6 +407,9 @@ class _InfoInputScreenState extends State<InfoInputScreen>
       if (_originalPhotoPath != null) 'originalPhotoPath': _originalPhotoPath,
       if (_validityId != null) 'validityId': _validityId,
       if (_photoBgColor != null) 'photoBgColor': _photoBgColor,
+      if (_photoBrightness != null) 'photoBrightness': _photoBrightness,
+      if (_photoContrast != null) 'photoContrast': _photoContrast,
+      if (_photoSaturation != null) 'photoSaturation': _photoSaturation,
     });
 
     // フレーム&デコ画面から戻ってきたデータを保持
@@ -419,6 +428,9 @@ class _InfoInputScreenState extends State<InfoInputScreen>
         _frameColor = result['frameColor'] as String? ?? _frameColor;
         _validityId = result['validityId'] as String?;
         _photoBgColor = result['photoBgColor'] as int?;
+        _photoBrightness = (result['photoBrightness'] as num?)?.toDouble();
+        _photoContrast = (result['photoContrast'] as num?)?.toDouble();
+        _photoSaturation = (result['photoSaturation'] as num?)?.toDouble();
       });
     }
   }

@@ -46,6 +46,9 @@ class LicensePainter extends CustomPainter {
   /// 証明写真の背景色
   final Color photoBgColor;
 
+  /// 写真の色調整フィルタ（明るさ/コントラスト/彩度）
+  final ColorFilter? photoColorFilter;
+
   late final String _licenseNumber;
 
   LicensePainter({
@@ -60,6 +63,7 @@ class LicensePainter extends CustomPainter {
     this.outfitId,
     this.outfitImage,
     this.photoBgColor = const Color(0xFFFFFFFF),
+    this.photoColorFilter,
     required this.petName,
     required this.species,
     this.breed,
@@ -74,6 +78,44 @@ class LicensePainter extends CustomPainter {
     required this.validityText,
   }) {
     _licenseNumber = _generateLicenseNumber();
+  }
+
+  /// 明るさ/コントラスト/彩度 → ColorFilter.matrix を構築
+  ///
+  /// 各値は -1.0〜1.0（0.0 = 変更なし）
+  static ColorFilter? buildPhotoColorFilter({
+    double brightness = 0.0,
+    double contrast = 0.0,
+    double saturation = 0.0,
+  }) {
+    if (brightness == 0.0 && contrast == 0.0 && saturation == 0.0) {
+      return null;
+    }
+
+    // 明るさ: オフセットとして加算（-255〜255）
+    final b = brightness * 255;
+
+    // コントラスト: スケール係数（0.0〜2.0、1.0=変更なし）
+    final c = 1.0 + contrast;
+    final cOff = 128 * (1 - c);
+
+    // 彩度: luminance weights で計算
+    final s = 1.0 + saturation;
+    const lr = 0.2126;
+    const lg = 0.7152;
+    const lb = 0.0722;
+    final sr = (1 - s) * lr;
+    final sg = (1 - s) * lg;
+    final sb = (1 - s) * lb;
+
+    // 行列を合成: saturation → contrast → brightness の順
+    // 5x4 color matrix (row-major, 最後の列はオフセット)
+    return ColorFilter.matrix(<double>[
+      (sr + s) * c, sg * c,       sb * c,       0, cOff + b,
+      sr * c,       (sg + s) * c, sb * c,       0, cOff + b,
+      sr * c,       sg * c,       (sb + s) * c, 0, cOff + b,
+      0,            0,            0,            1, 0,
+    ]);
   }
 
   // ---------------------------------------------------------------------------
@@ -119,7 +161,8 @@ class LicensePainter extends CustomPainter {
         oldDelegate.photoScale != photoScale ||
         oldDelegate.photoOffsetX != photoOffsetX ||
         oldDelegate.photoOffsetY != photoOffsetY ||
-        oldDelegate.photoBgColor != photoBgColor;
+        oldDelegate.photoBgColor != photoBgColor ||
+        oldDelegate.photoColorFilter != photoColorFilter;
   }
 
   bool _overlaysChanged(List<CostumeOverlay> old) {
@@ -1164,7 +1207,11 @@ class LicensePainter extends CustomPainter {
         canvas.translate(-(photoRect.left + photoRect.width / 2),
             -(photoRect.top + photoRect.height / 2));
       }
-      canvas.drawImageRect(photoImage!, srcRect, photoRect, Paint());
+      final photoPaint = Paint();
+      if (photoColorFilter != null) {
+        photoPaint.colorFilter = photoColorFilter;
+      }
+      canvas.drawImageRect(photoImage!, srcRect, photoRect, photoPaint);
       canvas.restore();
     } else {
       canvas.drawRect(photoRect, Paint()..color = const Color(0xFFFFFFFF));

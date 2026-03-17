@@ -690,6 +690,12 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
           'outfitId': extra['outfitId'],
         if (extra['validityId'] != null)
           'validityId': extra['validityId'],
+        if (extra['photoBrightness'] != null)
+          'photoBrightness': extra['photoBrightness'],
+        if (extra['photoContrast'] != null)
+          'photoContrast': extra['photoContrast'],
+        if (extra['photoSaturation'] != null)
+          'photoSaturation': extra['photoSaturation'],
       },
     });
   }
@@ -724,6 +730,12 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
           'outfitId': extra['outfitId'],
         if (extra['validityId'] != null)
           'validityId': extra['validityId'],
+        if (extra['photoBrightness'] != null)
+          'photoBrightness': extra['photoBrightness'],
+        if (extra['photoContrast'] != null)
+          'photoContrast': extra['photoContrast'],
+        if (extra['photoSaturation'] != null)
+          'photoSaturation': extra['photoSaturation'],
       },
     });
   }
