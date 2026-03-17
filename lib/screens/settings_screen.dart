@@ -7,6 +7,7 @@ import '../providers/database_provider.dart';
 import '../services/app_preferences.dart';
 import '../services/database_service.dart';
 import '../theme/colors.dart';
+import '../widgets/paywall_bottom_sheet.dart';
 
 /// 画面9: 設定
 class SettingsScreen extends ConsumerWidget {
@@ -124,7 +125,7 @@ class SettingsScreen extends ConsumerWidget {
                 color: Colors.amber),
             title: const Text('プレミアムにアップグレード'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => _showSnack(context, '準備中です'),
+            onTap: () => PaywallBottomSheet.show(context),
           ),
 
           // ── サポート ──
