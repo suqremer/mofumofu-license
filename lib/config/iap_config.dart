@@ -11,7 +11,7 @@ class IapConfig {
   // RevenueCat API Keys
   // ─────────────────────────────────────────────
 
-  static const String _appleApiKey = 'test_OnTkjyVSKfGgHxVviskyQLmwCmd';
+  static const String _appleApiKey = 'appl_devqORajcICbBWJDTuWHZFRfxZW';
   // TODO: Google Play対応時にRevenueCatダッシュボードで取得したキーに差し替える
   static const String _googleApiKey = 'goog_XXXXXXXXXXXXXXXXXX';
 
