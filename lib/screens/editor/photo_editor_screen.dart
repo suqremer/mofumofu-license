@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -10,83 +9,18 @@ import 'package:go_router/go_router.dart';
 import 'package:image_background_remover/image_background_remover.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../models/costume.dart';
-import '../models/costume_overlay.dart';
-import '../models/license_template.dart';
-import '../config/dev_config.dart';
-import '../services/license_painter.dart';
-import '../services/purchase_manager.dart';
-import '../theme/colors.dart';
+import '../../models/costume.dart';
+import '../../models/costume_overlay.dart';
+import '../../models/license_template.dart';
+import '../../services/license_painter.dart';
+import '../../services/purchase_manager.dart';
+import '../../theme/colors.dart';
 
-// ---------------------------------------------------------------------------
-// ブラシ操作モデル
-// ---------------------------------------------------------------------------
-
-sealed class _BrushOperation {
-  const _BrushOperation();
-
-  Map<String, dynamic> toMap();
-
-  static _BrushOperation fromMap(Map<String, dynamic> map) {
-    final type = map['type'] as String;
-    final points = (map['points'] as List)
-        .map((p) => Offset((p[0] as num).toDouble(), (p[1] as num).toDouble()))
-        .toList();
-    return switch (type) {
-      'eraser' => _EraserStroke(points, (map['brushSize'] as num).toDouble()),
-      'restore' => _RestoreStroke(points, (map['brushSize'] as num).toDouble()),
-      'lasso' => _LassoOperation(points),
-      _ => throw ArgumentError('Unknown BrushOperation type: $type'),
-    };
-  }
-}
-
-class _EraserStroke extends _BrushOperation {
-  final List<Offset> points;
-  final double brushSize;
-  const _EraserStroke(this.points, this.brushSize);
-
-  @override
-  Map<String, dynamic> toMap() => {
-    'type': 'eraser',
-    'points': points.map((p) => [p.dx, p.dy]).toList(),
-    'brushSize': brushSize,
-  };
-}
-
-class _RestoreStroke extends _BrushOperation {
-  final List<Offset> points;
-  final double brushSize;
-  const _RestoreStroke(this.points, this.brushSize);
-
-  @override
-  Map<String, dynamic> toMap() => {
-    'type': 'restore',
-    'points': points.map((p) => [p.dx, p.dy]).toList(),
-    'brushSize': brushSize,
-  };
-}
-
-class _LassoOperation extends _BrushOperation {
-  final List<Offset> points;
-  const _LassoOperation(this.points);
-
-  @override
-  Map<String, dynamic> toMap() => {
-    'type': 'lasso',
-    'points': points.map((p) => [p.dx, p.dy]).toList(),
-  };
-}
-
-// ---------------------------------------------------------------------------
-// 編集モード
-// ---------------------------------------------------------------------------
-
-/// 編集モード
-enum EditorMode { outfit, brush, deco }
-
-/// ブラシツール種別
-enum BrushTool { eraser, restore, lasso }
+import 'models/brush_operation.dart';
+import 'models/brush_offset.dart';
+import 'painters/photo_only_painter.dart';
+import 'painters/brush_overlay_painter.dart';
+import 'painters/guide_overlay_painter.dart';
 
 /// フルスクリーン統合エディタ
 ///
@@ -152,13 +86,18 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   // === ブラシ関連 ===
   BrushTool? _brushTool;
   double _brushSize = 30.0;
-  final List<_BrushOperation> _brushOps = [];
-  final List<_BrushOperation> _brushRedoStack = [];
+  final List<BrushOperation> _brushOps = [];
+  final List<BrushOperation> _brushRedoStack = [];
   List<Offset>? _currentStrokePoints;
   List<Offset>? _currentLassoPoints;
   bool _isExporting = false;
   bool _isAutoRemoving = false;
   bool _hasAutoRemoved = false;
+
+  // === ブラシオフセット ===
+  BrushOffsetDirection _brushOffset = BrushOffsetDirection.center;
+  /// ブラシ描画中の指の位置（プレビュー座標、オフセット表示用）
+  Offset? _currentFingerPosition;
 
   // === ガイド表示 ===
   bool _showGuide = true;
@@ -482,9 +421,9 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
         Paint()..color = const Color(0xFF000000),
       );
       for (final op in _brushOps) {
-        if (op is _EraserStroke) {
+        if (op is EraserStroke) {
           _drawStrokeOnCanvas(eraseCanvas, op.points, op.brushSize, const Color(0xFFFFFFFF));
-        } else if (op is _LassoOperation) {
+        } else if (op is LassoOperation) {
           // 投げ縄: 全体を白（消す）→ 囲み内部を黒（残す）
           if (op.points.length >= 3) {
             eraseCanvas.drawRect(
@@ -520,7 +459,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
         Paint()..color = const Color(0xFF000000),
       );
       for (final op in _brushOps) {
-        if (op is _RestoreStroke) {
+        if (op is RestoreStroke) {
           _drawStrokeOnCanvas(restoreCanvas, op.points, op.brushSize, const Color(0xFFFFFFFF));
         }
       }
@@ -649,14 +588,23 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   }
 
   /// プレビュー座標 → 元画像座標に変換（canvas.translate方式対応）
+  /// ブラシオフセットが有効な場合、指の位置からオフセット分ずらした位置を返す
   Offset _toImageCoords(Offset local, Size previewSize) {
     if (_photoImage == null) return local;
 
+    // ブラシオフセット適用: 指の位置からオフセット距離だけずらす
+    Offset adjusted = local;
+    if (_brushOffset != BrushOffsetDirection.center) {
+      final offsetDistance = _brushSize * 2;
+      adjusted = Offset(
+        local.dx - _brushOffset.unitOffset.dx * offsetDistance,
+        local.dy - _brushOffset.unitOffset.dy * offsetDistance,
+      );
+    }
+
     // ビューズームの逆変換（タッチ座標→元のプレビュー座標に戻す）
-    // Transform: scale(_viewScale) then translate(_viewOffsetX, _viewOffsetY)
-    // 逆変換: translate(-offset) then scale(1/scale)
-    double vx = (local.dx - _viewOffsetX) / _viewScale;
-    double vy = (local.dy - _viewOffsetY) / _viewScale;
+    double vx = (adjusted.dx - _viewOffsetX) / _viewScale;
+    double vy = (adjusted.dy - _viewOffsetY) / _viewScale;
 
     final base = _baseCropRect();
     // オフセットの逆変換
@@ -685,23 +633,61 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   // ビルド
   // ---------------------------------------------------------------------------
 
+  /// モード名のテキスト
+  String get _modeName => switch (_mode) {
+    EditorMode.outfit => 'コスチューム',
+    EditorMode.brush => '背景削除',
+    EditorMode.deco => 'デコ',
+    EditorMode.color => '色調整',
+  };
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text('写真・デコ編集',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => context.pop(),
+      backgroundColor: const Color(0xFF1A1A1A),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // カスタムAppBar
+            _buildAppBar(),
+            // プレビューエリア
+            Expanded(child: _buildPreview()),
+            // ボトムセクション（モードタブ + パネル）
+            _buildBottomSection(),
+          ],
         ),
-        actions: [
+      ),
+    );
+  }
+
+  /// カスタムAppBar（薄型48px）
+  Widget _buildAppBar() {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white, size: 22),
+            onPressed: () => context.pop(),
+          ),
+          const Spacer(),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Text(
+              _modeName,
+              key: ValueKey(_mode),
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const Spacer(),
           if (_isExporting)
             const Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(12),
               child: SizedBox(
                 width: 20,
                 height: 20,
@@ -712,27 +698,33 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
               ),
             )
           else
-            TextButton(
-              onPressed: _finish,
-              child: const Text('完了',
-                  style: TextStyle(
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: GestureDetector(
+                onTap: _finish,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    '完了',
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold)),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
             ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // プレビューエリア（証明写真のみ拡大表示）
-          Expanded(child: _buildPreview()),
-          // モード別ツールバー
-          _buildToolbar(),
         ],
       ),
     );
   }
 
+  /// Undo/Redoピルボタン
   Widget _buildUndoRedoButton({
     required IconData icon,
     required String label,
@@ -741,28 +733,30 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   }) {
     return GestureDetector(
       onTap: enabled ? onPressed : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: enabled
-              ? Colors.black.withValues(alpha: 0.7)
-              : Colors.black.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 20, color: enabled ? Colors.white : Colors.grey[600]),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: enabled ? Colors.white : Colors.grey[600],
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        opacity: enabled ? 1.0 : 0.4,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2A2A2A),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: Colors.white),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -775,7 +769,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   Widget _buildPreview() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: AspectRatio(
           aspectRatio: _photoAspect,
           child: LayoutBuilder(
@@ -790,7 +784,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 behavior: HitTestBehavior.opaque,
                 // 写真移動/ブラシ統合ジェスチャー
                 // outfit: 常に写真移動 / brush: 1本指→ブラシ, 2本指→ビューズーム
-                onScaleStart: (_mode == EditorMode.outfit || _mode == EditorMode.brush)
+                onScaleStart: (_mode == EditorMode.outfit || _mode == EditorMode.brush || _mode == EditorMode.color)
                     ? (details) {
                         _gestureStartScale = _photoScale;
                         _gestureStartViewScale = _viewScale;
@@ -803,6 +797,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                           final imgCoord = _toImageCoords(
                               details.localFocalPoint, previewSize);
                           setState(() {
+                            _currentFingerPosition = details.localFocalPoint;
                             if (_brushTool == BrushTool.lasso) {
                               _currentLassoPoints = [imgCoord];
                             } else {
@@ -812,7 +807,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                         }
                       }
                     : null,
-                onScaleUpdate: (_mode == EditorMode.outfit || _mode == EditorMode.brush)
+                onScaleUpdate: (_mode == EditorMode.outfit || _mode == EditorMode.brush || _mode == EditorMode.color)
                     ? (details) {
                         // 2本指以上 → モードに応じて切り替え
                         if (details.pointerCount >= 2) {
@@ -841,7 +836,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                                 (details.localFocalPoint.dy - _gestureFocalPoint.dy);
                             _viewScale = newScale;
                           });
-                        } else if (_gestureIsPhotoMove || _mode == EditorMode.outfit) {
+                        } else if (_gestureIsPhotoMove || _mode == EditorMode.outfit || _mode == EditorMode.color) {
                           // outfitモード: 写真の移動・ズーム
                           setState(() {
                             _photoScale = (_gestureStartScale * details.scale)
@@ -860,6 +855,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                           final imgCoord = _toImageCoords(
                               details.localFocalPoint, previewSize);
                           setState(() {
+                            _currentFingerPosition = details.localFocalPoint;
                             if (_brushTool == BrushTool.lasso) {
                               _currentLassoPoints?.add(imgCoord);
                             } else {
@@ -869,21 +865,22 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                         }
                       }
                     : null,
-                onScaleEnd: (_mode == EditorMode.outfit || _mode == EditorMode.brush)
+                onScaleEnd: (_mode == EditorMode.outfit || _mode == EditorMode.brush || _mode == EditorMode.color)
                     ? (details) {
                         // 写真移動だった場合はブラシ処理不要
-                        if (_gestureIsPhotoMove || _mode == EditorMode.outfit) {
+                        if (_gestureIsPhotoMove || _mode == EditorMode.outfit || _mode == EditorMode.color) {
                           _gestureIsPhotoMove = false;
                           return;
                         }
                         _gestureIsPhotoMove = false;
+                        _currentFingerPosition = null;
                         // ブラシストローク確定
                         bool hasNewOp = false;
                         if (_brushTool == BrushTool.lasso) {
                           if (_currentLassoPoints != null &&
                               _currentLassoPoints!.length >= 3) {
                             setState(() {
-                              _brushOps.add(_LassoOperation(
+                              _brushOps.add(LassoOperation(
                                   List.from(_currentLassoPoints!)));
                               _brushRedoStack.clear();
                               _currentLassoPoints = null;
@@ -898,11 +895,11 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                               _brushSizeToImage(previewSize);
                           setState(() {
                             if (_brushTool == BrushTool.eraser) {
-                              _brushOps.add(_EraserStroke(
+                              _brushOps.add(EraserStroke(
                                   List.from(_currentStrokePoints!),
                                   imgBrushSize));
                             } else {
-                              _brushOps.add(_RestoreStroke(
+                              _brushOps.add(RestoreStroke(
                                   List.from(_currentStrokePoints!),
                                   imgBrushSize));
                             }
@@ -924,7 +921,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                       }
                     : null,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(16),
                   child: Transform(
                     transform: Matrix4.diagonal3Values(_viewScale, _viewScale, 1)
                       ..setTranslationRaw(
@@ -937,7 +934,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                     children: [
                       // 証明写真の描画（顔ハメオーバーレイ含む）
                       CustomPaint(
-                        painter: _PhotoOnlyPainter(
+                        painter: PhotoOnlyPainter(
                           photoImage: _photoImage,
                           photoScale: _photoScale,
                           photoOffsetX: _photoOffsetX,
@@ -956,7 +953,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                       // ブラシモード時のオーバーレイ描画
                       if (_mode == EditorMode.brush && _photoImage != null)
                         CustomPaint(
-                          painter: _BrushOverlayPainter(
+                          painter: BrushOverlayPainter(
                             photoImage: _photoImage!,
                             photoAspect: _photoAspect,
                             photoScale: _photoScale,
@@ -1016,15 +1013,35 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 ),
                 ),
               ),
-              // ガイドオーバーレイ（人型シルエット）— Transform外でズームに影響されない
-              if (_showGuide && _brushTool == null)
+              // ブラシオフセットのビジュアルフィードバック
+              if (_mode == EditorMode.brush &&
+                  _brushOffset != BrushOffsetDirection.center &&
+                  _currentFingerPosition != null &&
+                  _brushTool != null &&
+                  _brushTool != BrushTool.lasso)
                 Positioned.fill(
                   child: IgnorePointer(
                     child: CustomPaint(
-                      painter: _GuideOverlayPainter(),
+                      painter: _OffsetVisualPainter(
+                        fingerPosition: _currentFingerPosition!,
+                        offsetDirection: _brushOffset,
+                        brushSize: _brushSize,
+                      ),
                     ),
                   ),
                 ),
+              // ガイドオーバーレイ（ペット型シルエット）— Transform外
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 300),
+                    opacity: (_showGuide && _brushTool == null) ? 1.0 : 0.0,
+                    child: CustomPaint(
+                      painter: GuideOverlayPainter(),
+                    ),
+                  ),
+                ),
+              ),
               // ガイド説明バナー + ？ボタン
               if (_showGuide && _brushTool == null)
                 Positioned(
@@ -1034,13 +1051,13 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.black.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        Expanded(
-                          child: const Text(
+                        const Expanded(
+                          child: Text(
                             'ガイドにお顔を合わせてください',
                             style: TextStyle(color: Colors.white, fontSize: 11),
                             textAlign: TextAlign.center,
@@ -1050,14 +1067,14 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                         GestureDetector(
                           onTap: () => _showTutorialDialog(),
                           child: Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
                               color: Colors.white24,
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
                               Icons.help_outline,
-                              size: 16,
+                              size: 14,
                               color: Colors.white,
                             ),
                           ),
@@ -1066,20 +1083,20 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                     ),
                   ),
                 ),
-              // ガイド表示トグルボタン（チップ型）
+              // ガイド表示トグルボタン（チップ型）— 手動ON/OFF
               Positioned(
                 top: 8,
                 right: 8,
                 child: GestureDetector(
                   onTap: () => setState(() => _showGuide = !_showGuide),
-                  child: Container(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: _showGuide
                           ? const Color(0xDD00BCD4)
-                          : Colors.black54,
+                          : const Color(0x80000000),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white54, width: 1),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1090,12 +1107,12 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                           color: Colors.white,
                         ),
                         const SizedBox(width: 4),
-                        Text(
+                        const Text(
                           'ガイド',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -1117,7 +1134,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.black54,
+                        color: const Color(0x80000000),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
@@ -1297,100 +1314,145 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // ツールバー
+  // ボトムセクション（モードタブ + パネル）
   // ---------------------------------------------------------------------------
 
-  Widget _buildToolbar() {
+  Widget _buildBottomSection() {
     return Container(
-      color: const Color(0xFF1A1A1A),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // モード別のコンテンツ
-            if (_mode == EditorMode.outfit) _buildOutfitTools(),
-            if (_mode == EditorMode.deco) _buildDecoTools(),
-            if (_mode == EditorMode.brush) _buildBrushTools(),
-            const SizedBox(height: 8),
-            // モード切替タブ
-            _buildModeTabs(),
-            const SizedBox(height: 8),
-          ],
-        ),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x40000000),
+            blurRadius: 12,
+            offset: Offset(0, -2),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildModeTabs() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Flexible(child: _buildModeTab(EditorMode.outfit, Icons.checkroom, 'コスチューム')),
-          const SizedBox(width: 8),
-          Flexible(child: _buildModeTab(EditorMode.brush, Icons.content_cut, '背景削除')),
-          const SizedBox(width: 8),
-          Flexible(child: _buildModeTab(EditorMode.deco, Icons.auto_awesome, 'デコ')),
+          // ハンドルバー
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(top: 8, bottom: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey[700],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // モード切替セグメントコントロール
+          _buildModeSegment(),
+          const SizedBox(height: 8),
+          // モード別パネル
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOutCubic,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: _buildActivePanel(),
+            ),
+          ),
+          const SizedBox(height: 8),
         ],
       ),
     );
   }
 
-  Widget _buildModeTab(EditorMode mode, IconData icon, String label) {
-    final isActive = _mode == mode;
-    return GestureDetector(
-      onTap: () async {
-        // ブラシモードから離れる時、未適用の操作があれば自動適用
-        if (_mode == EditorMode.brush &&
-            mode != EditorMode.brush &&
-            _brushOps.isNotEmpty &&
-            _photoImage != null) {
-          await _applyBrushMask();
-        }
-        if (!mounted) return;
-        setState(() {
-          _mode = mode;
-          _selectedOverlayUid = null;
-          // ブラシモードから離れたらビューズームをリセット
-          if (mode != EditorMode.brush) {
-            _viewScale = 1.0;
-            _viewOffsetX = 0.0;
-            _viewOffsetY = 0.0;
-          }
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive
-              ? AppColors.primary.withValues(alpha: 0.2)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isActive ? AppColors.primary : Colors.grey,
-            width: isActive ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon,
-                size: 16, color: isActive ? AppColors.primary : Colors.grey),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isActive ? AppColors.primary : Colors.grey,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                fontSize: 12,
+  /// セグメントコントロール（4モード）
+  Widget _buildModeSegment() {
+    const modes = [
+      (EditorMode.outfit, Icons.checkroom, 'コスチューム'),
+      (EditorMode.brush, Icons.content_cut, '背景削除'),
+      (EditorMode.deco, Icons.auto_awesome, 'デコ'),
+      (EditorMode.color, Icons.tune, '色調整'),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: modes.map((m) {
+          final (mode, icon, label) = m;
+          final isActive = _mode == mode;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => _switchMode(mode),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon,
+                        size: 14,
+                        color: isActive ? Colors.white : Colors.grey[600]),
+                    const SizedBox(width: 3),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: isActive ? Colors.white : Colors.grey[600],
+                        fontWeight:
+                            isActive ? FontWeight.w600 : FontWeight.normal,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
+          );
+        }).toList(),
       ),
     );
+  }
+
+  /// モード切替ロジック
+  Future<void> _switchMode(EditorMode mode) async {
+    if (_mode == mode) return;
+    // ブラシモードから離れる時、未適用の操作があれば自動適用
+    if (_mode == EditorMode.brush &&
+        mode != EditorMode.brush &&
+        _brushOps.isNotEmpty &&
+        _photoImage != null) {
+      await _applyBrushMask();
+    }
+    if (!mounted) return;
+    setState(() {
+      _mode = mode;
+      _selectedOverlayUid = null;
+      // ブラシモードから離れたらビューズームをリセット
+      if (mode != EditorMode.brush) {
+        _viewScale = 1.0;
+        _viewOffsetX = 0.0;
+        _viewOffsetY = 0.0;
+      }
+    });
+  }
+
+  /// 現在のモードに対応するパネルを返す
+  Widget _buildActivePanel() {
+    return switch (_mode) {
+      EditorMode.outfit => _buildOutfitTools(),
+      EditorMode.brush => _buildBrushTools(),
+      EditorMode.deco => _buildDecoTools(),
+      EditorMode.color => _buildColorTools(),
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -1399,117 +1461,143 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
 
   Widget _buildOutfitTools() {
     final outfits = Costume.byType(CostumeType.outfit);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 横スクロール outfit 一覧
-        SizedBox(
-          height: 64,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            itemCount: outfits.length,
-            itemBuilder: (context, index) {
-              final costume = outfits[index];
-              final isSelected = _selectedOutfitId == costume.id;
-              final isLocked = costume.isPremium && !PurchaseManager.instance.isPremium;
+    return Padding(
+      key: const ValueKey('outfit_panel'),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 横スクロール outfit 一覧
+          SizedBox(
+            height: 80,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              itemCount: outfits.length,
+              itemBuilder: (context, index) {
+                final costume = outfits[index];
+                final isSelected = _selectedOutfitId == costume.id;
+                final isLocked = costume.isPremium && !PurchaseManager.instance.isPremium;
 
-              return GestureDetector(
-                onTap: isLocked || isSelected
-                    ? null
-                    : () {
-                        setState(() {
-                          _selectedOutfitId = costume.id;
-                        });
-                        _loadOutfitImage(Costume.findById(costume.id).assetPath);
-                      },
-                child: Container(
-                  width: 56,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? const Color(0xFF4CAF50).withValues(alpha: 0.25)
-                        : const Color(0xFF4CAF50).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF4CAF50)
-                          : Colors.grey[700]!,
-                      width: isSelected ? 2.5 : 1,
+                return GestureDetector(
+                  onTap: isLocked || isSelected
+                      ? null
+                      : () {
+                          setState(() {
+                            _selectedOutfitId = costume.id;
+                          });
+                          _loadOutfitImage(Costume.findById(costume.id).assetPath);
+                        },
+                  child: AnimatedScale(
+                    scale: isSelected ? 1.0 : 0.95,
+                    duration: const Duration(milliseconds: 150),
+                    curve: Curves.elasticOut,
+                    child: Container(
+                      width: 72,
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary.withValues(alpha: 0.15)
+                            : const Color(0xFF2A2A2A),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : Colors.transparent,
+                          width: 2,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (isLocked)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Icon(Icons.lock, size: 12, color: Colors.grey[600]),
+                            ),
+                          Image.asset(
+                            costume.thumbnailPath,
+                            width: 36,
+                            height: 36,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) => Icon(
+                              _costumeIcon(costume.id),
+                              size: 28,
+                              color: isLocked
+                                  ? Colors.grey[600]
+                                  : AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            costume.name,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isSelected
+                                  ? Colors.white
+                                  : Colors.grey[500],
+                              fontWeight:
+                                  isSelected ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (isLocked)
-                        Icon(Icons.lock, size: 12, color: Colors.grey[600]),
-                      Image.asset(
-                        costume.thumbnailPath,
-                        width: 28,
-                        height: 28,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) => Icon(
-                          _costumeIcon(costume.id),
-                          size: 22,
-                          color: isLocked
-                              ? Colors.grey[600]
-                              : const Color(0xFF4CAF50),
-                        ),
-                      ),
-                      Text(
-                        costume.name,
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: isSelected
-                              ? const Color(0xFF4CAF50)
-                              : Colors.grey[400],
-                          fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
           // ズームスライダー
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               children: [
-                const Icon(Icons.zoom_out, color: Colors.grey, size: 16),
+                Icon(Icons.zoom_out, color: Colors.grey[600], size: 16),
                 Expanded(
-                  child: Slider(
-                    value: _photoScale,
-                    min: 0.3,
-                    max: 3.0,
-                    activeColor: AppColors.primary,
-                    inactiveColor: Colors.grey[700],
-                    onChanged: (v) => setState(() => _photoScale = v),
+                  child: SliderTheme(
+                    data: SliderThemeData(
+                      trackHeight: 3,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                      activeTrackColor: Colors.white.withValues(alpha: 0.5),
+                      inactiveTrackColor: Colors.grey[800],
+                      thumbColor: Colors.white,
+                    ),
+                    child: Slider(
+                      value: _photoScale,
+                      min: 0.3,
+                      max: 3.0,
+                      onChanged: (v) => setState(() => _photoScale = v),
+                    ),
                   ),
                 ),
-                const Icon(Icons.zoom_in, color: Colors.grey, size: 16),
-                IconButton(
-                  onPressed: () {
+                Icon(Icons.zoom_in, color: Colors.grey[600], size: 16),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () {
                     setState(() {
                       _photoScale = 1.0;
                       _photoOffsetX = 0.0;
                       _photoOffsetY = 0.0;
                     });
                   },
-                  icon: const Icon(Icons.restart_alt, color: Colors.grey, size: 20),
-                  tooltip: 'リセット',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2A2A),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.restart_alt, color: Colors.grey[500], size: 18),
+                  ),
                 ),
               ],
             ),
           ),
         ],
-      );
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -1518,43 +1606,95 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
 
   Widget _buildBrushTools() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      key: const ValueKey('brush_panel'),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // ツール選択（横スクロール対応）
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // 自動背景削除
-                _buildAutoRemoveButton(),
-                const SizedBox(width: 8),
-                _buildBrushToolButton(
-                  BrushTool.eraser,
-                  Icons.auto_fix_high,
-                  '消しゴム',
-                  const Color(0xFFFF6B6B),
+          // 上段: 自動削除 + ツールグループ + オフセット
+          Row(
+            children: [
+              // 自動背景削除ボタン
+              _buildAutoRemoveButton(),
+              const SizedBox(width: 6),
+              // ツールグループ（連結セグメント風）
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2A2A2A),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildBrushSegment(BrushTool.eraser, '消しゴム',
+                          Icons.auto_fix_high, const Color(0xFFFF6B6B)),
+                      _buildBrushSegment(BrushTool.restore, '復元',
+                          Icons.healing, const Color(0xFF4CAF50)),
+                      _buildBrushSegment(BrushTool.lasso, '投げ縄',
+                          Icons.gesture, const Color(0xFF42A5F5)),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 8),
-                _buildBrushToolButton(
-                  BrushTool.restore,
-                  Icons.healing,
-                  '復元',
-                  const Color(0xFF4CAF50),
-                ),
-                const SizedBox(width: 8),
-                _buildBrushToolButton(
-                  BrushTool.lasso,
-                  Icons.gesture,
-                  '投げ縄',
-                  const Color(0xFF1E88E5),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 6),
+              // オフセットボタン
+              _buildOffsetButton(),
+            ],
           ),
           const SizedBox(height: 8),
-          // 戻す / 進む
+          // ブラシサイズスライダー or ヒントテキスト
+          if (_brushTool != null && _brushTool != BrushTool.lasso)
+            Row(
+              children: [
+                Container(
+                  width: 10, height: 10,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.grey[500]!, width: 1.5),
+                  ),
+                ),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderThemeData(
+                      trackHeight: 3,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                      activeTrackColor: _brushTool == BrushTool.eraser
+                          ? const Color(0xFFFF6B6B)
+                          : const Color(0xFF4CAF50),
+                      inactiveTrackColor: Colors.grey[800],
+                      thumbColor: Colors.white,
+                    ),
+                    child: Slider(
+                      value: _brushSize,
+                      min: 10,
+                      max: 80,
+                      onChanged: (v) => setState(() => _brushSize = v),
+                    ),
+                  ),
+                ),
+                Container(
+                  width: 22, height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.grey[500]!, width: 1.5),
+                  ),
+                ),
+              ],
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Text(
+                _brushTool == BrushTool.lasso
+                    ? '指でペットの輪郭をなぞってね'
+                    : 'ツールを選んでください',
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+            ),
+          const SizedBox(height: 4),
+          // Undo/Redo
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1564,7 +1704,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 enabled: _brushOps.isNotEmpty || _undoImageStack.isNotEmpty,
                 onPressed: _brushUndo,
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               _buildUndoRedoButton(
                 icon: Icons.redo,
                 label: '進む',
@@ -1573,85 +1713,58 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // ブラシサイズスライダー（投げ縄以外）
-          if (_brushTool != null && _brushTool != BrushTool.lasso)
-            Row(
-              children: [
-                Icon(Icons.circle, size: 10, color: Colors.grey[400]),
-                Expanded(
-                  child: Slider(
-                    value: _brushSize,
-                    min: 10,
-                    max: 80,
-                    divisions: 14,
-                    activeColor: _brushTool == BrushTool.eraser
-                        ? const Color(0xFFFF6B6B)
-                        : const Color(0xFF4CAF50),
-                    inactiveColor: Colors.grey[700],
-                    onChanged: (v) => setState(() => _brushSize = v),
-                  ),
-                ),
-                Icon(Icons.circle, size: 24, color: Colors.grey[400]),
-              ],
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text(
-                '指でペットの輪郭をなぞってね',
-                style: TextStyle(color: Colors.grey[400], fontSize: 13),
-              ),
-            ),
         ],
       ),
     );
   }
 
-  Widget _buildBrushToolButton(
-      BrushTool tool, IconData icon, String label, Color color) {
+  /// ブラシツールのセグメントボタン（トグルOFF対応: 再タップでnull）
+  Widget _buildBrushSegment(
+      BrushTool tool, String label, IconData icon, Color color) {
     final isActive = _brushTool == tool;
-    return GestureDetector(
-      onTap: () => setState(() => _brushTool = tool),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive ? color.withValues(alpha: 0.25) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isActive ? color : Colors.grey[600]!,
-            width: isActive ? 2 : 1,
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() {
+          _brushTool = _brushTool == tool ? null : tool;
+        }),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isActive ? color.withValues(alpha: 0.2) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: isActive ? color : Colors.grey),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isActive ? color : Colors.grey,
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: isActive ? color : Colors.grey[600]),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isActive ? color : Colors.grey[600],
+                  fontSize: 10,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
+  /// 自動背景削除ボタン（グラデーションピル）
   Widget _buildAutoRemoveButton() {
     return GestureDetector(
       onTap: _isAutoRemoving ? null : _autoRemoveBackground,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)],
           ),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1667,19 +1780,75 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
               )
             else
               const Icon(Icons.auto_fix_high, size: 16, color: Colors.white),
-            const SizedBox(width: 4),
+            const SizedBox(width: 5),
             Text(
               _isAutoRemoving ? '処理中…' : '自動削除',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// ブラシオフセットボタン（タップサイクル + ロングプレス放射メニュー）
+  Widget _buildOffsetButton() {
+    final isActive = _brushOffset != BrushOffsetDirection.center;
+    return GestureDetector(
+      onTap: () => setState(() => _brushOffset = _brushOffset.next),
+      onLongPress: () => _showRadialOffsetMenu(),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: isActive
+              ? Colors.white.withValues(alpha: 0.15)
+              : const Color(0xFF2A2A2A),
+          borderRadius: BorderRadius.circular(12),
+          border: isActive
+              ? Border.all(color: Colors.white30, width: 1)
+              : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(_brushOffset.icon, size: 18, color: Colors.white),
+            if (isActive)
+              Text(
+                _brushOffset.label,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 7,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 放射状メニューでオフセット方向を選択
+  void _showRadialOffsetMenu() {
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+
+    entry = OverlayEntry(
+      builder: (context) => _RadialOffsetMenu(
+        currentDirection: _brushOffset,
+        onSelect: (dir) {
+          setState(() => _brushOffset = dir);
+          entry.remove();
+        },
+        onDismiss: () => entry.remove(),
+      ),
+    );
+    overlay.insert(entry);
   }
 
   Future<void> _autoRemoveBackground() async {
@@ -1756,6 +1925,129 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   }
 
   // ---------------------------------------------------------------------------
+  // 色調整パネル
+  // ---------------------------------------------------------------------------
+
+  Widget _buildColorTools() {
+    final hasAdjustment =
+        _photoBrightness != 0.0 || _photoContrast != 0.0 || _photoSaturation != 0.0;
+
+    return Padding(
+      key: const ValueKey('color_panel'),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildColorSlider(
+            label: '明るさ',
+            icon: Icons.brightness_6,
+            value: _photoBrightness,
+            onChanged: (v) => setState(() => _photoBrightness = v),
+          ),
+          _buildColorSlider(
+            label: 'コントラスト',
+            icon: Icons.contrast,
+            value: _photoContrast,
+            onChanged: (v) => setState(() => _photoContrast = v),
+          ),
+          _buildColorSlider(
+            label: '彩度',
+            icon: Icons.palette_outlined,
+            value: _photoSaturation,
+            onChanged: (v) => setState(() => _photoSaturation = v),
+          ),
+          if (hasAdjustment)
+            Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: () => setState(() {
+                  _photoBrightness = 0.0;
+                  _photoContrast = 0.0;
+                  _photoSaturation = 0.0;
+                }),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2A2A2A),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.refresh, size: 14, color: Colors.grey[500]),
+                      const SizedBox(width: 4),
+                      Text(
+                        'リセット',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildColorSlider({
+    required String label,
+    required IconData icon,
+    required double value,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.grey[500]),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 52,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+            ),
+          ),
+          Expanded(
+            child: SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                activeTrackColor: Colors.white.withValues(alpha: 0.5),
+                inactiveTrackColor: Colors.grey[800],
+                thumbColor: Colors.white,
+              ),
+              child: Slider(
+                value: value,
+                min: -1.0,
+                max: 1.0,
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 32,
+            child: Text(
+              '${(value * 100).round()}',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 10,
+                color: value != 0 ? Colors.white : Colors.grey[600],
+                fontWeight: value != 0 ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // デコモードのツール
   // ---------------------------------------------------------------------------
 
@@ -1765,13 +2057,20 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
         .where((t) => t != CostumeType.outfit)
         .toList();
 
-    return SizedBox(
-      height: 140,
+    return Padding(
+      key: const ValueKey('deco_panel'),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // カテゴリタブ（outfit 除外）
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          // カテゴリタブ（ピル型）
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A2A2A),
+              borderRadius: BorderRadius.circular(10),
+            ),
             child: Row(
               children: decoTypes.map((type) {
                 final isActive = _selectedCostumeTab == type;
@@ -1780,24 +2079,23 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                   child: GestureDetector(
                     onTap: () =>
                         setState(() => _selectedCostumeTab = type),
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: isActive ? color : Colors.transparent,
-                            width: 2,
-                          ),
-                        ),
+                        color: isActive
+                            ? color.withValues(alpha: 0.15)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         type.label,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: isActive ? color : Colors.grey,
+                          color: isActive ? color : Colors.grey[600],
                           fontWeight:
-                              isActive ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 13,
+                              isActive ? FontWeight.w600 : FontWeight.normal,
+                          fontSize: 12,
                         ),
                       ),
                     ),
@@ -1806,11 +2104,13 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
               }).toList(),
             ),
           ),
-          // コスチュームグリッド
-          Expanded(
+          const SizedBox(height: 6),
+          // コスチュームカード横スクロール
+          SizedBox(
+            height: 88,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               children: Costume.byType(_selectedCostumeTab).map((costume) {
                 final isLocked = costume.isPremium && !PurchaseManager.instance.isPremium;
                 final color = _costumeTypeColor(costume.type);
@@ -1828,40 +2128,39 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                           });
                         },
                   child: Container(
-                    width: 72,
+                    width: 80,
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: color.withValues(alpha: 0.4),
-                      ),
+                      color: const Color(0xFF2A2A2A),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         if (isLocked)
-                          Icon(Icons.lock, size: 16, color: Colors.grey[600]),
-                        // サムネイル画像 or アイコン
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: Icon(Icons.lock, size: 14, color: Colors.grey[600]),
+                          ),
                         Image.asset(
                           costume.thumbnailPath,
-                          width: 36,
-                          height: 36,
+                          width: 40,
+                          height: 40,
                           fit: BoxFit.contain,
                           errorBuilder: (context, error, stackTrace) => Icon(
                             _costumeIcon(costume.id),
-                            size: 28,
+                            size: 32,
                             color: isLocked
                                 ? Colors.grey[600]
                                 : color.withValues(alpha: 0.8),
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
                           costume.name,
                           style: TextStyle(
                             fontSize: 10,
-                            color: isLocked ? Colors.grey[600] : color,
+                            color: isLocked ? Colors.grey[600] : Colors.grey[400],
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1925,453 +2224,218 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
 }
 
 // =============================================================================
-// 証明写真のみ描画する Painter
+// ブラシオフセット ビジュアルフィードバック
 // =============================================================================
 
-class _PhotoOnlyPainter extends CustomPainter {
-  final ui.Image? photoImage;
-  final double photoScale;
-  final double photoOffsetX;
-  final double photoOffsetY;
-  final double photoAspect;
-  final ui.Image? outfitImage;
-  final String? outfitId;
-  final ColorFilter? photoColorFilter;
+class _OffsetVisualPainter extends CustomPainter {
+  final Offset fingerPosition;
+  final BrushOffsetDirection offsetDirection;
+  final double brushSize;
 
-  _PhotoOnlyPainter({
-    this.photoImage,
-    required this.photoScale,
-    required this.photoOffsetX,
-    required this.photoOffsetY,
-    required this.photoAspect,
-    this.outfitImage,
-    this.outfitId,
-    this.photoColorFilter,
+  _OffsetVisualPainter({
+    required this.fingerPosition,
+    required this.offsetDirection,
+    required this.brushSize,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 背景（白）
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = const Color(0xFFFFFFFF),
+    final offsetDist = brushSize * 2;
+    final brushPos = Offset(
+      fingerPosition.dx - offsetDirection.unitOffset.dx * offsetDist,
+      fingerPosition.dy - offsetDirection.unitOffset.dy * offsetDist,
     );
 
-    if (photoImage == null) return;
-
-    final imgW = photoImage!.width.toDouble();
-    final imgH = photoImage!.height.toDouble();
-    final imgAspect = imgW / imgH;
-
-    // 画像のアスペクトフィット: 写真エリアに収まるようにクロップ
-    Rect srcRect;
-    if (imgAspect > photoAspect) {
-      final cropW = imgH * photoAspect;
-      srcRect = Rect.fromLTWH((imgW - cropW) / 2, 0, cropW, imgH);
-    } else {
-      final cropH = imgW / photoAspect;
-      srcRect = Rect.fromLTWH(0, (imgH - cropH) / 2, imgW, cropH);
-    }
-
-    // photoScale/Offset を適用（canvas変換で自由スクロール+ズーム）
-    final dstRect = Rect.fromLTWH(0, 0, size.width, size.height);
-    canvas.save();
-    canvas.clipRect(dstRect);
-    // オフセットで写真をスライド
-    canvas.translate(
-      photoOffsetX * size.width,
-      photoOffsetY * size.height,
-    );
-    // ズーム（中心基準）
-    if (photoScale != 1.0) {
-      canvas.translate(size.width / 2, size.height / 2);
-      canvas.scale(photoScale);
-      canvas.translate(-size.width / 2, -size.height / 2);
-    }
-    final photoPaint = Paint();
-    if (photoColorFilter != null) {
-      photoPaint.colorFilter = photoColorFilter;
-    }
-    canvas.drawImageRect(photoImage!, srcRect, dstRect, photoPaint);
-    canvas.restore();
-
-    // 顔ハメオーバーレイ描画（license_painterと同じロジック）
-    if (outfitImage != null && outfitId != null) {
-      final costume = Costume.findById(outfitId!);
-      final oImgW = outfitImage!.width.toDouble();
-      final oImgH = outfitImage!.height.toDouble();
-      final cropRatio = switch (costume.id) {
-        'sailor' => 0.90,
-        'gakuran' => 0.90,
-        _ => 0.50,
-      };
-      final oSrcRect = Rect.fromLTWH(0, 0, oImgW, oImgH * cropRatio);
-      final oSrcAspect = oSrcRect.width / oSrcRect.height;
-      final drawWidth = size.width * costume.defaultScale;
-      final drawHeight = drawWidth / oSrcAspect;
-      final verticalRatio = switch (costume.id) {
-        'tuxedo' => 0.56,
-        'pirate' => 0.56,
-        'sailor' => 0.43,
-        'gakuran' => 0.32,
-        'kimono' => 0.57,
-        'police' => 0.66,
-        'fire' => 0.6,
-        'astro' => 0.58,
-        'angel' => 0.75,
-        'santa' => 0.55,
-        _ => 0.41,
-      };
-      final horizontalShift = switch (costume.id) {
-        'pirate' => 0.0,
-        'sailor' => size.width * 0.002,
-        'gakuran' => size.width * 0.005,
-        'kimono' => size.width * 0.02,
-        'police' => size.width * 0.01,
-        _ => 0.0,
-      };
-      final drawLeft = (size.width - drawWidth) / 2 + horizontalShift;
-      final drawTop = size.height - drawHeight * verticalRatio;
-      final oFitRect = Rect.fromLTWH(drawLeft, drawTop, drawWidth, drawHeight);
-      canvas.save();
-      canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
-      canvas.drawImageRect(outfitImage!, oSrcRect, oFitRect, Paint());
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _PhotoOnlyPainter oldDelegate) {
-    return photoImage != oldDelegate.photoImage ||
-        photoScale != oldDelegate.photoScale ||
-        photoOffsetX != oldDelegate.photoOffsetX ||
-        photoOffsetY != oldDelegate.photoOffsetY ||
-        outfitImage != oldDelegate.outfitImage ||
-        outfitId != oldDelegate.outfitId ||
-        photoColorFilter != oldDelegate.photoColorFilter;
-  }
-}
-
-// =============================================================================
-// ブラシ操作のオーバーレイ描画
-// =============================================================================
-
-class _BrushOverlayPainter extends CustomPainter {
-  final ui.Image photoImage;
-  final double photoAspect;
-  final double photoScale;
-  final double photoOffsetX;
-  final double photoOffsetY;
-  final List<_BrushOperation> operations;
-  final List<Offset>? currentPoints;
-  final List<Offset>? currentLassoPoints;
-  final double currentBrushSize;
-  final BrushTool currentTool;
-
-  _BrushOverlayPainter({
-    required this.photoImage,
-    required this.photoAspect,
-    required this.photoScale,
-    required this.photoOffsetX,
-    required this.photoOffsetY,
-    required this.operations,
-    this.currentPoints,
-    this.currentLassoPoints,
-    required this.currentBrushSize,
-    required this.currentTool,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final imgW = photoImage.width.toDouble();
-    final imgH = photoImage.height.toDouble();
-    final imgAspect = imgW / imgH;
-
-    // ベースクロップ領域
-    Rect baseRect;
-    if (imgAspect > photoAspect) {
-      final cropW = imgH * photoAspect;
-      baseRect = Rect.fromLTWH((imgW - cropW) / 2, 0, cropW, imgH);
-    } else {
-      final cropH = imgW / photoAspect;
-      baseRect = Rect.fromLTWH(0, (imgH - cropH) / 2, imgW, cropH);
-    }
-
-    // photoScale/Offset を適用（canvas.translate方式に合わせた座標変換）
-    // baseRectは元画像の表示領域（アスペクト比クロップ後）
-    final Rect srcRect = baseRect;
-
-    // 画像座標 → プレビュー座標（canvas.translate方式対応）
-    Offset toPreview(Offset imgCoord) {
-      // まず基本変換（srcRect→プレビュー座標）
-      final relX = (imgCoord.dx - srcRect.left) / srcRect.width;
-      final relY = (imgCoord.dy - srcRect.top) / srcRect.height;
-      double px = relX * size.width;
-      double py = relY * size.height;
-      // スケール適用（中心基準）
-      if (photoScale != 1.0) {
-        px = size.width / 2 + (px - size.width / 2) * photoScale;
-        py = size.height / 2 + (py - size.height / 2) * photoScale;
-      }
-      // オフセット適用
-      px += photoOffsetX * size.width;
-      py += photoOffsetY * size.height;
-      return Offset(px, py);
-    }
-
-    double sizeToPreview(double imgSize) {
-      return imgSize * (size.width / srcRect.width) * photoScale;
-    }
-
-    canvas.save();
-    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
-
-    // 確定済み操作を半透明で描画
-    for (final op in operations) {
-      switch (op) {
-        case _EraserStroke(:final points, :final brushSize):
-          _drawStroke(canvas, points, sizeToPreview(brushSize),
-              const Color(0x44FF0000), toPreview);
-        case _RestoreStroke(:final points, :final brushSize):
-          _drawStroke(canvas, points, sizeToPreview(brushSize),
-              const Color(0x4400FF00), toPreview);
-        case _LassoOperation(:final points):
-          if (points.length >= 3) {
-            _drawLassoMask(canvas, points, size, imgW, imgH, toPreview);
-          }
-      }
-    }
-
-    // 描画中のストローク
-    if (currentPoints != null && currentPoints!.isNotEmpty) {
-      final color = currentTool == BrushTool.eraser
-          ? const Color(0x66FF0000)
-          : const Color(0x6600FF00);
-      _drawStroke(canvas, currentPoints!, sizeToPreview(currentBrushSize),
-          color, toPreview);
-    }
-
-    // 描画中の投げ縄（点線）
-    if (currentLassoPoints != null && currentLassoPoints!.length >= 2) {
-      _drawDashedLasso(canvas, currentLassoPoints!, toPreview);
-    }
-
-    canvas.restore();
-  }
-
-  void _drawStroke(Canvas canvas, List<Offset> points, double brushSize,
-      Color color, Offset Function(Offset) toPreview) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = brushSize
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
+    // 接続点線（指→ブラシ位置）
+    final dashPaint = Paint()
+      ..color = const Color(0x80FFFFFF)
+      ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
+    _drawDashedLine(canvas, fingerPosition, brushPos, dashPaint, 4, 3);
 
-    final previewPoints = points.map(toPreview).toList();
-
-    if (previewPoints.length == 1) {
-      canvas.drawCircle(
-          previewPoints[0], brushSize / 2, paint..style = PaintingStyle.fill);
-    } else {
-      final path = Path()
-        ..moveTo(previewPoints[0].dx, previewPoints[0].dy);
-      for (int i = 1; i < previewPoints.length; i++) {
-        path.lineTo(previewPoints[i].dx, previewPoints[i].dy);
-      }
-      canvas.drawPath(path, paint);
-    }
-  }
-
-  /// 確定済み投げ縄: 囲み外側を赤半透明でマスク表示
-  void _drawLassoMask(Canvas canvas, List<Offset> points, Size size,
-      double imgW, double imgH, Offset Function(Offset) toPreview) {
-    final previewPoints = points.map(toPreview).toList();
-    final lassoPath = Path()
-      ..moveTo(previewPoints[0].dx, previewPoints[0].dy);
-    for (int i = 1; i < previewPoints.length; i++) {
-      lassoPath.lineTo(previewPoints[i].dx, previewPoints[i].dy);
-    }
-    lassoPath.close();
-
-    // 全画面から投げ縄パスをくり抜き → 外側を赤半透明
-    final outerRect = Path()
-      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    final combined = Path.combine(PathOperation.difference, outerRect, lassoPath);
-    canvas.drawPath(
-      combined,
+    // ゴーストサークル（実際のブラシ位置）
+    canvas.drawCircle(
+      brushPos,
+      brushSize / 2,
       Paint()
-        ..color = const Color(0x44FF0000)
+        ..color = const Color(0x4DFFFFFF)
         ..style = PaintingStyle.fill,
     );
+    canvas.drawCircle(
+      brushPos,
+      brushSize / 2,
+      Paint()
+        ..color = const Color(0x80FFFFFF)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
+    );
+
+    // 十字線カーソル（指の位置）
+    const crossSize = 12.0;
+    final crossPaint = Paint()
+      ..color = const Color(0xB3FFFFFF)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(
+      Offset(fingerPosition.dx - crossSize, fingerPosition.dy),
+      Offset(fingerPosition.dx + crossSize, fingerPosition.dy),
+      crossPaint,
+    );
+    canvas.drawLine(
+      Offset(fingerPosition.dx, fingerPosition.dy - crossSize),
+      Offset(fingerPosition.dx, fingerPosition.dy + crossSize),
+      crossPaint,
+    );
   }
 
-  /// 描画中の投げ縄を点線で表示
-  void _drawDashedLasso(Canvas canvas, List<Offset> points,
-      Offset Function(Offset) toPreview) {
-    final previewPoints = points.map(toPreview).toList();
-    final paint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
-    final shadowPaint = Paint()
-      ..color = Colors.black54
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
-
-    const dashLen = 8.0;
-    const gapLen = 5.0;
-
-    for (int i = 0; i < previewPoints.length - 1; i++) {
-      final p0 = previewPoints[i];
-      final p1 = previewPoints[i + 1];
-      final dx = p1.dx - p0.dx;
-      final dy = p1.dy - p0.dy;
-      final dist = math.sqrt(dx * dx + dy * dy);
-      if (dist == 0) continue;
-      final ux = dx / dist;
-      final uy = dy / dist;
-
-      double travelled = 0;
-      bool drawing = true;
-      while (travelled < dist) {
-        final segLen =
-            math.min(drawing ? dashLen : gapLen, dist - travelled);
-        if (drawing) {
-          final start = Offset(p0.dx + ux * travelled, p0.dy + uy * travelled);
-          final end = Offset(
-            p0.dx + ux * (travelled + segLen),
-            p0.dy + uy * (travelled + segLen),
-          );
-          canvas.drawLine(start, end, shadowPaint);
-          canvas.drawLine(start, end, paint);
-        }
-        travelled += segLen;
-        drawing = !drawing;
+  void _drawDashedLine(Canvas canvas, Offset p0, Offset p1,
+      Paint paint, double dashLen, double gapLen) {
+    final dx = p1.dx - p0.dx;
+    final dy = p1.dy - p0.dy;
+    final dist = (Offset(dx, dy)).distance;
+    if (dist == 0) return;
+    final ux = dx / dist;
+    final uy = dy / dist;
+    double travelled = 0;
+    bool drawing = true;
+    while (travelled < dist) {
+      final segLen = (drawing ? dashLen : gapLen).clamp(0, dist - travelled);
+      if (drawing) {
+        canvas.drawLine(
+          Offset(p0.dx + ux * travelled, p0.dy + uy * travelled),
+          Offset(p0.dx + ux * (travelled + segLen), p0.dy + uy * (travelled + segLen)),
+          paint,
+        );
       }
-    }
-
-    // 始点に小さな丸を描画（閉じるヒント）
-    if (previewPoints.length >= 3) {
-      canvas.drawCircle(
-        previewPoints[0],
-        5,
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.fill,
-      );
-      canvas.drawCircle(
-        previewPoints[0],
-        5,
-        Paint()
-          ..color = Colors.black54
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5,
-      );
+      travelled += segLen;
+      drawing = !drawing;
     }
   }
 
   @override
-  bool shouldRepaint(covariant _BrushOverlayPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _OffsetVisualPainter old) => true;
 }
 
-// ---------------------------------------------------------------------------
-// 証明写真ガイド（人型シルエット）
-// ---------------------------------------------------------------------------
+// =============================================================================
+// 放射状オフセットメニュー
+// =============================================================================
 
-class _GuideOverlayPainter extends CustomPainter {
+class _RadialOffsetMenu extends StatefulWidget {
+  final BrushOffsetDirection currentDirection;
+  final ValueChanged<BrushOffsetDirection> onSelect;
+  final VoidCallback onDismiss;
+
+  const _RadialOffsetMenu({
+    required this.currentDirection,
+    required this.onSelect,
+    required this.onDismiss,
+  });
+
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0x6000BCD4)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
+  State<_RadialOffsetMenu> createState() => _RadialOffsetMenuState();
+}
 
-    final cx = size.width / 2;
+class _RadialOffsetMenuState extends State<_RadialOffsetMenu>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnim;
 
-    // 頭（楕円）— 衣装の首位置に合わせて配置
-    final headCx = cx;
-    final headCy = size.height * 0.397;
-    final headRx = size.width * 0.329;
-    final headRy = size.height * 0.254;
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(headCx, headCy),
-        width: headRx * 2,
-        height: headRy * 2,
-      ),
-      paint,
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
     );
-
-    // 耳（楕円・点線）— 顔の横、滑らかに接続
-    final earPaint = Paint()
-      ..color = const Color(0x6000BCD4)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    final earRx = headRx * 0.35;
-    final earRy = headRy * 0.55;
-    final earOffsetX = headRx * 0.9;
-    final earOffsetY = headRy * -0.3;
-
-    // 点線で楕円を描画（顔の内側部分をクリップで除外）
-    void drawDashedOvalClipped(Offset center, double rx, double ry) {
-      final path = Path()
-        ..addOval(Rect.fromCenter(center: center, width: rx * 2, height: ry * 2));
-      final headPath = Path()
-        ..addOval(Rect.fromCenter(
-          center: Offset(headCx, headCy),
-          width: headRx * 2,
-          height: headRy * 2,
-        ));
-      // 耳の楕円から顔の楕円を引く → 顔の外側だけ残る
-      final clippedPath = Path.combine(PathOperation.difference, path, headPath);
-      final metrics = clippedPath.computeMetrics();
-      const dashLen = 6.0;
-      const gapLen = 4.0;
-      for (final metric in metrics) {
-        final total = metric.length;
-        double dist = 0;
-        while (dist < total) {
-          final end = (dist + dashLen).clamp(0, total);
-          final segment = metric.extractPath(dist, end.toDouble());
-          canvas.drawPath(segment, earPaint);
-          dist += dashLen + gapLen;
-        }
-      }
-    }
-
-    final leftEarCenter = Offset(headCx - earOffsetX, headCy + earOffsetY);
-    final rightEarCenter = Offset(headCx + earOffsetX, headCy + earOffsetY);
-    drawDashedOvalClipped(leftEarCenter, earRx, earRy);
-    drawDashedOvalClipped(rightEarCenter, earRx, earRy);
-
-    // 首（頭楕円の内側から開始して視覚的に接続）
-    final neckTop = headCy + headRy * 0.92;
-    final neckBottom = headCy + headRy + size.height * 0.06;
-    final neckHalfW = size.width * 0.17;
-    canvas.drawLine(
-      Offset(cx - neckHalfW, neckTop),
-      Offset(cx - neckHalfW, neckBottom),
-      paint,
+    _scaleAnim = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutBack,
     );
-    canvas.drawLine(
-      Offset(cx + neckHalfW, neckTop),
-      Offset(cx + neckHalfW, neckBottom),
-      paint,
-    );
-
-    // 肩（台形）— 下端を画面最下部まで
-    final shoulderTop = neckBottom;
-    final shoulderBottom = size.height * 0.96;
-    final shoulderOuterW = size.width * 0.48;
-    final path = Path()
-      ..moveTo(cx - neckHalfW, shoulderTop)
-      ..lineTo(cx - shoulderOuterW, shoulderBottom)
-      ..lineTo(cx + shoulderOuterW, shoulderBottom)
-      ..lineTo(cx + neckHalfW, shoulderTop);
-    canvas.drawPath(path, paint);
+    _controller.forward();
   }
 
   @override
-  bool shouldRepaint(covariant _GuideOverlayPainter oldDelegate) => false;
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onDismiss,
+      child: Container(
+        color: Colors.black38,
+        child: Center(
+          child: ScaleTransition(
+            scale: _scaleAnim,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x60000000),
+                    blurRadius: 20,
+                    spreadRadius: 4,
+                  ),
+                ],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // 中央: center
+                  _dirButton(BrushOffsetDirection.center, 0, 0),
+                  // 4方向
+                  _dirButton(BrushOffsetDirection.topRight, 45, -45),
+                  _dirButton(BrushOffsetDirection.bottomRight, 45, 45),
+                  _dirButton(BrushOffsetDirection.bottomLeft, -45, 45),
+                  _dirButton(BrushOffsetDirection.topLeft, -45, -45),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dirButton(BrushOffsetDirection dir, double dx, double dy) {
+    final isActive = widget.currentDirection == dir;
+    return Positioned(
+      left: 90 + dx - 22,
+      top: 90 + dy - 22,
+      child: GestureDetector(
+        onTap: () => widget.onSelect(dir),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: isActive
+                ? Colors.white.withValues(alpha: 0.2)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: isActive
+                ? Border.all(color: Colors.white54, width: 1.5)
+                : null,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(dir.icon, size: 20, color: Colors.white),
+              Text(
+                dir.label,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 8,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

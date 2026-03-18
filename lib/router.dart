@@ -14,7 +14,7 @@ import 'screens/order_screen.dart';
 import 'screens/order_card_screen.dart';
 import 'screens/order_tag_screen.dart';
 import 'screens/tag_design_screen.dart';
-import 'screens/photo_editor_screen.dart';
+import 'screens/editor/photo_editor_screen.dart';
 import 'screens/camera_guide_screen.dart';
 import 'screens/nfc_write_screen.dart';
 import 'models/license_card.dart';
