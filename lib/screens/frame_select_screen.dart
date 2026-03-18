@@ -1052,7 +1052,6 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
           value: _photoBrightness,
           onChanged: (v) {
             setState(() => _photoBrightness = v);
-            _animateFlip();
           },
         ),
         buildSlider(
@@ -1061,7 +1060,6 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
           value: _photoContrast,
           onChanged: (v) {
             setState(() => _photoContrast = v);
-            _animateFlip();
           },
         ),
         buildSlider(
@@ -1070,7 +1068,6 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
           value: _photoSaturation,
           onChanged: (v) {
             setState(() => _photoSaturation = v);
-            _animateFlip();
           },
         ),
         if (hasAdjustment)
@@ -1083,7 +1080,6 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
                   _photoContrast = 0.0;
                   _photoSaturation = 0.0;
                 });
-                _animateFlip();
               },
               icon: const Icon(Icons.refresh, size: 16),
               label: const Text('リセット', style: TextStyle(fontSize: 12)),

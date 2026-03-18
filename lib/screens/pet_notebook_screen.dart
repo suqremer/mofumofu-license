@@ -99,7 +99,7 @@ class PetNotebookScreen extends ConsumerWidget {
         return _PetCard(
           pet: pet,
           licenseCard: matchingLicense,
-          onTap: () => _showPetDetail(context, ref, pet),
+          onTap: () => _showPetDetail(context, ref, pet, matchingLicense),
         );
       },
     );
@@ -116,12 +116,12 @@ class PetNotebookScreen extends ConsumerWidget {
   }
 
   /// ペット詳細を表示
-  void _showPetDetail(BuildContext context, WidgetRef ref, Pet pet) {
+  void _showPetDetail(BuildContext context, WidgetRef ref, Pet pet, LicenseCard? licenseCard) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _PetDetailSheet(pet: pet, ref: ref),
+      builder: (_) => _PetDetailSheet(pet: pet, ref: ref, licenseCard: licenseCard),
     );
   }
 }
@@ -574,10 +574,11 @@ class _PetFormSheetState extends State<_PetFormSheet> {
 // =====================================================================
 
 class _PetDetailSheet extends StatelessWidget {
-  const _PetDetailSheet({required this.pet, required this.ref});
+  const _PetDetailSheet({required this.pet, required this.ref, this.licenseCard});
 
   final Pet pet;
   final WidgetRef ref;
+  final LicenseCard? licenseCard;
 
   @override
   Widget build(BuildContext context) {
@@ -604,16 +605,30 @@ class _PetDetailSheet extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                    backgroundImage: pet.photoPath != null && File(pet.photoPath!).existsSync()
-                        ? FileImage(File(pet.photoPath!))
-                        : null,
-                    child: pet.photoPath != null && File(pet.photoPath!).existsSync()
-                        ? null
-                        : Icon(_speciesIcon(pet.species), color: AppColors.primary),
-                  ),
+                  if (licenseCard != null)
+                    ClipOval(
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        color: AppColors.primary.withValues(alpha: 0.15),
+                        child: PhotoCropPreview(
+                          card: licenseCard!,
+                          circular: true,
+                          size: 44,
+                        ),
+                      ),
+                    )
+                  else
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                      backgroundImage: pet.photoPath != null && File(pet.photoPath!).existsSync()
+                          ? FileImage(File(pet.photoPath!))
+                          : null,
+                      child: pet.photoPath != null && File(pet.photoPath!).existsSync()
+                          ? null
+                          : Icon(_speciesIcon(pet.species), color: AppColors.primary),
+                    ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(pet.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),

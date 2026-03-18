@@ -123,6 +123,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   double _viewOffsetY = 0.0;
   double _gestureStartViewScale = 1.0;
   Offset _gestureStartViewOffset = Offset.zero;
+  Offset _gestureFocalPoint = Offset.zero; // ピンチ開始時の焦点
 
   // === コスチューム（デコ: accessory + stamp） ===
   final List<CostumeOverlay> _costumeOverlays = [];
@@ -652,15 +653,10 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
     if (_photoImage == null) return local;
 
     // ビューズームの逆変換（タッチ座標→元のプレビュー座標に戻す）
-    double vx = local.dx;
-    double vy = local.dy;
-    if (_viewScale != 1.0) {
-      vx = (vx - _viewOffsetX - previewSize.width / 2) / _viewScale + previewSize.width / 2;
-      vy = (vy - _viewOffsetY - previewSize.height / 2) / _viewScale + previewSize.height / 2;
-    } else {
-      vx -= _viewOffsetX;
-      vy -= _viewOffsetY;
-    }
+    // Transform: scale(_viewScale) then translate(_viewOffsetX, _viewOffsetY)
+    // 逆変換: translate(-offset) then scale(1/scale)
+    double vx = (local.dx - _viewOffsetX) / _viewScale;
+    double vy = (local.dy - _viewOffsetY) / _viewScale;
 
     final base = _baseCropRect();
     // オフセットの逆変換
@@ -799,8 +795,10 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                         _gestureStartScale = _photoScale;
                         _gestureStartViewScale = _viewScale;
                         _gestureStartViewOffset = Offset(_viewOffsetX, _viewOffsetY);
-                        _gestureIsPhotoMove = false;
-                        // ブラシモードで1本指の場合はブラシ開始
+                        _gestureFocalPoint = details.localFocalPoint;
+                        // 2本指以上で開始 → 最初からズーム/移動モード
+                        _gestureIsPhotoMove = details.pointerCount >= 2;
+                        // ブラシモードで1本指の場合のみブラシ開始
                         if (_mode == EditorMode.brush && _brushTool != null && details.pointerCount == 1) {
                           final imgCoord = _toImageCoords(
                               details.localFocalPoint, previewSize);
@@ -828,13 +826,20 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
 
                         if (_gestureIsPhotoMove && _mode == EditorMode.brush) {
                           // ブラシモード: ビューズーム（写真の位置・サイズは変えない）
+                          // フォーカルポイント基準でズーム
                           setState(() {
-                            _viewScale = (_gestureStartViewScale * details.scale)
+                            final newScale = (_gestureStartViewScale * details.scale)
                                 .clamp(1.0, 5.0);
+                            // 焦点を中心にスケール変化分のオフセットを計算
+                            final focalX = _gestureFocalPoint.dx;
+                            final focalY = _gestureFocalPoint.dy;
                             _viewOffsetX = _gestureStartViewOffset.dx +
-                                details.focalPointDelta.dx;
+                                (focalX - _gestureStartViewOffset.dx) * (1 - newScale / _gestureStartViewScale) +
+                                (details.localFocalPoint.dx - _gestureFocalPoint.dx);
                             _viewOffsetY = _gestureStartViewOffset.dy +
-                                details.focalPointDelta.dy;
+                                (focalY - _gestureStartViewOffset.dy) * (1 - newScale / _gestureStartViewScale) +
+                                (details.localFocalPoint.dy - _gestureFocalPoint.dy);
+                            _viewScale = newScale;
                           });
                         } else if (_gestureIsPhotoMove || _mode == EditorMode.outfit) {
                           // outfitモード: 写真の移動・ズーム
@@ -923,8 +928,8 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                   child: Transform(
                     transform: Matrix4.diagonal3Values(_viewScale, _viewScale, 1)
                       ..setTranslationRaw(
-                        _viewOffsetX + previewSize.width / 2 * (1 - _viewScale),
-                        _viewOffsetY + previewSize.height / 2 * (1 - _viewScale),
+                        _viewOffsetX,
+                        _viewOffsetY,
                         0,
                       ),
                     child: Stack(
@@ -964,12 +969,6 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                                 _brushSizeToImage(previewSize),
                             currentTool: _brushTool ?? BrushTool.eraser,
                           ),
-                          size: Size.infinite,
-                        ),
-                      // ガイドオーバーレイ（人型シルエット）— ツール使用中は非表示
-                      if (_showGuide && _brushTool == null)
-                        CustomPaint(
-                          painter: _GuideOverlayPainter(),
                           size: Size.infinite,
                         ),
                       // コスチュームオーバーレイ表示（全タブで表示・操作可能）
@@ -1012,87 +1011,96 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                             ),
                           ),
                         ),
-                      // ガイド説明バナー + ？ボタン — ツール使用中は非表示
-                      if (_showGuide && _brushTool == null)
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          right: 100, // チップ型トグルボタンと被らないよう余白
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: const Text(
-                                    'ガイドにお顔を合わせてください',
-                                    style: TextStyle(color: Colors.white, fontSize: 11),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                GestureDetector(
-                                  onTap: () => _showTutorialDialog(),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white24,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.help_outline,
-                                      size: 16,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      // ガイド表示トグルボタン（チップ型）
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: GestureDetector(
-                          onTap: () => setState(() => _showGuide = !_showGuide),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: _showGuide
-                                  ? const Color(0xDD00BCD4)
-                                  : Colors.black54,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white54, width: 1),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _showGuide ? Icons.person : Icons.person_outline,
-                                  size: 16,
-                                  color: Colors.white,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'ガイド',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
+                ),
+              ),
+              // ガイドオーバーレイ（人型シルエット）— Transform外でズームに影響されない
+              if (_showGuide && _brushTool == null)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: _GuideOverlayPainter(),
+                    ),
+                  ),
+                ),
+              // ガイド説明バナー + ？ボタン
+              if (_showGuide && _brushTool == null)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  right: 100,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: const Text(
+                            'ガイドにお顔を合わせてください',
+                            style: TextStyle(color: Colors.white, fontSize: 11),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () => _showTutorialDialog(),
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.white24,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.help_outline,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              // ガイド表示トグルボタン（チップ型）
+              Positioned(
+                top: 8,
+                right: 8,
+                child: GestureDetector(
+                  onTap: () => setState(() => _showGuide = !_showGuide),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _showGuide
+                          ? const Color(0xDD00BCD4)
+                          : Colors.black54,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white54, width: 1),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _showGuide ? Icons.person : Icons.person_outline,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'ガイド',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               // ビューズーム中のリセットボタン（ブラシモード時）

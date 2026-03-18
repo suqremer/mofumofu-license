@@ -100,6 +100,14 @@ class _InfoInputScreenState extends State<InfoInputScreen>
       return;
     }
 
+    // 複製モード: extraがMapだが editId を含まない
+    if (extra is Map<String, dynamic>) {
+      _editLoaded = true;
+      _photoPath = extra['photoPath'] as String?;
+      _loadEditData(extra);
+      return;
+    }
+
     // 新規作成モード: extraは写真パス（String）
     final extraPath = extra as String?;
     if (extraPath != null && extraPath != _photoPath) {
