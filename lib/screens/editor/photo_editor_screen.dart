@@ -106,7 +106,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   String get _guideMessage => switch (_mode) {
     EditorMode.outfit => 'ガイドにお顔を合わせてコスチュームを選んでください',
     EditorMode.brush => '背景を削除してください',
-    EditorMode.deco => 'デコレーションしましょう！',
+    EditorMode.deco => '',
     EditorMode.color => '',
   };
 
@@ -247,27 +247,22 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
       EditorMode.outfit => (
         'コスチューム選択',
         [
-          _buildTutorialStepWithGif(1, 'assets/tutorial/guide_outfit.gif', 'ガイドにお顔を合わせて\nコスチュームを選びましょう'),
+          _buildTutorialStepWithGif(1, 'assets/tutorial/guide_costume.gif', 'ガイドにお顔を合わせて\nコスチュームを選択してください'),
         ],
       ),
       EditorMode.brush => (
         '背景削除の使い方',
         [
-          _buildTutorialStepWithGif(1, 'assets/tutorial/guide_brush_offset.gif', 'オフセット: 指の位置からずらして\nブラシを操作できます'),
+          _buildTutorialStepWithGif(1, 'assets/tutorial/guide_brush_auto.gif', 'ボタンひとつで背景を自動削除できます\n※ 背景によってはうまく抜けないことがあります'),
           const SizedBox(height: 12),
-          _buildTutorialStepWithGif(2, 'assets/tutorial/guide_brush_eraser.gif', '消しゴム: なぞった部分の\n背景を削除します'),
+          _buildTutorialStepWithGif(2, 'assets/tutorial/guide_brush_offset.gif', 'タップまたは長押しでオフセットの位置を\n変更できます。指からずらしてブラシ操作が可能です'),
           const SizedBox(height: 12),
-          _buildTutorialStepWithGif(3, 'assets/tutorial/guide_brush_restore.gif', '復元: 消しすぎた部分を\n元に戻します'),
+          _buildTutorialStepWithGif(3, 'assets/tutorial/guide_brush_lasso.gif', '線で囲むことで、その周りの\n背景をまとめて削除できます'),
           const SizedBox(height: 12),
-          _buildTutorialStepWithGif(4, 'assets/tutorial/guide_brush_lasso.gif', '投げ縄: 囲んだ範囲の\n背景をまとめて削除します'),
+          _buildTutorialStepWithGif(4, 'assets/tutorial/guide_brush_finish.gif', '消しゴムと復元で微調整して\n仕上げましょう'),
         ],
       ),
-      EditorMode.deco => (
-        'デコレーション',
-        [
-          _buildTutorialStepWithGif(1, 'assets/tutorial/guide_deco.gif', 'スタンプやデコを配置して\n免許証をデコりましょう！'),
-        ],
-      ),
+      EditorMode.deco => ('', <Widget>[]),
       EditorMode.color => ('', <Widget>[]),
     };
 
@@ -816,14 +811,22 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 behavior: HitTestBehavior.opaque,
                 // 写真移動/ブラシ統合ジェスチャー
                 // outfit: 常に写真移動 / brush: 1本指→ブラシ, 2本指→ビューズーム
-                onScaleStart: (_mode == EditorMode.outfit || _mode == EditorMode.brush || _mode == EditorMode.color)
-                    ? (details) {
+                onScaleStart: (details) {
                         _gestureStartScale = _photoScale;
                         _gestureStartViewScale = _viewScale;
                         _gestureStartViewOffset = Offset(_viewOffsetX, _viewOffsetY);
                         _gestureFocalPoint = details.localFocalPoint;
                         // 2本指以上で開始 → 最初からズーム/移動モード
                         _gestureIsPhotoMove = details.pointerCount >= 2;
+                        // デコモード: 選択中オーバーレイの初期値を記録
+                        if (_mode == EditorMode.deco && _selectedOverlayUid != null) {
+                          final ov = _costumeOverlays.cast<CostumeOverlay?>().firstWhere(
+                            (o) => o!.uid == _selectedOverlayUid, orElse: () => null);
+                          if (ov != null) {
+                            _dragStartScale = ov.scale;
+                            _dragStartRotation = ov.rotation;
+                          }
+                        }
                         // ブラシモードで1本指の場合のみブラシ開始
                         if (_mode == EditorMode.brush && _brushTool != null && details.pointerCount == 1) {
                           final imgCoord = _toImageCoords(
@@ -837,10 +840,8 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                             }
                           });
                         }
-                      }
-                    : null,
-                onScaleUpdate: (_mode == EditorMode.outfit || _mode == EditorMode.brush || _mode == EditorMode.color)
-                    ? (details) {
+                      },
+                onScaleUpdate: (details) {
                         // 2本指以上 → モードに応じて切り替え
                         if (details.pointerCount >= 2) {
                           if (!_gestureIsPhotoMove) {
@@ -849,6 +850,29 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                             _currentStrokePoints = null;
                             _currentLassoPoints = null;
                           }
+                        }
+
+                        // デコモード: 2本指ピンチで選択中オーバーレイを拡大縮小・回転
+                        if (_mode == EditorMode.deco && details.pointerCount >= 2 && _selectedOverlayUid != null) {
+                          final ov = _costumeOverlays.cast<CostumeOverlay?>().firstWhere(
+                            (o) => o!.uid == _selectedOverlayUid, orElse: () => null);
+                          if (ov != null) {
+                            setState(() {
+                              ov.scale = (_dragStartScale * details.scale).clamp(0.3, 4.0);
+                              var newRotation = _dragStartRotation + details.rotation;
+                              // 水平・垂直スナップ
+                              const snapAngles = [0.0, 1.5708, 3.1416, 4.7124, 6.2832, -1.5708, -3.1416];
+                              const snapThreshold = 0.087;
+                              for (final snap in snapAngles) {
+                                if ((newRotation - snap).abs() < snapThreshold) {
+                                  newRotation = snap;
+                                  break;
+                                }
+                              }
+                              ov.rotation = newRotation;
+                            });
+                          }
+                          return;
                         }
 
                         if (_gestureIsPhotoMove && _mode == EditorMode.brush) {
@@ -895,10 +919,13 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                             }
                           });
                         }
-                      }
-                    : null,
-                onScaleEnd: (_mode == EditorMode.outfit || _mode == EditorMode.brush || _mode == EditorMode.color)
-                    ? (details) {
+                      },
+                onScaleEnd: (details) {
+                        // デコモード: ピンチ終了
+                        if (_mode == EditorMode.deco) {
+                          _gestureIsPhotoMove = false;
+                          return;
+                        }
                         // 写真移動だった場合はブラシ処理不要
                         if (_gestureIsPhotoMove || _mode == EditorMode.outfit || _mode == EditorMode.color) {
                           _gestureIsPhotoMove = false;
@@ -945,8 +972,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                         if (hasNewOp && _photoImage != null) {
                           _applyBrushMask();
                         }
-                      }
-                    : null,
+                      },
                 onTap: _mode == EditorMode.deco
                     ? () {
                         setState(() => _selectedOverlayUid = null);
@@ -1074,8 +1100,8 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                   ),
                 ),
               ),
-              // ガイド説明バナー + ？ボタン（色調整モード以外）
-              if (_showGuide && _mode != EditorMode.color)
+              // ガイド説明バナー + ？ボタン（コスチューム・背景削除のみ）
+              if (_showGuide && (_mode == EditorMode.outfit || _mode == EditorMode.brush))
                 Positioned(
                   top: 8,
                   left: 8,
@@ -1115,8 +1141,8 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                     ),
                   ),
                 ),
-              // ガイド表示トグルボタン（チップ型）— 色調整以外で表示
-              if (_mode != EditorMode.color)
+              // ガイド表示トグルボタン（チップ型）— コスチューム・背景削除のみ
+              if (_mode == EditorMode.outfit || _mode == EditorMode.brush)
                 Positioned(
                   top: 8,
                   right: 8,
