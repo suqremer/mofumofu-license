@@ -229,10 +229,11 @@ class _PetCard extends StatelessWidget {
 // =====================================================================
 
 class _PetFormSheet extends StatefulWidget {
-  const _PetFormSheet({required this.ref, this.pet});
+  const _PetFormSheet({required this.ref, this.pet, this.licenseCard});
 
   final WidgetRef ref;
   final Pet? pet;
+  final LicenseCard? licenseCard;
 
   @override
   State<_PetFormSheet> createState() => _PetFormSheetState();
@@ -315,16 +316,7 @@ class _PetFormSheetState extends State<_PetFormSheet> {
                 onTap: _showPhotoOptions,
                 child: Stack(
                   children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                      backgroundImage: _photoPath != null && File(_photoPath!).existsSync()
-                          ? FileImage(File(_photoPath!))
-                          : null,
-                      child: _photoPath != null && File(_photoPath!).existsSync()
-                          ? null
-                          : const Icon(Icons.pets, size: 36, color: AppColors.primary),
-                    ),
+                    _buildFormAvatar(),
                     Positioned(
                       bottom: 0,
                       right: 0,
@@ -520,6 +512,41 @@ class _PetFormSheetState extends State<_PetFormSheet> {
           ],
         ),
       ),
+    );
+  }
+
+  /// フォーム用アバター（免許証があればクロップ、なければ生写真 or アイコン）
+  Widget _buildFormAvatar() {
+    // _photoPathが変更されていなくて免許証がある場合はPhotoCropPreview
+    final lc = widget.licenseCard;
+    if (_photoPath == widget.pet?.photoPath && lc != null &&
+        lc.savedImagePath != null && File(lc.savedImagePath!).existsSync()) {
+      return ClipOval(
+        child: Container(
+          width: 80,
+          height: 80,
+          color: AppColors.primary.withValues(alpha: 0.15),
+          child: PhotoCropPreview(
+            card: lc,
+            circular: true,
+            size: 80,
+          ),
+        ),
+      );
+    }
+    // 写真がある場合
+    if (_photoPath != null && File(_photoPath!).existsSync()) {
+      return CircleAvatar(
+        radius: 40,
+        backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+        backgroundImage: FileImage(File(_photoPath!)),
+      );
+    }
+    // フォールバック
+    return CircleAvatar(
+      radius: 40,
+      backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+      child: const Icon(Icons.pets, size: 36, color: AppColors.primary),
     );
   }
 
@@ -802,7 +829,7 @@ class _PetDetailSheet extends StatelessWidget {
                         context: context,
                         isScrollControlled: true,
                         backgroundColor: Colors.transparent,
-                        builder: (_) => _PetFormSheet(ref: ref, pet: pet),
+                        builder: (_) => _PetFormSheet(ref: ref, pet: pet, licenseCard: licenseCard),
                       );
                     },
                   ),

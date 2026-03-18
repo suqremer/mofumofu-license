@@ -818,15 +818,6 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                         _gestureFocalPoint = details.localFocalPoint;
                         // 2本指以上で開始 → 最初からズーム/移動モード
                         _gestureIsPhotoMove = details.pointerCount >= 2;
-                        // デコモード: 選択中オーバーレイの初期値を記録
-                        if (_mode == EditorMode.deco && _selectedOverlayUid != null) {
-                          final ov = _costumeOverlays.cast<CostumeOverlay?>().firstWhere(
-                            (o) => o!.uid == _selectedOverlayUid, orElse: () => null);
-                          if (ov != null) {
-                            _dragStartScale = ov.scale;
-                            _dragStartRotation = ov.rotation;
-                          }
-                        }
                         // ブラシモードで1本指の場合のみブラシ開始
                         if (_mode == EditorMode.brush && _brushTool != null && details.pointerCount == 1) {
                           final imgCoord = _toImageCoords(
@@ -852,28 +843,8 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                           }
                         }
 
-                        // デコモード: 2本指ピンチで選択中オーバーレイを拡大縮小・回転
-                        if (_mode == EditorMode.deco && details.pointerCount >= 2 && _selectedOverlayUid != null) {
-                          final ov = _costumeOverlays.cast<CostumeOverlay?>().firstWhere(
-                            (o) => o!.uid == _selectedOverlayUid, orElse: () => null);
-                          if (ov != null) {
-                            setState(() {
-                              ov.scale = (_dragStartScale * details.scale).clamp(0.3, 4.0);
-                              var newRotation = _dragStartRotation + details.rotation;
-                              // 水平・垂直スナップ
-                              const snapAngles = [0.0, 1.5708, 3.1416, 4.7124, 6.2832, -1.5708, -3.1416];
-                              const snapThreshold = 0.087;
-                              for (final snap in snapAngles) {
-                                if ((newRotation - snap).abs() < snapThreshold) {
-                                  newRotation = snap;
-                                  break;
-                                }
-                              }
-                              ov.rotation = newRotation;
-                            });
-                          }
-                          return;
-                        }
+                        // デコ・色調整モードでは写真を動かさない
+                        if (_mode == EditorMode.deco || _mode == EditorMode.color) return;
 
                         if (_gestureIsPhotoMove && _mode == EditorMode.brush) {
                           // ブラシモード: ビューズーム（写真の位置・サイズは変えない）
@@ -892,8 +863,8 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                                 (details.localFocalPoint.dy - _gestureFocalPoint.dy);
                             _viewScale = newScale;
                           });
-                        } else if (_gestureIsPhotoMove || _mode == EditorMode.outfit || _mode == EditorMode.color) {
-                          // outfitモード: 写真の移動・ズーム
+                        } else if (_mode == EditorMode.outfit) {
+                          // outfitモードのみ: 写真の移動・ズーム
                           setState(() {
                             _photoScale = (_gestureStartScale * details.scale)
                                 .clamp(0.3, 3.0);
@@ -926,7 +897,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                           _gestureIsPhotoMove = false;
                           return;
                         }
-                        // 写真移動だった場合はブラシ処理不要
+                        // 写真移動 or 色調整は何もしない
                         if (_gestureIsPhotoMove || _mode == EditorMode.outfit || _mode == EditorMode.color) {
                           _gestureIsPhotoMove = false;
                           return;
@@ -1302,6 +1273,76 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
       ),
     );
 
+    // 選択中のデコ: Positioned.fillでプレビュー全体をカバー
+    // → 2本目の指がデコ外でもピンチを検知可能（インスタストーリー風）
+    if (isSelected && interactive) {
+      return Positioned.fill(
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () {
+            setState(() => _selectedOverlayUid = null);
+          },
+          onScaleStart: (details) {
+            setState(() {
+              _selectedOverlayUid = overlay.uid;
+              _dragStartScale = overlay.scale;
+              _dragStartRotation = overlay.rotation;
+              _isDraggingOverlay = true;
+              _isOverTrash = false;
+            });
+          },
+          onScaleUpdate: (details) {
+            setState(() {
+              overlay.cx +=
+                  details.focalPointDelta.dx / previewSize.width;
+              overlay.cy +=
+                  details.focalPointDelta.dy / previewSize.height;
+              if (details.pointerCount >= 2) {
+                overlay.scale =
+                    (_dragStartScale * details.scale).clamp(0.3, 4.0);
+                var newRotation =
+                    _dragStartRotation + details.rotation;
+                const snapAngles = [0.0, 1.5708, 3.1416, 4.7124, 6.2832, -1.5708, -3.1416];
+                const snapThreshold = 0.087;
+                for (final snap in snapAngles) {
+                  if ((newRotation - snap).abs() < snapThreshold) {
+                    newRotation = snap;
+                    break;
+                  }
+                }
+                overlay.rotation = newRotation;
+              }
+              _isOverTrash = overlay.cy > 0.85;
+            });
+          },
+          onScaleEnd: (_) {
+            if (_isOverTrash) {
+              setState(() {
+                _costumeOverlays
+                    .removeWhere((o) => o.uid == overlay.uid);
+                _selectedOverlayUid = null;
+              });
+            }
+            setState(() {
+              _isDraggingOverlay = false;
+              _isOverTrash = false;
+            });
+          },
+          child: Stack(
+            children: [
+              Positioned(
+                left: left,
+                top: top,
+                width: baseW,
+                height: baseH,
+                child: content,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Positioned(
       left: left,
       top: top,
@@ -1311,8 +1352,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
           ? GestureDetector(
               onTap: () {
                 setState(() {
-                  _selectedOverlayUid =
-                      _selectedOverlayUid == overlay.uid ? null : overlay.uid;
+                  _selectedOverlayUid = overlay.uid;
                 });
               },
               onScaleStart: (details) {
@@ -1326,35 +1366,15 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
               },
               onScaleUpdate: (details) {
                 setState(() {
-                  // 1本指: 移動のみ
                   overlay.cx +=
                       details.focalPointDelta.dx / previewSize.width;
                   overlay.cy +=
                       details.focalPointDelta.dy / previewSize.height;
-                  // 2本指: ピンチ拡大縮小 + 回転
-                  if (details.pointerCount >= 2) {
-                    overlay.scale =
-                        (_dragStartScale * details.scale).clamp(0.3, 4.0);
-                    var newRotation =
-                        _dragStartRotation + details.rotation;
-                    // 水平・垂直スナップ（0°/90°/180°/270°付近±5°で吸着）
-                    const snapAngles = [0.0, 1.5708, 3.1416, 4.7124, 6.2832, -1.5708, -3.1416];
-                    const snapThreshold = 0.087; // 約5°
-                    for (final snap in snapAngles) {
-                      if ((newRotation - snap).abs() < snapThreshold) {
-                        newRotation = snap;
-                        break;
-                      }
-                    }
-                    overlay.rotation = newRotation;
-                  }
-                  // ゴミ箱判定: アイテム中心がプレビュー下端付近か
                   _isOverTrash = overlay.cy > 0.85;
                 });
               },
               onScaleEnd: (_) {
                 if (_isOverTrash) {
-                  // ゴミ箱エリアでドロップ → 削除
                   setState(() {
                     _costumeOverlays
                         .removeWhere((o) => o.uid == overlay.uid);

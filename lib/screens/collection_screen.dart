@@ -15,6 +15,7 @@ import '../services/database_service.dart';
 import '../services/license_composer.dart';
 import '../theme/colors.dart';
 import '../widgets/banner_ad_widget.dart';
+import '../widgets/photo_crop_preview.dart';
 
 /// 並び替えオプション
 enum SortOption {
@@ -38,8 +39,6 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
   SortOption _sortOption = SortOption.byPet;
   bool _selectMode = false;
   final Set<int> _selectedIds = {};
-  final Set<String> _expandedPets = {};
-
   void _exitSelectMode() {
     setState(() {
       _selectMode = false;
@@ -378,148 +377,120 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
     }
     final petNames = groups.keys.toList();
 
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        // 2列ペットカードグリッド
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 1.4,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: petNames.length,
-          itemBuilder: (context, index) {
-            final name = petNames[index];
-            final cards = groups[name]!;
-            final isExpanded = _expandedPets.contains(name);
-            // 最新の免許証の画像をアイコンに使う
-            final latestCard = cards.first;
-            final hasImage = latestCard.savedImagePath != null &&
-                File(latestCard.savedImagePath!).existsSync();
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.9,
+        crossAxisSpacing: 14,
+        mainAxisSpacing: 14,
+      ),
+      itemCount: petNames.length,
+      itemBuilder: (context, index) {
+        final name = petNames[index];
+        final cards = groups[name]!;
+        final latestCard = cards.first;
 
-            return GestureDetector(
-              onTap: () => setState(() {
-                if (isExpanded) {
-                  _expandedPets.remove(name);
-                } else {
-                  _expandedPets.add(name);
-                }
-              }),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                decoration: BoxDecoration(
-                  color: isExpanded ? AppColors.primary.withValues(alpha: 0.08) : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isExpanded ? AppColors.primary.withValues(alpha: 0.3) : Colors.grey.shade200,
-                    width: isExpanded ? 1.5 : 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+        return GestureDetector(
+          onTap: () {
+            Navigator.of(context).push(
+              PageRouteBuilder<void>(
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                    _PetLicenseListScreen(
+                  petName: name,
+                  licenses: cards,
+                  allLicenses: licenses,
+                  onDetail: _showDetailSheet,
+                  selectMode: _selectMode,
+                  selectedIds: _selectedIds,
+                  onToggleSelect: _toggleSelect,
+                  onEnterSelectMode: () {
+                    setState(() => _selectMode = true);
+                  },
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                      backgroundImage: hasImage
-                          ? FileImage(File(latestCard.savedImagePath!))
-                          : null,
-                      child: hasImage
-                          ? null
-                          : const Icon(Icons.pets, size: 24, color: AppColors.primary),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.05),
+                        end: Offset.zero,
+                      ).animate(CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      )),
+                      child: child,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${cards.length}枚',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textLight,
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
+                transitionDuration: const Duration(milliseconds: 300),
               ),
             );
           },
-        ),
-        // 展開中のペットの免許証一覧
-        for (final name in petNames)
-          if (_expandedPets.contains(name)) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-              child: Row(
-                children: [
-                  Icon(Icons.pets, size: 16, color: AppColors.primary.withValues(alpha: 0.7)),
-                  const SizedBox(width: 6),
-                  Text(
-                    '$nameの免許証',
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // PhotoCropPreview（ペット手帳と同じ）
+                ClipOval(
+                  child: Container(
+                    width: 64,
+                    height: 64,
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    child: latestCard.savedImagePath != null &&
+                            File(latestCard.savedImagePath!).existsSync()
+                        ? PhotoCropPreview(
+                            card: latestCard,
+                            circular: true,
+                            size: 64,
+                          )
+                        : const Icon(Icons.pets, size: 28, color: AppColors.primary),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    name,
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                       color: AppColors.textDark,
                     ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${cards.length}枚',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textLight,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Icon(
+                  Icons.chevron_right,
+                  size: 16,
+                  color: Colors.grey.shade400,
+                ),
+              ],
             ),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 200,
-                childAspectRatio: 0.75,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: groups[name]!.length,
-              itemBuilder: (context, index) {
-                final card = groups[name]![index];
-                final globalIndex = licenses.indexOf(card);
-                final isSelected = card.id != null && _selectedIds.contains(card.id);
-                return _LicenseCardTile(
-                  card: card,
-                  index: globalIndex,
-                  selectMode: _selectMode,
-                  isSelected: isSelected,
-                  onTap: () {
-                    if (_selectMode) {
-                      if (card.id != null) _toggleSelect(card.id!);
-                    } else {
-                      _showDetailSheet(card);
-                    }
-                  },
-                  onLongPress: () {
-                    if (!_selectMode) {
-                      setState(() => _selectMode = true);
-                      if (card.id != null) _toggleSelect(card.id!);
-                    }
-                  },
-                );
-              },
-            ),
-          ],
-      ],
+          ),
+        );
+      },
     );
   }
 
@@ -1264,6 +1235,117 @@ class _LicenseCardTileState extends State<_LicenseCardTile>
             size: 40,
             color: AppColors.primary.withValues(alpha: 0.3)),
       ),
+    );
+  }
+}
+
+// ==========================================================================
+// ペット別 免許証一覧画面（シームレス遷移）
+// ==========================================================================
+
+class _PetLicenseListScreen extends StatelessWidget {
+  final String petName;
+  final List<LicenseCard> licenses;
+  final List<LicenseCard> allLicenses;
+  final void Function(LicenseCard) onDetail;
+  final bool selectMode;
+  final Set<int> selectedIds;
+  final void Function(int) onToggleSelect;
+  final VoidCallback onEnterSelectMode;
+
+  const _PetLicenseListScreen({
+    required this.petName,
+    required this.licenses,
+    required this.allLicenses,
+    required this.onDetail,
+    required this.selectMode,
+    required this.selectedIds,
+    required this.onToggleSelect,
+    required this.onEnterSelectMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, size: 20),
+          color: AppColors.textDark,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.pets, size: 18, color: AppColors.primary.withValues(alpha: 0.7)),
+            const SizedBox(width: 6),
+            Text(
+              '$petNameの免許証',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: true,
+      ),
+      body: licenses.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.photo_album_outlined,
+                      size: 48,
+                      color: AppColors.primary.withValues(alpha: 0.3)),
+                  const SizedBox(height: 12),
+                  Text(
+                    '免許証がありません',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textLight,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 200,
+                childAspectRatio: 0.75,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemCount: licenses.length,
+              itemBuilder: (context, index) {
+                final card = licenses[index];
+                final globalIndex = allLicenses.indexOf(card);
+                final isSelected = card.id != null && selectedIds.contains(card.id);
+                return _LicenseCardTile(
+                  card: card,
+                  index: globalIndex,
+                  selectMode: selectMode,
+                  isSelected: isSelected,
+                  onTap: () {
+                    if (selectMode) {
+                      if (card.id != null) onToggleSelect(card.id!);
+                    } else {
+                      onDetail(card);
+                    }
+                  },
+                  onLongPress: () {
+                    if (!selectMode) {
+                      onEnterSelectMode();
+                      if (card.id != null) onToggleSelect(card.id!);
+                    }
+                  },
+                );
+              },
+            ),
     );
   }
 }
