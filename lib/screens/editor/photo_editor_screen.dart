@@ -1293,11 +1293,8 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
           },
           onScaleUpdate: (details) {
             setState(() {
-              overlay.cx +=
-                  details.focalPointDelta.dx / previewSize.width;
-              overlay.cy +=
-                  details.focalPointDelta.dy / previewSize.height;
               if (details.pointerCount >= 2) {
+                // 2本指: 拡大縮小 + 回転のみ（移動しない → ハンチング防止）
                 overlay.scale =
                     (_dragStartScale * details.scale).clamp(0.3, 4.0);
                 var newRotation =
@@ -1311,6 +1308,12 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                   }
                 }
                 overlay.rotation = newRotation;
+              } else {
+                // 1本指: 移動のみ
+                overlay.cx +=
+                    details.focalPointDelta.dx / previewSize.width;
+                overlay.cy +=
+                    details.focalPointDelta.dy / previewSize.height;
               }
               _isOverTrash = overlay.cy > 0.85;
             });

@@ -194,7 +194,18 @@ class _PetCard extends StatelessWidget {
   }
 
   Widget _buildAvatar() {
-    // 免許証があればコスチューム付き証明写真をクロップ表示
+    final hasPhoto = pet.photoPath != null && File(pet.photoPath!).existsSync();
+
+    // ペット写真がある場合はそれを表示（crop画像含む）
+    if (hasPhoto) {
+      return CircleAvatar(
+        radius: 28,
+        backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+        backgroundImage: FileImage(File(pet.photoPath!)),
+      );
+    }
+
+    // 写真なし + 免許証あり → 証明写真をクロップ表示
     if (licenseCard != null) {
       return ClipOval(
         child: Container(
@@ -210,16 +221,11 @@ class _PetCard extends StatelessWidget {
       );
     }
 
-    // 免許証なし: 生写真 or 種別アイコン
+    // フォールバック: 種別アイコン
     return CircleAvatar(
       radius: 28,
       backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-      backgroundImage: pet.photoPath != null && File(pet.photoPath!).existsSync()
-          ? FileImage(File(pet.photoPath!))
-          : null,
-      child: pet.photoPath != null && File(pet.photoPath!).existsSync()
-          ? null
-          : Icon(_speciesIcon(pet.species), size: 28, color: AppColors.primary),
+      child: Icon(_speciesIcon(pet.species), size: 28, color: AppColors.primary),
     );
   }
 }
@@ -677,14 +683,17 @@ class _PetFormSheetState extends State<_PetFormSheet> {
 
     final template = LicenseTemplate.fromId(card.templateType);
     final r = template.photoRectRatio;
-    final outputSize = template.outputSize;
+
+    // 実際の画像サイズを使う（テンプレートのoutputSizeではなくsavedImageの実ピクセル）
+    final imgW = image.width.toDouble();
+    final imgH = image.height.toDouble();
 
     // クロップ領域（実ピクセル）
     final srcRect = Rect.fromLTWH(
-      r.left * outputSize.width,
-      r.top * outputSize.height,
-      r.width * outputSize.width,
-      r.height * outputSize.height,
+      r.left * imgW,
+      r.top * imgH,
+      r.width * imgW,
+      r.height * imgH,
     );
 
     // 正方形で出力（短辺に合わせる）
