@@ -64,6 +64,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   String? _selectedOverlayUid;
   double _dragStartScale = 1.0;
   double _dragStartRotation = 0.0;
+  Offset? _decoLastFocal; // デコドラッグ用: 前回のフォーカルポイント
   bool _isDraggingOverlay = false; // ゴミ箱表示用
   bool _isOverTrash = false; // ゴミ箱ホバー中
   CostumeType _selectedCostumeTab = CostumeType.accessory;
@@ -1287,11 +1288,15 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
               _selectedOverlayUid = overlay.uid;
               _dragStartScale = overlay.scale;
               _dragStartRotation = overlay.rotation;
+              _decoLastFocal = details.localFocalPoint;
               _isDraggingOverlay = true;
               _isOverTrash = false;
             });
           },
           onScaleUpdate: (details) {
+            final lastFocal = _decoLastFocal ?? details.localFocalPoint;
+            final delta = details.localFocalPoint - lastFocal;
+            _decoLastFocal = details.localFocalPoint;
             setState(() {
               if (details.pointerCount >= 2) {
                 // 2本指: 拡大縮小 + 回転のみ（移動しない → ハンチング防止）
@@ -1309,11 +1314,9 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 }
                 overlay.rotation = newRotation;
               } else {
-                // 1本指: 移動のみ
-                overlay.cx +=
-                    details.focalPointDelta.dx / previewSize.width;
-                overlay.cy +=
-                    details.focalPointDelta.dy / previewSize.height;
+                // 1本指: 移動のみ（自前差分で計算、focalPointDeltaのジャンプ回避）
+                overlay.cx += delta.dx / previewSize.width;
+                overlay.cy += delta.dy / previewSize.height;
               }
               _isOverTrash = overlay.cy > 0.85;
             });
@@ -1329,6 +1332,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
             setState(() {
               _isDraggingOverlay = false;
               _isOverTrash = false;
+              _decoLastFocal = null;
             });
           },
           child: Stack(

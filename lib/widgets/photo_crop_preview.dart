@@ -49,21 +49,23 @@ class PhotoCropPreview extends StatelessWidget {
   }
 
   /// savedImagePath から photoRectRatio 領域を切り出して表示
+  ///
+  /// photoRectRatio は 0〜1 の比率値なので、実画像サイズに依存せず
+  /// Image ウィジェットの描画サイズから逆算してクロップ位置を計算する。
   Widget _buildCroppedImage(File file) {
     final template = LicenseTemplate.fromId(card.templateType);
     final r = template.photoRectRatio;
-    final outputSize = template.outputSize;
+    final aspect = template.outputSize.width / template.outputSize.height;
 
-    // クロップ領域の実ピクセルサイズ
-    final cropPixelW = r.width * outputSize.width;
-    final cropPixelH = r.height * outputSize.height;
+    // cover: クロップ領域（比率 r.width × r.height）が size×size を完全に埋めるスケール
+    // 画像全体幅 = size / r.width（比率から逆算）
+    final scaleW = size / r.width;
+    final scaleH = size / r.height;
+    final imgScale = math.max(scaleW, scaleH);
 
-    // cover: クロップ領域が size x size を完全に埋めるスケール
-    final scale = math.max(size / cropPixelW, size / cropPixelH);
-
-    // スケール後の画像全体サイズ
-    final imgW = outputSize.width * scale;
-    final imgH = outputSize.height * scale;
+    // 画像全体の描画サイズ（アスペクト比を維持）
+    final imgW = imgScale;  // 幅方向: 比率1.0 = imgScale
+    final imgH = imgScale / aspect;  // 高さ方向: アスペクト比で補正
 
     // クロップ領域の中心が widget 中心に来るようオフセット
     final tx = size / 2 - (r.center.dx * imgW);

@@ -194,19 +194,10 @@ class _PetCard extends StatelessWidget {
   }
 
   Widget _buildAvatar() {
-    final hasPhoto = pet.photoPath != null && File(pet.photoPath!).existsSync();
-
-    // ペット写真がある場合はそれを表示（crop画像含む）
-    if (hasPhoto) {
-      return CircleAvatar(
-        radius: 28,
-        backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-        backgroundImage: FileImage(File(pet.photoPath!)),
-      );
-    }
-
-    // 写真なし + 免許証あり → 証明写真をクロップ表示
-    if (licenseCard != null) {
+    // 免許証があればコスチューム付き証明写真をクロップ表示（最優先）
+    if (licenseCard != null &&
+        licenseCard!.savedImagePath != null &&
+        File(licenseCard!.savedImagePath!).existsSync()) {
       return ClipOval(
         child: Container(
           width: 56,
@@ -221,7 +212,15 @@ class _PetCard extends StatelessWidget {
       );
     }
 
-    // フォールバック: 種別アイコン
+    // 免許証なし: 生写真 or 種別アイコン
+    if (pet.photoPath != null && File(pet.photoPath!).existsSync()) {
+      return CircleAvatar(
+        radius: 28,
+        backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+        backgroundImage: FileImage(File(pet.photoPath!)),
+      );
+    }
+
     return CircleAvatar(
       radius: 28,
       backgroundColor: AppColors.primary.withValues(alpha: 0.15),
