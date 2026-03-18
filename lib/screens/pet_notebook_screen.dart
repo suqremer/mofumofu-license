@@ -311,7 +311,7 @@ class _PetFormSheetState extends State<_PetFormSheet> {
             // 写真（任意）
             Center(
               child: GestureDetector(
-                onTap: _pickPhoto,
+                onTap: _showPhotoOptions,
                 child: Stack(
                   children: [
                     CircleAvatar(
@@ -522,8 +522,47 @@ class _PetFormSheetState extends State<_PetFormSheet> {
     );
   }
 
-  /// 写真を選択
-  Future<void> _pickPhoto() async {
+  /// 写真選択オプションを表示
+  void _showPhotoOptions() {
+    // 同一ペットの免許証を検索（編集時のみ）
+    final petName = widget.pet?.name;
+    final licenses = petName != null
+        ? (widget.ref.read(licensesProvider).valueOrNull ?? [])
+            .where((l) => l.petName == petName && l.savedImagePath != null && File(l.savedImagePath!).existsSync())
+            .toList()
+        : <LicenseCard>[];
+
+    showCupertinoModalPopup(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _pickFromGallery();
+            },
+            child: const Text('カメラロールから選ぶ'),
+          ),
+          if (licenses.isNotEmpty)
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _pickFromLicense(licenses);
+              },
+              child: Text('免許証から選ぶ（${licenses.length}枚）'),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(ctx).pop(),
+          isDestructiveAction: true,
+          child: const Text('キャンセル'),
+        ),
+      ),
+    );
+  }
+
+  /// カメラロールから写真を選択
+  Future<void> _pickFromGallery() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 512);
     if (picked == null) return;
@@ -535,6 +574,71 @@ class _PetFormSheetState extends State<_PetFormSheet> {
     final savedFile = await File(picked.path).copy('${dir.path}/$fileName');
 
     setState(() => _photoPath = savedFile.path);
+  }
+
+  /// 免許証の完成画像から選択
+  void _pickFromLicense(List<LicenseCard> licenses) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 12),
+            const Text('免許証から選ぶ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 140,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: licenses.length,
+                itemBuilder: (_, i) {
+                  final card = licenses[i];
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      setState(() => _photoPath = card.savedImagePath);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Column(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.file(
+                              File(card.savedImagePath!),
+                              width: 90,
+                              height: 110,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            DateFormat('M/d').format(card.createdAt),
+                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   /// ペットを保存

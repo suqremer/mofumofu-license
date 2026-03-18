@@ -290,9 +290,10 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                 child: Column(
                   children: [
                     Container(
+                      width: 100,
+                      height: 100,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.accent, width: 2),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.15),

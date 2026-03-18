@@ -1035,7 +1035,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 child: IgnorePointer(
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 300),
-                    opacity: (_showGuide && _brushTool == null) ? 1.0 : 0.0,
+                    opacity: _showGuide ? 1.0 : 0.0,
                     child: CustomPaint(
                       painter: GuideOverlayPainter(),
                     ),
@@ -1043,7 +1043,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 ),
               ),
               // ガイド説明バナー + ？ボタン
-              if (_showGuide && _brushTool == null)
+              if (_showGuide)
                 Positioned(
                   top: 8,
                   left: 8,

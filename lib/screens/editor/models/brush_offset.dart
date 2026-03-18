@@ -18,10 +18,10 @@ extension BrushOffsetDirectionX on BrushOffsetDirection {
   /// オフセットベクトル（単位ベクトル）
   Offset get unitOffset => switch (this) {
     BrushOffsetDirection.center => Offset.zero,
-    BrushOffsetDirection.topRight => const Offset(0.707, -0.707),
-    BrushOffsetDirection.bottomRight => const Offset(0.707, 0.707),
-    BrushOffsetDirection.bottomLeft => const Offset(-0.707, 0.707),
-    BrushOffsetDirection.topLeft => const Offset(-0.707, -0.707),
+    BrushOffsetDirection.topRight => const Offset(-0.707, 0.707),
+    BrushOffsetDirection.bottomRight => const Offset(-0.707, -0.707),
+    BrushOffsetDirection.bottomLeft => const Offset(0.707, -0.707),
+    BrushOffsetDirection.topLeft => const Offset(0.707, 0.707),
   };
 
   /// アイコン表示用

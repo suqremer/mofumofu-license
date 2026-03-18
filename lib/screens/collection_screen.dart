@@ -35,7 +35,7 @@ class CollectionScreen extends ConsumerStatefulWidget {
 }
 
 class _CollectionScreenState extends ConsumerState<CollectionScreen> {
-  SortOption _sortOption = SortOption.newest;
+  SortOption _sortOption = SortOption.byPet;
   bool _selectMode = false;
   final Set<int> _selectedIds = {};
 
@@ -324,42 +324,121 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
         ),
         // グリッド本体
         Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.all(12),
-            gridDelegate:
-                const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 200,
-              childAspectRatio: 0.75,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: licenses.length,
-            itemBuilder: (context, index) {
-              final card = licenses[index];
-              final isSelected = card.id != null && _selectedIds.contains(card.id);
-              return _LicenseCardTile(
-                card: card,
-                index: index,
-                selectMode: _selectMode,
-                isSelected: isSelected,
-                onTap: () {
-                  if (_selectMode) {
-                    if (card.id != null) _toggleSelect(card.id!);
-                  } else {
-                    _showDetailSheet(card);
-                  }
-                },
-                onLongPress: () {
-                  if (!_selectMode) {
-                    setState(() => _selectMode = true);
-                    if (card.id != null) _toggleSelect(card.id!);
-                  }
-                },
-              );
-            },
-          ),
+          child: _sortOption == SortOption.byPet
+              ? _buildGroupedByPet(licenses)
+              : _buildFlatGrid(licenses),
         ),
         const BannerAdWidget(),
+      ],
+    );
+  }
+
+  Widget _buildFlatGrid(List<LicenseCard> licenses) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 200,
+        childAspectRatio: 0.75,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: licenses.length,
+      itemBuilder: (context, index) {
+        final card = licenses[index];
+        final isSelected = card.id != null && _selectedIds.contains(card.id);
+        return _LicenseCardTile(
+          card: card,
+          index: index,
+          selectMode: _selectMode,
+          isSelected: isSelected,
+          onTap: () {
+            if (_selectMode) {
+              if (card.id != null) _toggleSelect(card.id!);
+            } else {
+              _showDetailSheet(card);
+            }
+          },
+          onLongPress: () {
+            if (!_selectMode) {
+              setState(() => _selectMode = true);
+              if (card.id != null) _toggleSelect(card.id!);
+            }
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildGroupedByPet(List<LicenseCard> licenses) {
+    // ペット名でグループ化（出現順を維持）
+    final groups = <String, List<LicenseCard>>{};
+    for (final card in licenses) {
+      groups.putIfAbsent(card.petName, () => []).add(card);
+    }
+
+    return CustomScrollView(
+      slivers: [
+        for (final entry in groups.entries) ...[
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.pets, size: 16, color: AppColors.primary.withValues(alpha: 0.7)),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${entry.key}（${entry.value.length}枚）',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 200,
+                childAspectRatio: 0.75,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final card = entry.value[index];
+                  // グローバルindexを計算（アニメーション用）
+                  final globalIndex = licenses.indexOf(card);
+                  final isSelected = card.id != null && _selectedIds.contains(card.id);
+                  return _LicenseCardTile(
+                    card: card,
+                    index: globalIndex,
+                    selectMode: _selectMode,
+                    isSelected: isSelected,
+                    onTap: () {
+                      if (_selectMode) {
+                        if (card.id != null) _toggleSelect(card.id!);
+                      } else {
+                        _showDetailSheet(card);
+                      }
+                    },
+                    onLongPress: () {
+                      if (!_selectMode) {
+                        setState(() => _selectMode = true);
+                        if (card.id != null) _toggleSelect(card.id!);
+                      }
+                    },
+                  );
+                },
+                childCount: entry.value.length,
+              ),
+            ),
+          ),
+        ],
+        const SliverToBoxAdapter(child: SizedBox(height: 12)),
       ],
     );
   }
