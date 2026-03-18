@@ -102,6 +102,14 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   // === ガイド表示 ===
   bool _showGuide = true;
 
+  /// モード別ガイドメッセージ
+  String get _guideMessage => switch (_mode) {
+    EditorMode.outfit => 'ガイドにお顔を合わせてコスチュームを選んでください',
+    EditorMode.brush => '背景を削除してください',
+    EditorMode.deco => 'デコレーションしましょう！',
+    EditorMode.color => '',
+  };
+
   /// マスク適用前の画像パス履歴（undo用）
   final List<String> _undoImageStack = [];
   /// 画像レベルのredo用スタック
@@ -235,6 +243,34 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   // ---------------------------------------------------------------------------
 
   void _showTutorialDialog() {
+    final (title, steps) = switch (_mode) {
+      EditorMode.outfit => (
+        'コスチューム選択',
+        [
+          _buildTutorialStepWithGif(1, 'assets/tutorial/guide_outfit.gif', 'ガイドにお顔を合わせて\nコスチュームを選びましょう'),
+        ],
+      ),
+      EditorMode.brush => (
+        '背景削除の使い方',
+        [
+          _buildTutorialStepWithGif(1, 'assets/tutorial/guide_brush_offset.gif', 'オフセット: 指の位置からずらして\nブラシを操作できます'),
+          const SizedBox(height: 12),
+          _buildTutorialStepWithGif(2, 'assets/tutorial/guide_brush_eraser.gif', '消しゴム: なぞった部分の\n背景を削除します'),
+          const SizedBox(height: 12),
+          _buildTutorialStepWithGif(3, 'assets/tutorial/guide_brush_restore.gif', '復元: 消しすぎた部分を\n元に戻します'),
+          const SizedBox(height: 12),
+          _buildTutorialStepWithGif(4, 'assets/tutorial/guide_brush_lasso.gif', '投げ縄: 囲んだ範囲の\n背景をまとめて削除します'),
+        ],
+      ),
+      EditorMode.deco => (
+        'デコレーション',
+        [
+          _buildTutorialStepWithGif(1, 'assets/tutorial/guide_deco.gif', 'スタンプやデコを配置して\n免許証をデコりましょう！'),
+        ],
+      ),
+      EditorMode.color => ('', <Widget>[]),
+    };
+
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -245,16 +281,12 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  '写真の切り抜き手順',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
-                _buildTutorialStepWithGif(1, 'assets/tutorial/tutorial_step1.gif', 'ピンチで拡大・縮小して\nペットのお顔をガイドの丸に合わせます'),
-                const SizedBox(height: 16),
-                _buildTutorialStepWithGif(2, 'assets/tutorial/tutorial_step2.gif', 'お好みのコスチュームを選んで\nペットに着せましょう'),
-                const SizedBox(height: 16),
-                _buildTutorialStepWithGif(3, 'assets/tutorial/tutorial_step3.gif', '「背景削除」で不要な部分を消します\n自動削除・ブラシ・投げ縄ツールが使えます'),
+                ...steps,
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
@@ -1030,20 +1062,20 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                     ),
                   ),
                 ),
-              // ガイドオーバーレイ（ペット型シルエット）— Transform外
+              // ガイドオーバーレイ（ペット型シルエット）— コスチュームモードのみ
               Positioned.fill(
                 child: IgnorePointer(
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 300),
-                    opacity: _showGuide ? 1.0 : 0.0,
+                    opacity: (_showGuide && _mode == EditorMode.outfit) ? 1.0 : 0.0,
                     child: CustomPaint(
                       painter: GuideOverlayPainter(),
                     ),
                   ),
                 ),
               ),
-              // ガイド説明バナー + ？ボタン
-              if (_showGuide)
+              // ガイド説明バナー + ？ボタン（色調整モード以外）
+              if (_showGuide && _mode != EditorMode.color)
                 Positioned(
                   top: 8,
                   left: 8,
@@ -1056,10 +1088,10 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'ガイドにお顔を合わせてください',
-                            style: TextStyle(color: Colors.white, fontSize: 11),
+                            _guideMessage,
+                            style: const TextStyle(color: Colors.white, fontSize: 11),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -1083,43 +1115,44 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                     ),
                   ),
                 ),
-              // ガイド表示トグルボタン（チップ型）— 手動ON/OFF
-              Positioned(
-                top: 8,
-                right: 8,
-                child: GestureDetector(
-                  onTap: () => setState(() => _showGuide = !_showGuide),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _showGuide
-                          ? const Color(0xDD00BCD4)
-                          : const Color(0x80000000),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _showGuide ? Icons.person : Icons.person_outline,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(width: 4),
-                        const Text(
-                          'ガイド',
-                          style: TextStyle(
+              // ガイド表示トグルボタン（チップ型）— 色調整以外で表示
+              if (_mode != EditorMode.color)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _showGuide = !_showGuide),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _showGuide
+                            ? const Color(0xDD00BCD4)
+                            : const Color(0x80000000),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _showGuide ? Icons.person : Icons.person_outline,
+                            size: 16,
                             color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          const Text(
+                            'ガイド',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
               // ビューズーム中のリセットボタン（ブラシモード時）
               if (_mode == EditorMode.brush && _viewScale > 1.01)
                 Positioned(

@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../models/license_card.dart';
+import '../models/license_template.dart';
 import '../models/pet.dart';
 import '../providers/database_provider.dart';
 import '../services/database_service.dart';
@@ -607,20 +608,16 @@ class _PetFormSheetState extends State<_PetFormSheet> {
                   return GestureDetector(
                     onTap: () {
                       Navigator.of(ctx).pop();
-                      setState(() => _photoPath = card.savedImagePath);
+                      _cropAndSetPhoto(card);
                     },
                     child: Padding(
                       padding: const EdgeInsets.only(right: 12),
                       child: Column(
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.file(
-                              File(card.savedImagePath!),
-                              width: 90,
-                              height: 110,
-                              fit: BoxFit.cover,
-                            ),
+                          PhotoCropPreview(
+                            card: card,
+                            circular: true,
+                            size: 90,
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -639,6 +636,62 @@ class _PetFormSheetState extends State<_PetFormSheet> {
         ),
       ),
     );
+  }
+
+  /// 免許証画像から証明写真部分をクロップしてファイル保存
+  Future<void> _cropAndSetPhoto(LicenseCard card) async {
+    final savedPath = card.savedImagePath;
+    if (savedPath == null || !File(savedPath).existsSync()) return;
+
+    final bytes = await File(savedPath).readAsBytes();
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+
+    final template = LicenseTemplate.fromId(card.templateType);
+    final r = template.photoRectRatio;
+    final outputSize = template.outputSize;
+
+    // クロップ領域（実ピクセル）
+    final srcRect = Rect.fromLTWH(
+      r.left * outputSize.width,
+      r.top * outputSize.height,
+      r.width * outputSize.width,
+      r.height * outputSize.height,
+    );
+
+    // 正方形で出力（短辺に合わせる）
+    final cropSize = srcRect.width < srcRect.height ? srcRect.width : srcRect.height;
+    final squareSrc = Rect.fromCenter(
+      center: srcRect.center,
+      width: cropSize,
+      height: cropSize,
+    );
+
+    const outputPx = 512.0;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawImageRect(
+      image,
+      squareSrc,
+      const Rect.fromLTWH(0, 0, outputPx, outputPx),
+      Paint(),
+    );
+    final picture = recorder.endRecording();
+    final croppedImage = await picture.toImage(outputPx.toInt(), outputPx.toInt());
+    final pngBytes = await croppedImage.toByteData(format: ui.ImageByteFormat.png);
+
+    if (pngBytes == null) return;
+
+    final dir = await getApplicationDocumentsDirectory();
+    final fileName = 'pet_license_${DateTime.now().millisecondsSinceEpoch}.png';
+    final file = File('${dir.path}/$fileName');
+    await file.writeAsBytes(pngBytes.buffer.asUint8List());
+
+    image.dispose();
+    croppedImage.dispose();
+
+    setState(() => _photoPath = file.path);
   }
 
   /// ペットを保存
