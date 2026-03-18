@@ -535,7 +535,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                       size: 16, color: Colors.orange.shade700),
                   const SizedBox(width: 4),
                   Text(
-                    '全ての画像をカメラロールに保存してから注文に進めます',
+                    '全画像を保存してから注文に進めます',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.orange.shade700,

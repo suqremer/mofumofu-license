@@ -6,8 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
-
 import '../models/license_card.dart';
 import '../models/license_template.dart';
 import '../theme/colors.dart';
@@ -72,13 +70,17 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
       final image = frame.image;
 
       // photoRectRatio（0〜1の比率）× 実画像サイズでクロップ
+      // フレーム枠線が映り込まないよう各辺を少し内側に縮小
       final template = LicenseTemplate.fromId(widget.card.templateType);
       final r = template.photoRectRatio;
       final imgW = image.width.toDouble();
       final imgH = image.height.toDouble();
+      const inset = 0.005; // 0.5%内側にずらす
       final cropRect = Rect.fromLTWH(
-        r.left * imgW, r.top * imgH,
-        r.width * imgW, r.height * imgH,
+        (r.left + inset) * imgW,
+        (r.top + inset) * imgH,
+        (r.width - inset * 2) * imgW,
+        (r.height - inset * 2) * imgH,
       );
 
       final recorder = ui.PictureRecorder();
@@ -130,15 +132,6 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.textDark,
         elevation: 0,
-        actions: [
-          if (_savedPath != null)
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('完了',
-                  style: TextStyle(
-                      color: AppColors.primary, fontWeight: FontWeight.bold)),
-            ),
-        ],
       ),
       body: Column(
         children: [
@@ -305,7 +298,7 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
                               scale: _scale,
                               child: Image.file(
                                 photoFile,
-                                fit: BoxFit.cover,
+                                fit: BoxFit.contain,
                                 width: _previewSize,
                                 height: _previewSize,
                               ),
@@ -335,53 +328,41 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          // 保存ボタン
-          Expanded(
-            child: SizedBox(
-              height: 48,
-              child: OutlinedButton.icon(
-                onPressed: _isSaving ? null : _saveImage,
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.photo_library, size: 18),
-                label: Text(_isSaving ? '保存中...' : 'カメラロールに保存'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
-              ),
-            ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: ElevatedButton.icon(
+          onPressed: _isSaving || _savedPath != null ? null : _saveImage,
+          icon: _isSaving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : _savedPath != null
+                  ? const Icon(Icons.check_circle, size: 20)
+                  : const Icon(Icons.save_alt, size: 20),
+          label: Text(
+            _isSaving
+                ? '保存中...'
+                : _savedPath != null
+                    ? '保存済み ✓ 注文画面に戻ります'
+                    : 'カメラロールに保存して次へ',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(width: 12),
-          // 共有ボタン
-          Expanded(
-            child: SizedBox(
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: _isSaving ? null : _shareImage,
-                icon: const Icon(Icons.share, size: 18),
-                label: const Text('共有する'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  elevation: 0,
-                ),
-              ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor:
+                _savedPath != null ? AppColors.success : AppColors.primary,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: AppColors.success,
+            disabledForegroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
             ),
+            elevation: 0,
           ),
-        ],
+        ),
       ),
     );
   }
@@ -471,27 +452,11 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+        // 1秒後に自動で注文画面に戻る
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) Navigator.pop(context, true);
+        });
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
-  }
-
-  Future<void> _shareImage() async {
-    setState(() => _isSaving = true);
-    try {
-      final bytes = await _captureCircularImage();
-      if (bytes == null) return;
-
-      final path = await _saveToFile(bytes);
-      if (path == null) return;
-
-      setState(() => _savedPath = path);
-
-      await Share.shareXFiles(
-        [XFile(path)],
-        text: '${widget.card.petName}のタグ用画像',
-      );
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

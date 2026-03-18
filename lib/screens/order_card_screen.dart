@@ -595,7 +595,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
     if (count == 0) {
       buttonLabel = '免許証を選択してください';
     } else if (!_allImagesSaved) {
-      buttonLabel = '全ての画像をカメラロールに保存してください';
+      buttonLabel = '画像を保存してください';
     } else {
       buttonLabel = '注文する（${_formatPrice(total)}・$count枚）';
     }
@@ -625,7 +625,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                       size: 16, color: Colors.orange.shade700),
                   const SizedBox(width: 4),
                   Text(
-                    '全ての画像をカメラロールに保存してから注文に進めます',
+                    '全画像を保存してから注文に進めます',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.orange.shade700,
