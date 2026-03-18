@@ -1306,14 +1306,23 @@ class LicensePainter extends CustomPainter {
       final costumeImg = costumeImages[overlay.costumeId];
 
       if (costumeImg != null) {
-        // 実画像を描画（アスペクト比を維持）
+        // 実画像を描画（エディタと同じ正方形ベース + contain）
         final imgW = costumeImg.width.toDouble();
         final imgH = costumeImg.height.toDouble();
         final aspect = imgW / imgH;
 
-        // サイズ: 写真エリア基準
+        // サイズ: 写真エリア基準（正方形ベース）
         final baseW = photoW * costume.defaultScale * overlay.scale;
-        final baseH = baseW / aspect;
+        final baseH = baseW;
+        // contain: 正方形内にアスペクト比を維持して収める
+        double drawW, drawH;
+        if (aspect >= 1) {
+          drawW = baseW;
+          drawH = baseW / aspect;
+        } else {
+          drawH = baseH;
+          drawW = baseH * aspect;
+        }
         // 位置: 写真ローカル座標→カード座標に変換
         final cx = (pr.left + overlay.cx * pr.width) * size.width;
         final cy = (pr.top + overlay.cy * pr.height) * size.height;
@@ -1322,7 +1331,7 @@ class LicensePainter extends CustomPainter {
         canvas.translate(cx, cy);
         canvas.rotate(overlay.rotation);
         final src = Rect.fromLTWH(0, 0, imgW, imgH);
-        final dst = Rect.fromLTWH(-baseW / 2, -baseH / 2, baseW, baseH);
+        final dst = Rect.fromLTWH(-drawW / 2, -drawH / 2, drawW, drawH);
         canvas.drawImageRect(costumeImg, src, dst, Paint());
         canvas.restore();
       } else {

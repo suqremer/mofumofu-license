@@ -392,21 +392,14 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
         final latestCard = cards.first;
 
         return GestureDetector(
-          onTap: () {
-            Navigator.of(context).push(
-              PageRouteBuilder<void>(
+          onTap: () async {
+            final deleted = await Navigator.of(context).push<bool>(
+              PageRouteBuilder<bool>(
                 pageBuilder: (context, animation, secondaryAnimation) =>
                     _PetLicenseListScreen(
                   petName: name,
                   licenses: cards,
-                  allLicenses: licenses,
                   onDetail: _showDetailSheet,
-                  selectMode: _selectMode,
-                  selectedIds: _selectedIds,
-                  onToggleSelect: _toggleSelect,
-                  onEnterSelectMode: () {
-                    setState(() => _selectMode = true);
-                  },
                 ),
                 transitionsBuilder: (context, animation, secondaryAnimation, child) {
                   return FadeTransition(
@@ -426,6 +419,10 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                 transitionDuration: const Duration(milliseconds: 300),
               ),
             );
+            if (deleted == true && mounted) {
+              ref.invalidate(licensesProvider);
+              ref.invalidate(licenseCountProvider);
+            }
           },
           child: Container(
             decoration: BoxDecoration(
@@ -1243,109 +1240,214 @@ class _LicenseCardTileState extends State<_LicenseCardTile>
 // ペット別 免許証一覧画面（シームレス遷移）
 // ==========================================================================
 
-class _PetLicenseListScreen extends StatelessWidget {
+class _PetLicenseListScreen extends ConsumerStatefulWidget {
   final String petName;
   final List<LicenseCard> licenses;
-  final List<LicenseCard> allLicenses;
   final void Function(LicenseCard) onDetail;
-  final bool selectMode;
-  final Set<int> selectedIds;
-  final void Function(int) onToggleSelect;
-  final VoidCallback onEnterSelectMode;
 
   const _PetLicenseListScreen({
     required this.petName,
     required this.licenses,
-    required this.allLicenses,
     required this.onDetail,
-    required this.selectMode,
-    required this.selectedIds,
-    required this.onToggleSelect,
-    required this.onEnterSelectMode,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, size: 20),
-          color: AppColors.textDark,
-          onPressed: () => Navigator.of(context).pop(),
+  ConsumerState<_PetLicenseListScreen> createState() =>
+      _PetLicenseListScreenState();
+}
+
+class _PetLicenseListScreenState extends ConsumerState<_PetLicenseListScreen> {
+  bool _selectMode = false;
+  final Set<int> _selectedIds = {};
+  bool _didDelete = false;
+
+  void _exitSelectMode() {
+    setState(() {
+      _selectMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  void _toggleSelect(int id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final count = _selectedIds.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.pets, size: 18, color: AppColors.primary.withValues(alpha: 0.7)),
-            const SizedBox(width: 6),
-            Text(
-              '$petNameの免許証',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
+        title: const Text('まとめて削除'),
+        content: Text('$count件の免許証を削除しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('削除する'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        for (final id in _selectedIds) {
+          await DatabaseService().deleteLicense(id);
+        }
+        _didDelete = true;
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('削除中にエラーが発生しました: $e'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.red,
             ),
+          );
+        }
+      }
+      // provider を即時更新して画面のリストも反映
+      ref.invalidate(licensesProvider);
+      ref.invalidate(licenseCountProvider);
+      _exitSelectMode();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 削除後はproviderから最新リストを取得してフィルタ
+    final allLicenses = ref.watch(licensesProvider).valueOrNull ?? [];
+    final currentLicenses = allLicenses
+        .where((c) => c.petName == widget.petName)
+        .toList();
+
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop && _didDelete) {
+          // 親に削除があったことを通知（Navigator.popの戻り値として）
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(
+              _selectMode ? Icons.close : Icons.arrow_back_ios,
+              size: 20,
+            ),
+            color: AppColors.textDark,
+            onPressed: () {
+              if (_selectMode) {
+                _exitSelectMode();
+              } else {
+                Navigator.of(context).pop(_didDelete);
+              }
+            },
+          ),
+          title: _selectMode
+              ? Text(
+                  '${_selectedIds.length}件選択中',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.pets,
+                        size: 18,
+                        color: AppColors.primary.withValues(alpha: 0.7)),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${widget.petName}の免許証',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                  ],
+                ),
+          centerTitle: true,
+          actions: [
+            if (_selectMode && _selectedIds.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                onPressed: _deleteSelected,
+              ),
           ],
         ),
-        centerTitle: true,
-      ),
-      body: licenses.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.photo_album_outlined,
-                      size: 48,
-                      color: AppColors.primary.withValues(alpha: 0.3)),
-                  const SizedBox(height: 12),
-                  Text(
-                    '免許証がありません',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textLight,
+        body: currentLicenses.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.photo_album_outlined,
+                        size: 48,
+                        color: AppColors.primary.withValues(alpha: 0.3)),
+                    const SizedBox(height: 12),
+                    const Text(
+                      '免許証がありません',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textLight,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              )
+            : GridView.builder(
+                padding: const EdgeInsets.all(16),
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 200,
+                  childAspectRatio: 0.75,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: currentLicenses.length,
+                itemBuilder: (context, index) {
+                  final card = currentLicenses[index];
+                  final isSelected =
+                      card.id != null && _selectedIds.contains(card.id);
+                  return _LicenseCardTile(
+                    card: card,
+                    index: index,
+                    selectMode: _selectMode,
+                    isSelected: isSelected,
+                    onTap: () {
+                      if (_selectMode) {
+                        if (card.id != null) _toggleSelect(card.id!);
+                      } else {
+                        widget.onDetail(card);
+                      }
+                    },
+                    onLongPress: () {
+                      if (!_selectMode) {
+                        setState(() => _selectMode = true);
+                        if (card.id != null) _toggleSelect(card.id!);
+                      }
+                    },
+                  );
+                },
               ),
-            )
-          : GridView.builder(
-              padding: const EdgeInsets.all(16),
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 200,
-                childAspectRatio: 0.75,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: licenses.length,
-              itemBuilder: (context, index) {
-                final card = licenses[index];
-                final globalIndex = allLicenses.indexOf(card);
-                final isSelected = card.id != null && selectedIds.contains(card.id);
-                return _LicenseCardTile(
-                  card: card,
-                  index: globalIndex,
-                  selectMode: selectMode,
-                  isSelected: isSelected,
-                  onTap: () {
-                    if (selectMode) {
-                      if (card.id != null) onToggleSelect(card.id!);
-                    } else {
-                      onDetail(card);
-                    }
-                  },
-                  onLongPress: () {
-                    if (!selectMode) {
-                      onEnterSelectMode();
-                      if (card.id != null) onToggleSelect(card.id!);
-                    }
-                  },
-                );
-              },
-            ),
+      ),
     );
   }
 }

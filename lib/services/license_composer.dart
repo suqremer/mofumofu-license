@@ -405,9 +405,19 @@ class LicenseComposer {
       final cImgW = costumeImg.width.toDouble();
       final cImgH = costumeImg.height.toDouble();
       final aspect = cImgW / cImgH;
+      // エディタと同じ正方形ベース（BoxFit.contain相当）
       final baseW =
           photoRect.width * costume.defaultScale * overlay.scale;
-      final baseH = baseW / aspect;
+      final baseH = baseW;
+      // contain: 正方形内にアスペクト比を維持して収める
+      double drawW, drawH;
+      if (aspect >= 1) {
+        drawW = baseW;
+        drawH = baseW / aspect;
+      } else {
+        drawH = baseH;
+        drawW = baseH * aspect;
+      }
       // overlay.cx/cy は写真エリア内の比率座標
       final cx = overlay.cx * photoRect.width;
       final cy = overlay.cy * photoRect.height;
@@ -416,7 +426,7 @@ class LicenseComposer {
       canvas.translate(cx, cy);
       canvas.rotate(overlay.rotation);
       final src = Rect.fromLTWH(0, 0, cImgW, cImgH);
-      final dst = Rect.fromLTWH(-baseW / 2, -baseH / 2, baseW, baseH);
+      final dst = Rect.fromLTWH(-drawW / 2, -drawH / 2, drawW, drawH);
       canvas.drawImageRect(costumeImg, src, dst, Paint());
       canvas.restore();
     }

@@ -71,22 +71,28 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
       final frame = await codec.getNextFrame();
       final image = frame.image;
 
-      // photoRect（ピクセル座標）でクロップ
+      // photoRectRatio（0〜1の比率）× 実画像サイズでクロップ
       final template = LicenseTemplate.fromId(widget.card.templateType);
-      final r = template.photoRect;
+      final r = template.photoRectRatio;
+      final imgW = image.width.toDouble();
+      final imgH = image.height.toDouble();
+      final cropRect = Rect.fromLTWH(
+        r.left * imgW, r.top * imgH,
+        r.width * imgW, r.height * imgH,
+      );
 
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
       canvas.drawImageRect(
         image,
-        Rect.fromLTWH(r.left, r.top, r.width, r.height),
-        Rect.fromLTWH(0, 0, r.width, r.height),
+        cropRect,
+        Rect.fromLTWH(0, 0, cropRect.width, cropRect.height),
         Paint(),
       );
 
       final picture = recorder.endRecording();
       final croppedImage =
-          await picture.toImage(r.width.toInt(), r.height.toInt());
+          await picture.toImage(cropRect.width.toInt(), cropRect.height.toInt());
       final byteData =
           await croppedImage.toByteData(format: ui.ImageByteFormat.png);
 

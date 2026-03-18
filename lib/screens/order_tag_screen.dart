@@ -522,27 +522,52 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
           ),
         ],
       ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: ElevatedButton.icon(
-          onPressed: isEnabled ? _launchPayment : null,
-          icon: const Icon(Icons.open_in_new, size: 18),
-          label: Text(
-            buttonLabel,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: Colors.grey.shade300,
-            disabledForegroundColor: Colors.grey.shade500,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (count > 0 && !isEnabled)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.warning_amber_rounded,
+                      size: 16, color: Colors.orange.shade700),
+                  const SizedBox(width: 4),
+                  Text(
+                    '全ての画像をカメラロールに保存してから注文に進めます',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orange.shade700,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            elevation: isEnabled ? 2 : 0,
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton.icon(
+              onPressed: isEnabled ? _launchPayment : null,
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: Text(
+                buttonLabel,
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade300,
+                disabledForegroundColor: Colors.grey.shade500,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                elevation: isEnabled ? 2 : 0,
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

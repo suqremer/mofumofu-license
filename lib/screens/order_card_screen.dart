@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gal/gal.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -23,6 +26,9 @@ class OrderCardScreen extends ConsumerStatefulWidget {
 
 class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
   final List<LicenseCard> _selectedCards = [];
+
+  /// カードID → カード画像カメラロール保存済みか
+  final Map<int, bool> _cardSavedStatus = {};
 
   /// セット注文時: カードID → タグ用丸形画像保存済みか
   final Map<int, bool> _tagSavedStatus = {};
@@ -50,14 +56,22 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
   bool _isSelected(LicenseCard card) =>
       _selectedCards.any((c) => c.id == card.id);
 
+  /// 全カードの画像がカメラロールに保存済みか
+  bool get _allCardImagesSaved =>
+      _selectedCards.isNotEmpty &&
+      _selectedCards.every((c) => _cardSavedStatus[c.id] == true);
+
   /// セット注文時: 全カードのタグ画像が保存済みか
   bool get _allTagImagesSaved =>
       !widget.isSet ||
       (_selectedCards.isNotEmpty &&
           _selectedCards.every((c) => _tagSavedStatus[c.id] == true));
 
+  /// 全画像保存済みか（カード画像 + タグ画像）
+  bool get _allImagesSaved => _allCardImagesSaved && _allTagImagesSaved;
+
   bool get _canOrder =>
-      _selectedCards.isNotEmpty && _allTagImagesSaved;
+      _selectedCards.isNotEmpty && _allImagesSaved;
 
   void _toggleSelection(LicenseCard card) {
     setState(() {
@@ -176,6 +190,52 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                 if (_selectedCards.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   _buildSelectedPreview(),
+                ],
+                const SizedBox(height: 24),
+
+                // Step 2: カード用画像をカメラロールに保存
+                _buildStepHeader(stepNum++, 'カード画像をカメラロールに保存'),
+                const SizedBox(height: 8),
+                const Text(
+                  'フォームで画像を送付するため、カメラロールに保存してください。',
+                  style: TextStyle(
+                      fontSize: 13, color: AppColors.textMedium, height: 1.5),
+                ),
+                if (_selectedCards.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  ..._selectedCards.map((card) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _cardSavedStatus[card.id] == true
+                            ? null
+                            : () => _saveCardToGallery(card),
+                        icon: _cardSavedStatus[card.id] == true
+                            ? const Icon(Icons.check_circle, size: 18, color: AppColors.success)
+                            : const Icon(Icons.save_alt, size: 18),
+                        label: Text(
+                          _cardSavedStatus[card.id] == true
+                              ? '${card.petName}のカード画像を保存済み'
+                              : '${card.petName}のカード画像を保存',
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _cardSavedStatus[card.id] == true
+                              ? AppColors.success
+                              : AppColors.primary,
+                          side: BorderSide(
+                            color: _cardSavedStatus[card.id] == true
+                                ? AppColors.success
+                                : AppColors.primary,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                        ),
+                      ),
+                    ),
+                  )),
                 ],
                 const SizedBox(height: 24),
 
@@ -534,8 +594,8 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
     String buttonLabel;
     if (count == 0) {
       buttonLabel = '免許証を選択してください';
-    } else if (!_allTagImagesSaved) {
-      buttonLabel = 'タグ用の丸形画像を保存してください';
+    } else if (!_allImagesSaved) {
+      buttonLabel = '全ての画像をカメラロールに保存してください';
     } else {
       buttonLabel = '注文する（${_formatPrice(total)}・$count枚）';
     }
@@ -552,29 +612,93 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
           ),
         ],
       ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: ElevatedButton.icon(
-          onPressed: _canOrder ? _launchPayment : null,
-          icon: const Icon(Icons.open_in_new, size: 18),
-          label: Text(
-            buttonLabel,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: Colors.grey.shade300,
-            disabledForegroundColor: Colors.grey.shade500,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (count > 0 && !_allImagesSaved)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.warning_amber_rounded,
+                      size: 16, color: Colors.orange.shade700),
+                  const SizedBox(width: 4),
+                  Text(
+                    '全ての画像をカメラロールに保存してから注文に進めます',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orange.shade700,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            elevation: _canOrder ? 2 : 0,
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton.icon(
+              onPressed: _canOrder ? _launchPayment : null,
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: Text(
+                buttonLabel,
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade300,
+                disabledForegroundColor: Colors.grey.shade500,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                elevation: _canOrder ? 2 : 0,
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
+  }
+
+  Future<void> _saveCardToGallery(LicenseCard card) async {
+    final path = card.savedImagePath;
+    if (path == null || !File(path).existsSync()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('画像ファイルが見つかりません')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final hasAccess = await Gal.hasAccess();
+      if (!hasAccess) {
+        await Gal.requestAccess();
+      }
+      await Gal.putImage(path, album: 'うちの子免許証');
+      if (mounted) {
+        setState(() => _cardSavedStatus[card.id!] = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${card.petName}のカード画像を保存しました'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('保存に失敗しました: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _openTagDesign(LicenseCard card) async {
