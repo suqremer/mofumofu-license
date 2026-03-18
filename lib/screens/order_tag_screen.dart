@@ -21,15 +21,24 @@ class OrderTagScreen extends ConsumerStatefulWidget {
 class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
   final List<LicenseCard> _selectedCards = [];
 
+  /// カードID → 丸形画像保存済みかどうか
+  final Map<int, bool> _savedStatus = {};
+
   // TODO: しゅーとが Stripe Payment Links 作成後に差し替え
   // TODO: 複数枚注文時の数量パラメータ対応（#46.5）
   static const _paymentUrl = 'https://buy.stripe.com/TAG_PLACEHOLDER';
+  // TODO: しゅーとが Google フォーム作成後に差し替え
+  static const _formUrl = 'https://forms.gle/PLACEHOLDER';
   static const _unitPrice = 1980;
 
   String _formatPrice(int yen) => '¥${yen.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}';
 
   bool _isSelected(LicenseCard card) =>
       _selectedCards.any((c) => c.id == card.id);
+
+  bool get _allImagesSaved =>
+      _selectedCards.isNotEmpty &&
+      _selectedCards.every((c) => _savedStatus[c.id] == true);
 
   void _toggleSelection(LicenseCard card) {
     setState(() {
@@ -147,7 +156,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                 const SizedBox(height: 8),
                 const Text(
                   'タグに使う写真は丸形にトリミングする必要があります。\n'
-                  '選択した免許証の写真から丸形画像を作成できます。',
+                  '作成した画像はカメラロールに保存されます。',
                   style: TextStyle(
                       fontSize: 13, color: AppColors.textMedium, height: 1.5),
                 ),
@@ -158,13 +167,24 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                     child: SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () =>
-                            context.push('/order/tag-design', extra: card),
-                        icon: const Icon(Icons.crop, size: 18),
-                        label: Text('${card.petName}の丸形画像を作成'),
+                        onPressed: () => _openTagDesign(card),
+                        icon: _savedStatus[card.id] == true
+                            ? const Icon(Icons.check_circle, size: 18, color: AppColors.success)
+                            : const Icon(Icons.crop, size: 18),
+                        label: Text(
+                          _savedStatus[card.id] == true
+                              ? '${card.petName}の画像を保存済み'
+                              : '${card.petName}の丸形画像を作成',
+                        ),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: const BorderSide(color: AppColors.primary),
+                          foregroundColor: _savedStatus[card.id] == true
+                              ? AppColors.success
+                              : AppColors.primary,
+                          side: BorderSide(
+                            color: _savedStatus[card.id] == true
+                                ? AppColors.success
+                                : AppColors.primary,
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(24),
@@ -185,16 +205,64 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                   style: TextStyle(
                       fontSize: 13, color: AppColors.textMedium, height: 1.5),
                 ),
+                // 注意書き
+                if (_selectedCards.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                    ),
+                    child: const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.info_outline, size: 18, color: AppColors.accent),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '決済完了後、Step 4のフォームからカメラロールに保存した'
+                            '画像を送ってください。画像の送付がないと制作を開始できません。',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMedium,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
 
-                // Step 4: 写真送付
+                // Step 4: 写真送付（常時表示）
                 _buildStepHeader(4, '専用フォームから写真を送付'),
                 const SizedBox(height: 8),
                 const Text(
-                  '決済完了後、Googleフォームでタグ用の丸形画像を送っていただきます。\n'
-                  'Step 2で作成した画像をアップロードしてください。',
+                  '決済完了後、Googleフォームでタグ用の丸形画像を送ってください。\n'
+                  '注文番号はStripeからのメールに記載されています。',
                   style: TextStyle(
                       fontSize: 13, color: AppColors.textMedium, height: 1.5),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _launchPhotoForm,
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: const Text('写真送付フォームを開く'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textMedium,
+                      side: BorderSide(color: Colors.grey.shade400),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -428,12 +496,20 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
   }
 
   Widget _buildOrderButton() {
-    final isEnabled = _selectedCards.isNotEmpty;
     final count = _selectedCards.length;
     final total = _unitPrice * count;
-    final buttonLabel = count > 0
-        ? '注文する（${_formatPrice(total)}・$count個）'
-        : '免許証を選択してください';
+
+    // 画像未保存のカードがあれば決済ボタン無効
+    final isEnabled = _allImagesSaved;
+    String buttonLabel;
+    if (count == 0) {
+      buttonLabel = '免許証を選択してください';
+    } else if (!_allImagesSaved) {
+      buttonLabel = 'Step 2で丸形画像を保存してください';
+    } else {
+      buttonLabel = '注文する（${_formatPrice(total)}・$count個）';
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       decoration: BoxDecoration(
@@ -471,6 +547,13 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
     );
   }
 
+  Future<void> _openTagDesign(LicenseCard card) async {
+    final result = await context.push<bool>('/order/tag-design', extra: card);
+    if (result == true && mounted) {
+      setState(() => _savedStatus[card.id!] = true);
+    }
+  }
+
   Future<void> _launchPayment() async {
     await AppPreferences.setHasOrdered();
     final uri = Uri.parse(_paymentUrl);
@@ -500,7 +583,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
         ),
         content: const Text(
           '決済が完了したら、専用フォームからタグ用の写真を送ってください。\n\n'
-          '丸形にトリミングした画像をアップロードしてね！\n'
+          'カメラロールに保存した丸形画像をアップロードしてね！\n'
           '注文番号はStripeからのメールに記載されています。',
           style: TextStyle(fontSize: 14, color: AppColors.textMedium, height: 1.5),
         ),
@@ -528,9 +611,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
   }
 
   Future<void> _launchPhotoForm() async {
-    // TODO: しゅーとが Google フォーム作成後に差し替え
-    const formUrl = 'https://forms.gle/PLACEHOLDER';
-    final uri = Uri.parse(formUrl);
+    final uri = Uri.parse(_formUrl);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }

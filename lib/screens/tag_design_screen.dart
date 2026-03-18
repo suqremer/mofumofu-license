@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -123,6 +124,15 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.textDark,
         elevation: 0,
+        actions: [
+          if (_savedPath != null)
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('完了',
+                  style: TextStyle(
+                      color: AppColors.primary, fontWeight: FontWeight.bold)),
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -211,7 +221,7 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
                           const SizedBox(width: 8),
                           const Expanded(
                             child: Text(
-                              '画像を保存しました！\nフォームで送付する際にこの画像を使ってください',
+                              'カメラロールに保存しました！\nフォームで送付する際にこの画像を使ってください',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: AppColors.textDark,
@@ -333,8 +343,8 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.save_alt, size: 18),
-                label: Text(_isSaving ? '保存中...' : '画像を保存'),
+                    : const Icon(Icons.photo_library, size: 18),
+                label: Text(_isSaving ? '保存中...' : 'カメラロールに保存'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primary,
                   side: const BorderSide(color: AppColors.primary),
@@ -436,12 +446,22 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
         return;
       }
 
+      // まずファイルに書き出し（Gal はファイルパスが必要）
       final path = await _saveToFile(bytes);
+      if (path == null) return;
+
+      // カメラロールに保存
+      final hasAccess = await Gal.hasAccess();
+      if (!hasAccess) {
+        await Gal.requestAccess();
+      }
+      await Gal.putImage(path, album: 'うちの子免許証');
+
       if (mounted) {
         setState(() => _savedPath = path);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('タグ用画像を保存しました'),
+            content: Text('カメラロールに保存しました'),
             behavior: SnackBarBehavior.floating,
           ),
         );

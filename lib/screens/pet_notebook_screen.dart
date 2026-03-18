@@ -4,12 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 import '../models/license_card.dart';
-import '../models/license_template.dart';
 import '../models/pet.dart';
 import '../providers/database_provider.dart';
 import '../services/database_service.dart';
@@ -315,33 +311,8 @@ class _PetFormSheetState extends State<_PetFormSheet> {
             Text(_isEditing ? 'ペット情報を編集' : 'ペットを追加', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
 
-            // 写真（任意）
-            Center(
-              child: GestureDetector(
-                onTap: _showPhotoOptions,
-                child: Stack(
-                  children: [
-                    _buildFormAvatar(),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Center(
-              child: Text('タップして写真を設定', style: TextStyle(fontSize: 12, color: Colors.grey)),
-            ),
+            // 写真（免許証作成時の写真を自動表示）
+            Center(child: _buildFormAvatar()),
             const SizedBox(height: 16),
 
             // 名前（必須）
@@ -553,180 +524,6 @@ class _PetFormSheetState extends State<_PetFormSheet> {
       backgroundColor: AppColors.primary.withValues(alpha: 0.15),
       child: const Icon(Icons.pets, size: 36, color: AppColors.primary),
     );
-  }
-
-  /// 写真選択オプションを表示
-  void _showPhotoOptions() {
-    // 同一ペットの免許証を検索（編集時のみ）
-    final petName = widget.pet?.name;
-    final licenses = petName != null
-        ? (widget.ref.read(licensesProvider).valueOrNull ?? [])
-            .where((l) => l.petName == petName && l.savedImagePath != null && File(l.savedImagePath!).existsSync())
-            .toList()
-        : <LicenseCard>[];
-
-    showCupertinoModalPopup(
-      context: context,
-      builder: (ctx) => CupertinoActionSheet(
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              _pickFromGallery();
-            },
-            child: const Text('カメラロールから選ぶ'),
-          ),
-          if (licenses.isNotEmpty)
-            CupertinoActionSheetAction(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                _pickFromLicense(licenses);
-              },
-              child: Text('免許証から選ぶ（${licenses.length}枚）'),
-            ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.of(ctx).pop(),
-          isDestructiveAction: true,
-          child: const Text('キャンセル'),
-        ),
-      ),
-    );
-  }
-
-  /// カメラロールから写真を選択
-  Future<void> _pickFromGallery() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 512);
-    if (picked == null) return;
-
-    // アプリ内にコピーして保存
-    final dir = await getApplicationDocumentsDirectory();
-    final ext = p.extension(picked.path);
-    final fileName = 'pet_${DateTime.now().millisecondsSinceEpoch}$ext';
-    final savedFile = await File(picked.path).copy('${dir.path}/$fileName');
-
-    setState(() => _photoPath = savedFile.path);
-  }
-
-  /// 免許証の完成画像から選択
-  void _pickFromLicense(List<LicenseCard> licenses) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 40, height: 4,
-              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
-            ),
-            const SizedBox(height: 12),
-            const Text('免許証から選ぶ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 140,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: licenses.length,
-                itemBuilder: (_, i) {
-                  final card = licenses[i];
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _cropAndSetPhoto(card);
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: Column(
-                        children: [
-                          PhotoCropPreview(
-                            card: card,
-                            circular: true,
-                            size: 90,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            DateFormat('M/d').format(card.createdAt),
-                            style: const TextStyle(fontSize: 11, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 免許証画像から証明写真部分をクロップしてファイル保存
-  Future<void> _cropAndSetPhoto(LicenseCard card) async {
-    final savedPath = card.savedImagePath;
-    if (savedPath == null || !File(savedPath).existsSync()) return;
-
-    final bytes = await File(savedPath).readAsBytes();
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    final image = frame.image;
-
-    final template = LicenseTemplate.fromId(card.templateType);
-    final r = template.photoRectRatio;
-
-    // 実際の画像サイズを使う（テンプレートのoutputSizeではなくsavedImageの実ピクセル）
-    final imgW = image.width.toDouble();
-    final imgH = image.height.toDouble();
-
-    // クロップ領域（実ピクセル）
-    final srcRect = Rect.fromLTWH(
-      r.left * imgW,
-      r.top * imgH,
-      r.width * imgW,
-      r.height * imgH,
-    );
-
-    // 正方形で出力（短辺に合わせる）
-    final cropSize = srcRect.width < srcRect.height ? srcRect.width : srcRect.height;
-    final squareSrc = Rect.fromCenter(
-      center: srcRect.center,
-      width: cropSize,
-      height: cropSize,
-    );
-
-    const outputPx = 512.0;
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    canvas.drawImageRect(
-      image,
-      squareSrc,
-      const Rect.fromLTWH(0, 0, outputPx, outputPx),
-      Paint(),
-    );
-    final picture = recorder.endRecording();
-    final croppedImage = await picture.toImage(outputPx.toInt(), outputPx.toInt());
-    final pngBytes = await croppedImage.toByteData(format: ui.ImageByteFormat.png);
-
-    if (pngBytes == null) return;
-
-    final dir = await getApplicationDocumentsDirectory();
-    final fileName = 'pet_license_${DateTime.now().millisecondsSinceEpoch}.png';
-    final file = File('${dir.path}/$fileName');
-    await file.writeAsBytes(pngBytes.buffer.asUint8List());
-
-    image.dispose();
-    croppedImage.dispose();
-
-    setState(() => _photoPath = file.path);
   }
 
   /// ペットを保存

@@ -1,6 +1,6 @@
 # うちの子免許証 — 実施設計書
 
-> 最終更新: 2026-03-16
+> 最終更新: 2026-03-18
 
 ---
 
@@ -35,6 +35,9 @@
 | 背景削除 | image_background_remover (ONNX) | ^2.0.0 |
 | NFC | nfc_manager | ^3.5.0 |
 | フォント | google_fonts | ^6.2.1 |
+| カメラロール保存 | gal | ^2.3.2 |
+| 共有シート | share_plus | ^10.1.4 |
+| セキュアストレージ | flutter_secure_storage | ^10.0.0 |
 
 ### 2.1 ビルド環境
 - **Android SDK**: `C:\Android\Sdk`（非ASCIIユーザー名回避のため標準パスと異なる）
@@ -52,13 +55,43 @@
 lib/
 ├── main.dart                    # エントリーポイント（Firebase/RevenueCat/AdMob/ONNX初期化）
 ├── router.dart                  # go_router ルーティング定義
+├── config/                      # アプリ設定
+│   ├── ad_config.dart           # AdMob広告ユニットID
+│   ├── dev_config.dart          # 開発用フラグ（kDevMode等）
+│   └── iap_config.dart          # RevenueCat APIキー・商品ID
+├── data/                        # 静的データ
+│   └── breed_data.dart          # 品種リスト
 ├── models/                      # データモデル
 │   ├── license_card.dart        # 免許証データ
 │   ├── pet.dart                 # ペット手帳データ
 │   ├── costume.dart             # コスチューム定義（47種）
 │   ├── costume_overlay.dart     # コスチューム配置状態
 │   └── license_template.dart    # テンプレート・フレーム・免許種別定義
-├── screens/                     # 全17画面
+├── screens/                     # 画面（16画面 + editor/サブ）
+│   ├── editor/                  # 写真・デコ編集画面（分割構成）
+│   │   ├── photo_editor_screen.dart    # メインエディタ
+│   │   ├── models/
+│   │   │   ├── brush_operation.dart    # ブラシ操作モデル
+│   │   │   └── brush_offset.dart       # ブラシオフセットモデル
+│   │   └── painters/
+│   │       ├── brush_overlay_painter.dart   # ブラシ描画
+│   │       ├── guide_overlay_painter.dart   # ガイドオーバーレイ
+│   │       └── photo_only_painter.dart      # 写真描画
+│   ├── home_screen.dart
+│   ├── collection_screen.dart
+│   ├── settings_screen.dart
+│   ├── shell_screen.dart        # タブシェル
+│   ├── photo_select_screen.dart
+│   ├── camera_guide_screen.dart
+│   ├── info_input_screen.dart
+│   ├── mask_edit_screen.dart     # ※未使用（editorに統合済み）
+│   ├── frame_select_screen.dart
+│   ├── preview_screen.dart
+│   ├── pet_notebook_screen.dart
+│   ├── order_screen.dart
+│   ├── order_card_screen.dart    # カード注文 + セット注文（isSet）
+│   ├── order_tag_screen.dart
+│   └── tag_design_screen.dart
 ├── services/                    # ビジネスロジック
 │   ├── database_service.dart    # SQLite CRUD
 │   ├── license_painter.dart     # Canvas描画エンジン
@@ -73,6 +106,8 @@ lib/
 │   ├── paywall_bottom_sheet.dart
 │   ├── banner_ad_widget.dart
 │   ├── license_card_preview.dart
+│   ├── photo_crop_preview.dart  # 免許証から証明写真をクロップ表示
+│   ├── product_gallery.dart     # 商品画像スライドショー
 │   ├── mofumofu_button.dart
 │   └── section_header.dart
 └── theme/                       # デザインシステム
@@ -136,14 +171,15 @@ LicenseComposer.compose()
      ↓
 /create/info   → ペット情報入力（ドラフト自動保存）
      ↓
-/create/editor → 背景自動削除 + ブラシ編集 + コスチューム配置
-     ↓
-/create/mask   → 手動マスク編集（消しゴム/投げ縄/復元）
+/create/editor → 背景自動削除 + ブラシ編集（消しゴム/投げ縄/復元）+ コスチューム配置
      ↓
 /create/frame  → フレーム色・テンプレート選択
      ↓
 /create/preview → プレビュー + アニメーション + DB保存 + シェア
 ```
+
+> **注**: `mask_edit_screen.dart` は router.dart に `/create/mask` ルートが残っているが、
+> どの画面からも遷移しておらず実質未使用。マスク編集機能は `/create/editor` に統合済み。
 
 ### 4.3 その他の画面（フェードイン）
 
@@ -162,7 +198,7 @@ LicenseComposer.compose()
 
 ## 5. データベース設計
 
-### 5.1 SQLite（mofumofu.db v1）
+### 5.1 SQLite（mofumofu.db v2）
 
 #### licenses テーブル
 | カラム | 型 | 説明 |
@@ -180,6 +216,7 @@ LicenseComposer.compose()
 | frame_color | TEXT | フレーム色（デフォルト: gold） |
 | template_type | TEXT | japan / usa |
 | saved_image_path | TEXT? | 合成済み画像パス |
+| extra_data | TEXT? | JSON拡張データ（v2マイグレーションで追加） |
 | created_at | TEXT | ISO8601 |
 | updated_at | TEXT | ISO8601 |
 
@@ -189,7 +226,7 @@ LicenseComposer.compose()
 | id | INTEGER PK | 自動採番 |
 | name | TEXT | ペット名 |
 | species, breed, birth_date, gender | TEXT? | 基本情報 |
-| photo_path | TEXT? | 写真パス |
+| photo_path | TEXT? | 写真パス（免許証作成時に自動設定、手帳画面での手動変更不可） |
 | hospital_name | TEXT? | かかりつけ病院 |
 | microchip_number | TEXT? | マイクロチップ番号 |
 | insurance_info | TEXT? | 保険情報 |
@@ -317,27 +354,37 @@ LicenseComposer.compose()
 
 ### 8.4 注文フロー
 
+各注文画面（カード/タグ/セット）はStep形式のガイド付きフローで構成:
+
 ```
-アプリ内「注文する」ボタン
+Step 1: 免許証選択（チェックボックス）
      ↓
-注文トップ画面（カード/タグ/セット選択）
+Step 2: （タグ/セット注文のみ）丸形画像を作成してカメラロールに保存
+         → TagDesignScreen で編集 → galパッケージでカメラロール保存
+         → 保存完了で注文画面へ true を返却（保存ステータス管理）
      ↓
-個別注文画面（免許証選択）
-     ↓ url_launcher
-Stripe Payment Links（外部ブラウザ）
-     ↓ 決済完了
-アプリに戻る → フォーム案内ダイアログ
+Step 3: 注意事項（Googleフォームで画像を送る旨の案内）
      ↓
-Google フォーム（注文番号 + 画像アップロード）
+Step 4: Googleフォームボタン（常時表示、決済前でもアクセス可）
+     ↓
+Step 5: Stripe Payment Links で決済（url_launcher）
+         ※ タグ/セット注文は全画像の保存完了が決済ボタン有効化の条件
+     ↓
+決済後: フォーム送付リマインドダイアログ表示
      ↓
 しゅーとが Stripe × フォーム回答を突き合わせて制作・発送
 ```
 
-### 8.5 タグ用丸形画像作成機能
+> **送り忘れ対策**: Stripe決済通知とフォーム回答を照合し、
+> フォーム未提出の注文にはStripeの顧客メールアドレスへ催促メールを送る。
+
+### 8.5 タグ用丸形画像作成機能（TagDesignScreen）
 - アプリ内で証明写真を Φ25mm 丸形にトリミング（25mmプラ板に貼付）
+- savedImagePath から photoRect 領域をクロップしてプレビュー表示
 - ドラッグ + ピンチで位置・サイズ調整
 - 出力: Φ295px PNG（300dpi相当）
-- 保存 or 共有シートで書き出し
+- **カメラロールに保存**（galパッケージ、アルバム名「うちの子免許証」）+ 共有シート
+- 保存完了時に `Navigator.pop(context, true)` で注文画面へ結果返却
 
 ---
 

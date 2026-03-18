@@ -155,7 +155,7 @@ class BrushOverlayPainter extends CustomPainter {
       Offset Function(Offset) toPreview) {
     final previewPoints = points.map(toPreview).toList();
     final paint = Paint()
-      ..color = Colors.white
+      ..color = Colors.red
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
     final shadowPaint = Paint()

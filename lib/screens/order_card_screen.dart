@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/license_card.dart';
@@ -23,11 +24,17 @@ class OrderCardScreen extends ConsumerStatefulWidget {
 class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
   final List<LicenseCard> _selectedCards = [];
 
+  /// セット注文時: カードID → タグ用丸形画像保存済みか
+  final Map<int, bool> _tagSavedStatus = {};
+
   // TODO: しゅーとが Stripe Payment Links 作成後に差し替え
   // TODO: 複数枚注文時の数量パラメータ対応（#46.5）
   String get _paymentUrl => widget.isSet
       ? 'https://buy.stripe.com/SET_PLACEHOLDER'
       : 'https://buy.stripe.com/CARD_PLACEHOLDER';
+
+  // TODO: しゅーとが Google フォーム作成後に差し替え
+  static const _formUrl = 'https://forms.gle/PLACEHOLDER';
 
   String get _title => widget.isSet ? 'セット注文' : 'PVCカード注文';
   int get _unitPrice => widget.isSet ? 2980 : 1980;
@@ -35,10 +42,22 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
       ? 'PVCカード + レジンタグのセット'
       : 'PVC製クレジットカードサイズの免許証';
 
+  Color get _accentColor =>
+      widget.isSet ? AppColors.accent : AppColors.secondary;
+
   String _formatPrice(int yen) => '¥${yen.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}';
 
   bool _isSelected(LicenseCard card) =>
       _selectedCards.any((c) => c.id == card.id);
+
+  /// セット注文時: 全カードのタグ画像が保存済みか
+  bool get _allTagImagesSaved =>
+      !widget.isSet ||
+      (_selectedCards.isNotEmpty &&
+          _selectedCards.every((c) => _tagSavedStatus[c.id] == true));
+
+  bool get _canOrder =>
+      _selectedCards.isNotEmpty && _allTagImagesSaved;
 
   void _toggleSelection(LicenseCard card) {
     setState(() {
@@ -100,6 +119,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
   }
 
   Widget _buildBody(List<LicenseCard> licenses) {
+    int stepNum = 1;
     return Column(
       children: [
         Expanded(
@@ -123,7 +143,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                   children: [
                     Icon(
                       widget.isSet ? Icons.card_giftcard : Icons.credit_card,
-                      color: widget.isSet ? AppColors.accent : AppColors.secondary,
+                      color: _accentColor,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -140,7 +160,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: widget.isSet ? AppColors.accent : AppColors.secondary,
+                        color: _accentColor,
                       ),
                     ),
                   ],
@@ -148,7 +168,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                 const SizedBox(height: 20),
 
                 // Step 1: 免許証を選択（複数選択可）
-                _buildStepHeader(1, '印刷する免許証を選んでください（複数可）'),
+                _buildStepHeader(stepNum++, '印刷する免許証を選んでください（複数可）'),
                 const SizedBox(height: 12),
                 _buildLicenseGrid(licenses),
 
@@ -159,36 +179,125 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                 ],
                 const SizedBox(height: 24),
 
-                // Step 2: 注文フロー説明
-                _buildStepHeader(2, '決済ページで支払い'),
+                // セット注文時: タグ用丸形画像作成ステップ
+                if (widget.isSet) ...[
+                  _buildStepHeader(stepNum++, 'タグ用の丸形画像を作成'),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'セット注文にはタグ用の丸形画像も必要です。\n'
+                    '作成した画像はカメラロールに保存されます。',
+                    style: TextStyle(
+                        fontSize: 13, color: AppColors.textMedium, height: 1.5),
+                  ),
+                  if (_selectedCards.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    ..._selectedCards.map((card) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _openTagDesign(card),
+                          icon: _tagSavedStatus[card.id] == true
+                              ? const Icon(Icons.check_circle, size: 18, color: AppColors.success)
+                              : const Icon(Icons.crop, size: 18),
+                          label: Text(
+                            _tagSavedStatus[card.id] == true
+                                ? '${card.petName}のタグ画像を保存済み'
+                                : '${card.petName}の丸形画像を作成',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _tagSavedStatus[card.id] == true
+                                ? AppColors.success
+                                : AppColors.primary,
+                            side: BorderSide(
+                              color: _tagSavedStatus[card.id] == true
+                                  ? AppColors.success
+                                  : AppColors.primary,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                          ),
+                        ),
+                      ),
+                    )),
+                  ],
+                  const SizedBox(height: 24),
+                ],
+
+                // 決済ステップ
+                _buildStepHeader(stepNum++, '決済ページで支払い'),
                 const SizedBox(height: 8),
                 const Text(
                   '「注文する」を押すと外部の決済ページ（Stripe）が開きます。\n'
                   '配送先はStripeの画面で入力してください。',
                   style: TextStyle(fontSize: 13, color: AppColors.textMedium, height: 1.5),
                 ),
-                const SizedBox(height: 20),
-
-                // Step 3: 写真送付
-                _buildStepHeader(3, '専用フォームから写真を送付'),
-                const SizedBox(height: 8),
-                const Text(
-                  '決済完了後、Googleフォームで免許証の画像を送っていただきます。\n'
-                  '注文番号とお名前を入力し、完成画像をアップロードしてください。',
-                  style: TextStyle(fontSize: 13, color: AppColors.textMedium, height: 1.5),
-                ),
-
-                if (widget.isSet) ...[
-                  const SizedBox(height: 20),
-                  _buildStepHeader(4, 'タグ用写真も送付'),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'セット注文の場合、カード用とタグ用の2つの画像が必要です。\n'
-                    'タグ用は丸形にトリミングした写真をフォームで送ってください。',
-                    style: TextStyle(
-                        fontSize: 13, color: AppColors.textMedium, height: 1.5),
+                // 注意書き
+                if (_selectedCards.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline, size: 18, color: AppColors.accent),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            widget.isSet
+                                ? '決済完了後、次のステップのフォームから免許証画像と'
+                                  'タグ用の丸形画像を送ってください。画像の送付がないと制作を開始できません。'
+                                : '決済完了後、次のステップのフォームから免許証の画像を'
+                                  '送ってください。画像の送付がないと制作を開始できません。',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMedium,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
+                const SizedBox(height: 20),
+
+                // 写真送付ステップ（常時表示）
+                _buildStepHeader(stepNum, '専用フォームから写真を送付'),
+                const SizedBox(height: 8),
+                Text(
+                  widget.isSet
+                      ? '決済完了後、Googleフォームで免許証画像とタグ用画像を送ってください。\n'
+                        '注文番号はStripeからのメールに記載されています。'
+                      : '決済完了後、Googleフォームで免許証の画像を送ってください。\n'
+                        '注文番号はStripeからのメールに記載されています。',
+                  style: const TextStyle(fontSize: 13, color: AppColors.textMedium, height: 1.5),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _launchPhotoForm,
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: const Text('写真送付フォームを開く'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textMedium,
+                      side: BorderSide(color: Colors.grey.shade400),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -273,12 +382,10 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
               builder: (context, constraints) => Stack(
                 fit: StackFit.expand,
                 children: [
-                  // 証明写真エリアをクロップ表示
                   PhotoCropPreview(
                     card: card,
                     size: constraints.maxWidth,
                   ),
-                  // 選択チェック
                   if (isSelected)
                     Positioned(
                       top: 4,
@@ -292,7 +399,6 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                         child: const Icon(Icons.check, size: 14, color: Colors.white),
                       ),
                     ),
-                  // ペット名
                   Positioned(
                     left: 0,
                     right: 0,
@@ -355,7 +461,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: widget.isSet ? AppColors.accent : AppColors.secondary,
+                  color: _accentColor,
                 ),
               )
             else
@@ -364,7 +470,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: widget.isSet ? AppColors.accent : AppColors.secondary,
+                  color: _accentColor,
                 ),
               ),
           ],
@@ -422,12 +528,18 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
   }
 
   Widget _buildOrderButton() {
-    final isEnabled = _selectedCards.isNotEmpty;
     final count = _selectedCards.length;
     final total = _unitPrice * count;
-    final buttonLabel = count > 0
-        ? '注文する（${_formatPrice(total)}・$count枚）'
-        : '免許証を選択してください';
+
+    String buttonLabel;
+    if (count == 0) {
+      buttonLabel = '免許証を選択してください';
+    } else if (!_allTagImagesSaved) {
+      buttonLabel = 'タグ用の丸形画像を保存してください';
+    } else {
+      buttonLabel = '注文する（${_formatPrice(total)}・$count枚）';
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       decoration: BoxDecoration(
@@ -444,7 +556,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
         width: double.infinity,
         height: 52,
         child: ElevatedButton.icon(
-          onPressed: isEnabled ? _launchPayment : null,
+          onPressed: _canOrder ? _launchPayment : null,
           icon: const Icon(Icons.open_in_new, size: 18),
           label: Text(
             buttonLabel,
@@ -458,11 +570,18 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(28),
             ),
-            elevation: isEnabled ? 2 : 0,
+            elevation: _canOrder ? 2 : 0,
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _openTagDesign(LicenseCard card) async {
+    final result = await context.push<bool>('/order/tag-design', extra: card);
+    if (result == true && mounted) {
+      setState(() => _tagSavedStatus[card.id!] = true);
+    }
   }
 
   Future<void> _launchPayment() async {
@@ -470,10 +589,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
     final uri = Uri.parse(_paymentUrl);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (mounted) {
-        // 決済ページを開いた後、フォーム案内ダイアログを表示
-        _showPostPaymentDialog();
-      }
+      if (mounted) _showPostPaymentDialog();
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -495,10 +611,13 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
             Text('決済は完了しましたか？', style: TextStyle(fontSize: 17)),
           ],
         ),
-        content: const Text(
-          '決済が完了したら、専用フォームから写真を送ってください。\n'
-          '注文番号はStripeからのメールに記載されています。',
-          style: TextStyle(fontSize: 14, color: AppColors.textMedium, height: 1.5),
+        content: Text(
+          widget.isSet
+              ? '決済が完了したら、専用フォームから免許証画像とタグ用の丸形画像を送ってください。\n\n'
+                '注文番号はStripeからのメールに記載されています。'
+              : '決済が完了したら、専用フォームから免許証の画像を送ってください。\n\n'
+                '注文番号はStripeからのメールに記載されています。',
+          style: const TextStyle(fontSize: 14, color: AppColors.textMedium, height: 1.5),
         ),
         actions: [
           TextButton(
@@ -524,9 +643,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
   }
 
   Future<void> _launchPhotoForm() async {
-    // TODO: しゅーとが Google フォーム作成後に差し替え
-    const formUrl = 'https://forms.gle/PLACEHOLDER';
-    final uri = Uri.parse(formUrl);
+    final uri = Uri.parse(_formUrl);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
