@@ -861,21 +861,22 @@ class LicensePainter extends CustomPainter {
     // QRコード削除（パロディ免許に不要）
 
     // ── 6. ゴーストイメージ（写真の薄いコピー、ADDRESS付近の右下）──
-    // composedPhotoImage（コスチューム+色調整済み）があればそちらを使用
-    final ghostSource = composedPhotoImage ?? photoImage;
-    if (ghostSource != null) {
-      final ghostSize = 80 * s;
-      final ghostRect = Rect.fromLTWH(
-          size.width - margin - ghostSize - 10 * s,
-          size.height - 180 * s,
-          ghostSize, ghostSize * 1.2);
+    final ghostSize = 80 * s;
+    final ghostRect = Rect.fromLTWH(
+        size.width - margin - ghostSize - 10 * s,
+        size.height - 180 * s,
+        ghostSize, ghostSize * 1.2);
+    final ghostAlpha = 0.12;
+
+    if (composedPhotoImage != null) {
+      // 合成済み写真がある場合はそれを使用
       canvas.save();
       canvas.clipRRect(RRect.fromRectAndRadius(
           ghostRect, Radius.circular(4 * s)));
       canvas.drawRect(ghostRect,
           Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.3));
-      final imgW = ghostSource.width.toDouble();
-      final imgH = ghostSource.height.toDouble();
+      final imgW = composedPhotoImage!.width.toDouble();
+      final imgH = composedPhotoImage!.height.toDouble();
       final imgAspect = imgW / imgH;
       final rectAspect = ghostRect.width / ghostRect.height;
       Rect srcRect;
@@ -886,8 +887,118 @@ class LicensePainter extends CustomPainter {
         final cropH = imgW / rectAspect;
         srcRect = Rect.fromLTWH(0, (imgH - cropH) / 2, imgW, cropH);
       }
-      canvas.drawImageRect(ghostSource, srcRect, ghostRect,
-          Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.12));
+      canvas.drawImageRect(composedPhotoImage!, srcRect, ghostRect,
+          Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: ghostAlpha));
+      canvas.restore();
+    } else if (photoImage != null) {
+      // 合成済み写真がない場合: 写真+顔ハメ+コスチュームをゴースト内に直接描画
+      canvas.save();
+      canvas.clipRRect(RRect.fromRectAndRadius(
+          ghostRect, Radius.circular(4 * s)));
+      canvas.drawRect(ghostRect,
+          Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.3));
+
+      // 写真エリアの比率からゴースト内の仮想写真矩形を計算
+      final pr = template.photoRectRatio;
+      // ゴースト矩形をカード全体に見立てて写真エリアを割り出す
+      final gPhotoRect = Rect.fromLTWH(
+        ghostRect.left + pr.left * ghostRect.width,
+        ghostRect.top + pr.top * ghostRect.height,
+        pr.width * ghostRect.width,
+        pr.height * ghostRect.height,
+      );
+
+      final ghostPaint = Paint()
+        ..color = const Color(0xFFFFFFFF).withValues(alpha: ghostAlpha);
+
+      // 写真を描画
+      final imgW = photoImage!.width.toDouble();
+      final imgH = photoImage!.height.toDouble();
+      final imgAspect = imgW / imgH;
+      final rectAspect = ghostRect.width / ghostRect.height;
+      Rect srcRect;
+      if (imgAspect > rectAspect) {
+        final cropW = imgH * rectAspect;
+        srcRect = Rect.fromLTWH((imgW - cropW) / 2, 0, cropW, imgH);
+      } else {
+        final cropH = imgW / rectAspect;
+        srcRect = Rect.fromLTWH(0, (imgH - cropH) / 2, imgW, cropH);
+      }
+      canvas.drawImageRect(photoImage!, srcRect, ghostRect, ghostPaint);
+
+      // 顔ハメを描画
+      if (outfitId != null && outfitImage != null) {
+        final costume = Costume.findById(outfitId!);
+        final oImgW = outfitImage!.width.toDouble();
+        final oImgH = outfitImage!.height.toDouble();
+        final cropRatio = switch (costume.id) {
+          'sailor' => 0.90,
+          'gakuran' => 0.90,
+          _ => 0.50,
+        };
+        final oSrcRect = Rect.fromLTWH(0, 0, oImgW, oImgH * cropRatio);
+        final oSrcAspect = oSrcRect.width / oSrcRect.height;
+        final drawWidth = gPhotoRect.width * costume.defaultScale;
+        final drawHeight = drawWidth / oSrcAspect;
+        final isOverseas = gPhotoRect.height / gPhotoRect.width > 1.35;
+        final heightScale = isOverseas ? (400.0 / 372.0) : 1.0;
+        final verticalRatio = switch (costume.id) {
+          'tuxedo' => 0.56,
+          'pirate' => 0.56,
+          'sailor' => 0.43,
+          'gakuran' => 0.32,
+          'kimono' => 0.57,
+          'police' => 0.66,
+          'fire' => 0.6,
+          'astro' => 0.58,
+          'angel' => 0.75,
+          'santa' => 0.55,
+          _ => 0.41,
+        };
+        final horizontalShift = switch (costume.id) {
+          'pirate' => 0.0,
+          'sailor' => gPhotoRect.width * 0.002,
+          'gakuran' => gPhotoRect.width * 0.005,
+          'kimono' => gPhotoRect.width * 0.02,
+          'police' => gPhotoRect.width * 0.01,
+          _ => 0.0,
+        };
+        final drawLeft = gPhotoRect.left + (gPhotoRect.width - drawWidth) / 2 + horizontalShift;
+        final drawTop = gPhotoRect.bottom - drawHeight * verticalRatio * heightScale;
+        final fitRect = Rect.fromLTWH(drawLeft, drawTop, drawWidth, drawHeight);
+        canvas.drawImageRect(outfitImage!, oSrcRect, fitRect, ghostPaint);
+      }
+
+      // コスチュームオーバーレイを描画
+      for (final overlay in costumeOverlays) {
+        final costume = Costume.findById(overlay.costumeId);
+        final costumeImg = costumeImages[overlay.costumeId];
+        if (costumeImg != null) {
+          final cImgW = costumeImg.width.toDouble();
+          final cImgH = costumeImg.height.toDouble();
+          final aspect = cImgW / cImgH;
+          final baseW = gPhotoRect.width * costume.defaultScale * overlay.scale;
+          final baseH = baseW;
+          double drawW, drawH;
+          if (aspect >= 1) {
+            drawW = baseW;
+            drawH = baseW / aspect;
+          } else {
+            drawH = baseH;
+            drawW = baseH * aspect;
+          }
+          final cx = gPhotoRect.left + overlay.cx * gPhotoRect.width;
+          final cy = gPhotoRect.top + overlay.cy * gPhotoRect.height;
+          canvas.save();
+          canvas.translate(cx, cy);
+          canvas.rotate(overlay.rotation);
+          final cSrc = Rect.fromLTWH(0, 0, cImgW, cImgH);
+          final cDst = Rect.fromLTWH(-drawW / 2, -drawH / 2, drawW, drawH);
+          canvas.drawImageRect(costumeImg, cSrc, cDst, ghostPaint);
+          canvas.restore();
+        }
+      }
+
       canvas.restore();
     }
   }

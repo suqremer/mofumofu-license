@@ -393,7 +393,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                   label: 'NFC',
                   onTap: () {
                     Navigator.pop(ctx);
-                    context.push('/nfc-write', extra: card);
+                    _showNfcActionSheet(card);
                   },
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -487,6 +487,64 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
             const SizedBox(height: AppSpacing.xs),
             Text(label, style: const TextStyle(fontSize: 12)),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// NFC操作の選択シート
+  void _showNfcActionSheet(LicenseCard card) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'NFC',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(Icons.edit_note, color: AppColors.secondary),
+                title: const Text('書き込み'),
+                subtitle: const Text('ペット情報をタグに書き込む'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/nfc-write', extra: card);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.contactless, color: AppColors.secondary),
+                title: const Text('読み取り'),
+                subtitle: const Text('タグに書かれた内容を確認する'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/nfc-read');
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );

@@ -17,6 +17,7 @@ import 'screens/tag_design_screen.dart';
 import 'screens/editor/photo_editor_screen.dart';
 import 'screens/camera_guide_screen.dart';
 import 'screens/nfc_write_screen.dart';
+import 'screens/nfc_read_screen.dart';
 import 'models/license_card.dart';
 
 /// 作成フロー用のスライドアニメーション（右からスライドイン）
@@ -156,6 +157,11 @@ final router = GoRouter(
           child: NfcWriteScreen(card: card),
         );
       },
+    ),
+    GoRoute(
+      path: '/nfc-read',
+      pageBuilder: (context, state) =>
+          _fadeTransition(state: state, child: const NfcReadScreen()),
     ),
   ],
 );

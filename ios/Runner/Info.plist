@@ -60,7 +60,7 @@
 	<key>NSUserTrackingUsageDescription</key>
 	<string>最適な広告を表示するために使用します</string>
 	<key>NFCReaderUsageDescription</key>
-	<string>ペットタグにNFCデータを書き込むために使用します</string>
+	<string>ペットタグのNFCデータの読み書きに使用します</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
