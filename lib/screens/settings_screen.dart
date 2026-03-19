@@ -17,9 +17,9 @@ class SettingsScreen extends ConsumerWidget {
 
   static const _supportEmail = 'uchino.ko.license@gmail.com';
   static const _privacyPolicyUrl =
-      'https://suqremer.github.io/mofumofu-license/privacy-policy';
+      'https://suqremer.github.io/mofumofu-license-pages/privacy-policy';
   static const _termsUrl =
-      'https://suqremer.github.io/mofumofu-license/terms';
+      'https://suqremer.github.io/mofumofu-license-pages/terms';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

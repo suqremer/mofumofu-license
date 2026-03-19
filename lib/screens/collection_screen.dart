@@ -38,108 +38,6 @@ class CollectionScreen extends ConsumerStatefulWidget {
 
 class _CollectionScreenState extends ConsumerState<CollectionScreen> {
   SortOption _sortOption = SortOption.byPet;
-  bool _selectMode = false;
-  final Set<int> _selectedIds = {};
-  void _exitSelectMode() {
-    setState(() {
-      _selectMode = false;
-      _selectedIds.clear();
-    });
-  }
-
-  void _toggleSelect(int id) {
-    setState(() {
-      if (_selectedIds.contains(id)) {
-        _selectedIds.remove(id);
-      } else {
-        _selectedIds.add(id);
-      }
-    });
-  }
-
-  Future<void> _deleteSelected() async {
-    final count = _selectedIds.length;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        ),
-        title: const Text('まとめて削除'),
-        content: Text('$count件の免許証を削除しますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('削除する'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && mounted) {
-      try {
-        for (final id in _selectedIds) {
-          await DatabaseService().deleteLicense(id);
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('削除中にエラーが発生しました: $e'),
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-      ref.invalidate(licensesProvider);
-      ref.invalidate(licenseCountProvider);
-      _exitSelectMode();
-    }
-  }
-
-  /// 選択中の免許証をまとめてカメラロールに保存
-  Future<void> _saveSelectedToGallery() async {
-    final licenses = ref.read(licensesProvider).valueOrNull ?? [];
-    final selected = licenses.where(
-      (c) => c.id != null && _selectedIds.contains(c.id),
-    ).toList();
-
-    final hasAccess = await Gal.hasAccess();
-    if (!hasAccess) {
-      await Gal.requestAccess();
-    }
-
-    int saved = 0;
-    for (final card in selected) {
-      final path = card.savedImagePath;
-      if (path == null) continue;
-      final file = File(path);
-      if (!await file.exists()) continue;
-      try {
-        await Gal.putImage(path, album: 'うちの子免許証');
-        saved++;
-      } on GalException {
-        // skip failed
-      }
-    }
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$saved件をカメラロールに保存しました！'),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-    _exitSelectMode();
-  }
 
   /// 並び替えを適用
   List<LicenseCard> _sortLicenses(List<LicenseCard> licenses) {
@@ -169,79 +67,9 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: _selectMode
-            ? Text('${_selectedIds.length}件選択中')
-            : const Text('コレクション'),
+        title: const Text('コレクション'),
         elevation: 0,
-        leading: _selectMode
-            ? IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: _exitSelectMode,
-              )
-            : null,
-        actions: _selectMode
-            ? [
-                IconButton(
-                  icon: const Icon(Icons.select_all),
-                  tooltip: 'すべて選択',
-                  onPressed: () {
-                    final licenses = licensesAsync.valueOrNull ?? [];
-                    setState(() {
-                      if (_selectedIds.length == licenses.length) {
-                        _selectedIds.clear();
-                      } else {
-                        _selectedIds.addAll(
-                          licenses.where((c) => c.id != null).map((c) => c.id!),
-                        );
-                      }
-                    });
-                  },
-                ),
-              ]
-            : null,
       ),
-      bottomNavigationBar: _selectMode && _selectedIds.isNotEmpty
-          ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _saveSelectedToGallery,
-                        icon: const Icon(Icons.save_alt),
-                        label: Text('${_selectedIds.length}件を保存'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _deleteSelected,
-                        icon: const Icon(Icons.delete),
-                        label: Text('${_selectedIds.length}件を削除'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade400,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : null,
       body: licensesAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.primary),
@@ -345,25 +173,10 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
       itemCount: licenses.length,
       itemBuilder: (context, index) {
         final card = licenses[index];
-        final isSelected = card.id != null && _selectedIds.contains(card.id);
         return _LicenseCardTile(
           card: card,
           index: index,
-          selectMode: _selectMode,
-          isSelected: isSelected,
-          onTap: () {
-            if (_selectMode) {
-              if (card.id != null) _toggleSelect(card.id!);
-            } else {
-              _showDetailSheet(card);
-            }
-          },
-          onLongPress: () {
-            if (!_selectMode) {
-              setState(() => _selectMode = true);
-              if (card.id != null) _toggleSelect(card.id!);
-            }
-          },
+          onTap: () => _showDetailSheet(card),
         );
       },
     );
@@ -980,7 +793,7 @@ class _LicenseCardTile extends StatefulWidget {
   const _LicenseCardTile({
     required this.card,
     required this.onTap,
-    required this.onLongPress,
+    this.onLongPress,
     required this.index,
     this.selectMode = false,
     this.isSelected = false,
@@ -988,7 +801,7 @@ class _LicenseCardTile extends StatefulWidget {
 
   final LicenseCard card;
   final VoidCallback onTap;
-  final VoidCallback onLongPress;
+  final VoidCallback? onLongPress;
   final int index;
   final bool selectMode;
   final bool isSelected;
@@ -1290,6 +1103,44 @@ class _PetLicenseListScreenState extends ConsumerState<_PetLicenseListScreen> {
     }
   }
 
+  /// 選択中の免許証をまとめてカメラロールに保存
+  Future<void> _saveSelectedToGallery() async {
+    final allLicenses = ref.read(licensesProvider).valueOrNull ?? [];
+    final selected = allLicenses.where(
+      (c) => c.id != null && _selectedIds.contains(c.id),
+    ).toList();
+
+    final hasAccess = await Gal.hasAccess();
+    if (!hasAccess) {
+      await Gal.requestAccess();
+    }
+
+    int saved = 0;
+    for (final card in selected) {
+      final path = card.savedImagePath;
+      if (path == null) continue;
+      final file = File(path);
+      if (!await file.exists()) continue;
+      try {
+        await Gal.putImage(path, album: 'うちの子免許証');
+        saved++;
+      } on GalException {
+        // skip failed
+      }
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$saved件をカメラロールに保存しました！'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+    _exitSelectMode();
+  }
+
   @override
   Widget build(BuildContext context) {
     // 削除後はproviderから最新リストを取得してフィルタ
@@ -1356,14 +1207,50 @@ class _PetLicenseListScreenState extends ConsumerState<_PetLicenseListScreen> {
                   ],
                 ),
           centerTitle: true,
-          actions: [
-            if (_selectMode && _selectedIds.isNotEmpty)
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: _deleteSelected,
-              ),
-          ],
         ),
+        bottomNavigationBar: _selectMode && _selectedIds.isNotEmpty
+            ? SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _saveSelectedToGallery,
+                          icon: const Icon(Icons.save_alt),
+                          label: Text('${_selectedIds.length}件を保存'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _deleteSelected,
+                          icon: const Icon(Icons.delete),
+                          label: Text('${_selectedIds.length}件を削除'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade400,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : null,
         body: currentLicenses.isEmpty
             ? Center(
                 child: Column(
