@@ -61,10 +61,6 @@
 	<string>最適な広告を表示するために使用します</string>
 	<key>NFCReaderUsageDescription</key>
 	<string>ペットタグにNFCデータを書き込むために使用します</string>
-	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
-	<array>
-		<string>D2760000850101</string>
-	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

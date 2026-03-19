@@ -389,6 +389,15 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 _detailActionButton(
+                  icon: Icons.nfc,
+                  label: 'NFC',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.push('/nfc-write', extra: card);
+                  },
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                _detailActionButton(
                   icon: Icons.local_shipping_outlined,
                   label: '注文',
                   onTap: () {
