@@ -7,6 +7,7 @@ import '../models/license_card.dart';
 import '../providers/database_provider.dart';
 import '../services/app_preferences.dart';
 import '../theme/colors.dart';
+import '../theme/spacing.dart';
 import '../widgets/photo_crop_preview.dart';
 import '../widgets/product_gallery.dart';
 
@@ -77,18 +78,18 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
   Widget _buildNoLicenses() {
     return const Center(
       child: Padding(
-        padding: EdgeInsets.all(32),
+        padding: EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.photo_library_outlined,
                 size: 64, color: AppColors.textLight),
-            SizedBox(height: 16),
+            SizedBox(height: AppSpacing.md),
             Text(
               '免許証がまだありません',
               style: TextStyle(fontSize: 16, color: AppColors.textMedium),
             ),
-            SizedBox(height: 8),
+            SizedBox(height: AppSpacing.sm),
             Text(
               '先に免許証を作成してください',
               style: TextStyle(fontSize: 13, color: AppColors.textLight),
@@ -114,13 +115,13 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                   height: 160,
                   compact: true,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
 
                 // 商品情報
                 Row(
                   children: [
                     const Icon(Icons.pets, color: AppColors.primary),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppSpacing.sm),
                     const Expanded(
                       child: Text(
                         'ハンドメイドレジンタグ（Φ25mm）',
@@ -149,11 +150,11 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                   const SizedBox(height: 20),
                   _buildCircularPreview(),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.lg),
 
                 // Step 2: 丸形画像の作成
                 _buildStepHeader(2, 'タグ用の丸形画像を作成'),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 const Text(
                   'タグに使う写真は丸形にトリミングする必要があります。\n'
                   '作成した画像はカメラロールに保存されます。',
@@ -163,7 +164,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                 if (_selectedCards.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   ..._selectedCards.map((card) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
@@ -187,18 +188,18 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
                           ),
                         ),
                       ),
                     ),
                   )),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.lg),
 
                 // Step 3: 決済
                 _buildStepHeader(3, '決済ページで支払い'),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 const Text(
                   '「注文する」を押すと外部の決済ページ（Stripe）が開きます。\n'
                   '配送先はStripeの画面で入力してください。',
@@ -220,7 +221,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(Icons.info_outline, size: 18, color: AppColors.accent),
-                        SizedBox(width: 8),
+                        SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Text(
                             '決済完了後、Step 4のフォームからカメラロールに保存した'
@@ -240,7 +241,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
 
                 // Step 4: 写真送付（常時表示）
                 _buildStepHeader(4, '専用フォームから写真を送付'),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 const Text(
                   '決済完了後、Googleフォームでタグ用の丸形画像を送ってください。\n'
                   '注文番号はStripeからのメールに記載されています。',
@@ -259,7 +260,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                       side: BorderSide(color: Colors.grey.shade400),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
                       ),
                     ),
                   ),
@@ -277,8 +278,8 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
     return Row(
       children: [
         Container(
-          width: 24,
-          height: 24,
+          width: AppSpacing.lg,
+          height: AppSpacing.lg,
           decoration: const BoxDecoration(
             color: AppColors.primary,
             shape: BoxShape.circle,
@@ -354,7 +355,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
             itemBuilder: (context, index) {
               final card = _selectedCards[index];
               return Padding(
-                padding: const EdgeInsets.only(right: 16),
+                padding: const EdgeInsets.only(right: AppSpacing.md),
                 child: Column(
                   children: [
                     Container(
@@ -419,7 +420,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               border: Border.all(
                 color: isSelected ? AppColors.primary : Colors.grey.shade300,
                 width: isSelected ? 2.5 : 1,
@@ -445,8 +446,8 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                   ),
                   if (isSelected)
                     Positioned(
-                      top: 4,
-                      right: 4,
+                      top: AppSpacing.xs,
+                      right: AppSpacing.xs,
                       child: Container(
                         padding: const EdgeInsets.all(2),
                         decoration: const BoxDecoration(
@@ -463,7 +464,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                     bottom: 0,
                     child: Container(
                       padding:
-                          const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: AppSpacing.xs),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
@@ -511,7 +512,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, AppSpacing.xl),
       decoration: BoxDecoration(
         color: AppColors.background,
         boxShadow: [
@@ -527,13 +528,13 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
         children: [
           if (count > 0 && !isEnabled)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.warning_amber_rounded,
                       size: 16, color: Colors.orange.shade700),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: AppSpacing.xs),
                   Text(
                     '全画像を保存してから注文に進めます',
                     style: TextStyle(
@@ -598,11 +599,11 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusLg)),
         title: const Row(
           children: [
             Icon(Icons.check_circle, color: AppColors.success, size: 24),
-            SizedBox(width: 8),
+            SizedBox(width: AppSpacing.sm),
             Text('決済は完了しましたか？', style: TextStyle(fontSize: 17)),
           ],
         ),

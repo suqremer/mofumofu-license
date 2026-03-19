@@ -14,6 +14,7 @@ import '../providers/database_provider.dart';
 import '../services/database_service.dart';
 import '../services/license_composer.dart';
 import '../theme/colors.dart';
+import '../theme/spacing.dart';
 import '../widgets/banner_ad_widget.dart';
 import '../widgets/photo_crop_preview.dart';
 
@@ -62,7 +63,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         ),
         title: const Text('まとめて削除'),
         content: Text('$count件の免許証を削除しますか？'),
@@ -171,8 +172,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
         title: _selectMode
             ? Text('${_selectedIds.length}件選択中')
             : const Text('コレクション'),
-        backgroundColor: AppColors.background,
-        elevation: 0.5,
+        elevation: 0,
         leading: _selectMode
             ? IconButton(
                 icon: const Icon(Icons.close),
@@ -203,7 +203,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
       bottomNavigationBar: _selectMode && _selectedIds.isNotEmpty
           ? SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
                 child: Row(
                   children: [
                     Expanded(
@@ -264,7 +264,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
       children: [
         // ヘッダー: 枚数カウント + 並び替え
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xs),
           child: Row(
             children: [
               Icon(
@@ -272,7 +272,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                 size: 20,
                 color: AppColors.primary.withValues(alpha: 0.8),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.sm),
               Text(
                 '${licenses.length}枚の免許証',
                 style: const TextStyle(
@@ -292,7 +292,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                   children: [
                     Icon(Icons.sort,
                         size: 18, color: AppColors.textMedium),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: AppSpacing.xs),
                     Text(
                       _sortOption.label,
                       style: const TextStyle(
@@ -310,8 +310,8 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                               const Icon(Icons.check,
                                   size: 16, color: AppColors.primary)
                             else
-                              const SizedBox(width: 16),
-                            const SizedBox(width: 8),
+                              const SizedBox(width: AppSpacing.md),
+                            const SizedBox(width: AppSpacing.sm),
                             Text(opt.label),
                           ],
                         ),
@@ -378,7 +378,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
     final petNames = groups.keys.toList();
 
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         childAspectRatio: 0.9,
@@ -427,7 +427,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.06),
@@ -457,16 +457,22 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                 ),
                 const SizedBox(height: 10),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                  child: Hero(
+                    tag: 'pet_name_$name',
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -504,9 +510,9 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
         decoration: const BoxDecoration(
           color: AppColors.background,
           borderRadius:
-              BorderRadius.vertical(top: Radius.circular(24)),
+              BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusXl)),
         ),
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -519,10 +525,10 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             // 免許証画像
             _buildDetailImage(card),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             // ペット情報
             Text(
               card.petName,
@@ -532,7 +538,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                 color: AppColors.textDark,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               '${licenseType.label} / $dateText',
               style: const TextStyle(
@@ -550,7 +556,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                     _editLicense(card);
                   },
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 _detailActionButton(
                   icon: Icons.save_alt,
                   label: '保存',
@@ -559,7 +565,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                     _saveToGallery(card);
                   },
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 _detailActionButton(
                   icon: Icons.share,
                   label: 'シェア',
@@ -568,7 +574,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                     _shareExistingLicense(card);
                   },
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 _detailActionButton(
                   icon: Icons.nfc,
                   label: 'NFC',
@@ -577,7 +583,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                     context.push('/nfc-write', extra: card);
                   },
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 _detailActionButton(
                   icon: Icons.local_shipping_outlined,
                   label: '注文',
@@ -588,7 +594,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             TextButton.icon(
               onPressed: () {
                 Navigator.pop(ctx);
@@ -614,7 +620,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
     return Container(
       constraints: const BoxConstraints(maxHeight: 300),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         border: Border.all(color: Colors.grey.shade300, width: 1.5),
         boxShadow: [
           BoxShadow(
@@ -657,7 +663,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
           foregroundColor: AppColors.primary,
           side: const BorderSide(color: AppColors.primary),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           ),
           padding: const EdgeInsets.symmetric(vertical: 12),
         ),
@@ -665,7 +671,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 20),
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSpacing.xs),
             Text(label, style: const TextStyle(fontSize: 12)),
           ],
         ),
@@ -824,7 +830,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         ),
         title: const Text('免許証を削除'),
         content: Text('${card.petName}の免許証を削除しますか？'),
@@ -873,14 +879,14 @@ class _EmptyView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.pets,
                 size: 96,
                 color: AppColors.primary.withValues(alpha: 0.3)),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.lg),
             const Text(
               'まだ免許証がありません',
               style: TextStyle(
@@ -889,13 +895,13 @@ class _EmptyView extends StatelessWidget {
                 color: AppColors.textDark,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               'ペットの免許証を作ってみよう！',
               style: TextStyle(
                   fontSize: 14, color: Colors.grey.shade600),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: AppSpacing.xl),
             ElevatedButton.icon(
               onPressed: () => context.push('/create/photo'),
               icon: const Icon(Icons.add_a_photo),
@@ -904,7 +910,7 @@ class _EmptyView extends StatelessWidget {
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 32, vertical: 14),
+                    horizontal: AppSpacing.xl, vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(28),
                 ),
@@ -930,26 +936,26 @@ class _ErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.error_outline,
                 size: 64, color: Colors.red.shade300),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             const Text(
               'データの読み込みに失敗しました',
               style: TextStyle(
                   fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               message,
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontSize: 12, color: Colors.grey.shade600),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.lg),
             OutlinedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
@@ -958,7 +964,7 @@ class _ErrorView extends StatelessWidget {
                 foregroundColor: AppColors.primary,
                 side: const BorderSide(color: AppColors.primary),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
                 ),
               ),
             ),
@@ -1044,17 +1050,19 @@ class _LicenseCardTileState extends State<_LicenseCardTile>
       child: GestureDetector(
         onTap: widget.onTap,
         onLongPress: widget.onLongPress,
-        child: Container(
+        child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: widget.isSelected
               ? Border.all(color: AppColors.primary, width: 2.5)
-              : null,
+              : Border.all(color: Colors.transparent, width: 2.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 8,
+              color: Colors.black.withValues(alpha: widget.isSelected ? 0.12 : 0.08),
+              blurRadius: widget.isSelected ? 12 : 8,
               offset: const Offset(0, 2),
             ),
           ],
@@ -1070,7 +1078,7 @@ class _LicenseCardTileState extends State<_LicenseCardTile>
               flex: 2,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 8),
+                    horizontal: 10, vertical: AppSpacing.sm),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1084,7 +1092,7 @@ class _LicenseCardTileState extends State<_LicenseCardTile>
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSpacing.xs),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
@@ -1110,7 +1118,7 @@ class _LicenseCardTileState extends State<_LicenseCardTile>
                         Icon(Icons.calendar_today,
                             size: 12,
                             color: Colors.grey.shade400),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: AppSpacing.xs),
                         Text(
                           dateText,
                           style: TextStyle(
@@ -1129,7 +1137,9 @@ class _LicenseCardTileState extends State<_LicenseCardTile>
               Positioned(
                 top: 6,
                 right: 6,
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
@@ -1140,9 +1150,12 @@ class _LicenseCardTileState extends State<_LicenseCardTile>
                       width: 2,
                     ),
                   ),
-                  child: widget.isSelected
-                      ? const Icon(Icons.check, size: 16, color: Colors.white)
-                      : null,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 150),
+                    child: widget.isSelected
+                        ? const Icon(Icons.check, key: ValueKey(true), size: 16, color: Colors.white)
+                        : const SizedBox.shrink(key: ValueKey(false)),
+                  ),
                 ),
               ),
           ],
@@ -1235,7 +1248,7 @@ class _PetLicenseListScreenState extends ConsumerState<_PetLicenseListScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         ),
         title: const Text('まとめて削除'),
         content: Text('$count件の免許証を削除しますか？'),
@@ -1326,12 +1339,18 @@ class _PetLicenseListScreenState extends ConsumerState<_PetLicenseListScreen> {
                         size: 18,
                         color: AppColors.primary.withValues(alpha: 0.7)),
                     const SizedBox(width: 6),
-                    Text(
-                      '${widget.petName}の免許証',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
+                    Hero(
+                      tag: 'pet_name_${widget.petName}',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: Text(
+                          '${widget.petName}の免許証',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -1365,7 +1384,7 @@ class _PetLicenseListScreenState extends ConsumerState<_PetLicenseListScreen> {
                 ),
               )
             : GridView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                   maxCrossAxisExtent: 200,
                   childAspectRatio: 0.75,

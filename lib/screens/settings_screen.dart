@@ -8,6 +8,7 @@ import '../services/app_preferences.dart';
 import '../services/database_service.dart';
 import '../services/purchase_manager.dart';
 import '../theme/colors.dart';
+import '../theme/spacing.dart';
 import '../widgets/paywall_bottom_sheet.dart';
 
 /// 画面9: 設定
@@ -34,18 +35,21 @@ class SettingsScreen extends ConsumerWidget {
           final remaining = AppPreferences.remainingCreations;
 
           return ListView(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
             children: [
               // ── アプリ情報ヘッダー ──
               Card(
-                margin: const EdgeInsets.all(16),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                      vertical: 20, horizontal: 16),
+                      vertical: 20, horizontal: AppSpacing.md),
                   child: Row(
                     children: [
                       const Icon(Icons.pets,
                           size: 48, color: AppColors.secondary),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: AppSpacing.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,7 +74,8 @@ class SettingsScreen extends ConsumerWidget {
                                     horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.orange.shade100,
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius:
+                                      BorderRadius.circular(AppSpacing.radiusSm),
                                 ),
                                 child: Text(
                                   '開発モード',
@@ -92,143 +97,165 @@ class SettingsScreen extends ConsumerWidget {
 
               // ── 利用状況 ──
               _sectionHeader('利用状況'),
-              ListTile(
-                leading: const Icon(Icons.confirmation_number_outlined),
-                title: const Text('作成数'),
-                trailing: Text(
-                  effectivePremium
-                      ? '$totalCount枚（無制限）'
-                      : '$totalCount / ${AppPreferences.freeCreationLimit}枚',
-                  style: const TextStyle(color: AppColors.textMedium),
-                ),
-              ),
-              if (!effectivePremium && remaining == 0) ...[
-                const Divider(height: 1),
-                ListTile(
-                  leading:
-                      Icon(Icons.lock_outline, color: Colors.red.shade400),
-                  title: Text(
-                    '無料枠を使い切りました',
-                    style: TextStyle(color: Colors.red.shade400),
+              _sectionCard(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.confirmation_number_outlined),
+                    title: const Text('作成数'),
+                    trailing: Text(
+                      effectivePremium
+                          ? '$totalCount枚（無制限）'
+                          : '$totalCount / ${AppPreferences.freeCreationLimit}枚',
+                      style: const TextStyle(color: AppColors.textMedium),
+                    ),
                   ),
-                  subtitle: const Text('プレミアムで無制限に作れます'),
-                ),
-              ],
+                  if (!effectivePremium && remaining == 0) ...[
+                    _thinDivider(),
+                    ListTile(
+                      leading:
+                          Icon(Icons.lock_outline, color: Colors.red.shade400),
+                      title: Text(
+                        '無料枠を使い切りました',
+                        style: TextStyle(color: Colors.red.shade400),
+                      ),
+                      subtitle: const Text('プレミアムで無制限に作れます'),
+                    ),
+                  ],
+                ],
+              ),
 
               // ── アカウント・プラン ──
               _sectionHeader('アカウント・プラン'),
-              ListTile(
-                leading: Icon(
-                  Icons.card_membership,
-                  color: effectivePremium ? Colors.amber : null,
-                ),
-                title: const Text('現在のプラン'),
-                trailing: Text(
-                  kDevMode
-                      ? '開発モード'
-                      : isPremium
-                          ? 'プレミアム'
-                          : '無料',
-                  style: TextStyle(
-                    color: isPremium ? Colors.amber.shade700 : AppColors.textMedium,
-                    fontWeight: isPremium ? FontWeight.bold : FontWeight.normal,
+              _sectionCard(
+                children: [
+                  ListTile(
+                    leading: Icon(
+                      Icons.card_membership,
+                      color: effectivePremium ? Colors.amber : null,
+                    ),
+                    title: const Text('現在のプラン'),
+                    trailing: Text(
+                      kDevMode
+                          ? '開発モード'
+                          : isPremium
+                              ? 'プレミアム'
+                              : '無料',
+                      style: TextStyle(
+                        color: isPremium
+                            ? Colors.amber.shade700
+                            : AppColors.textMedium,
+                        fontWeight:
+                            isPremium ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
                   ),
-                ),
+                  if (!effectivePremium) ...[
+                    _thinDivider(),
+                    ListTile(
+                      leading: const Icon(Icons.workspace_premium,
+                          color: Colors.amber),
+                      title: const Text('プレミアムにアップグレード'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => PaywallBottomSheet.show(context),
+                    ),
+                  ],
+                ],
               ),
-              if (!effectivePremium) ...[
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.workspace_premium,
-                      color: Colors.amber),
-                  title: const Text('プレミアムにアップグレード'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => PaywallBottomSheet.show(context),
-                ),
-              ],
 
               // ── サポート ──
               _sectionHeader('サポート'),
-              ListTile(
-                leading: const Icon(Icons.mail_outline),
-                title: const Text('お問い合わせ'),
-                subtitle: Text(_supportEmail,
-                    style: const TextStyle(fontSize: 12)),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _launchEmail(context),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.star_outline),
-                title: const Text('レビューを書く'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () =>
-                    _showSnack(context, 'ストア公開後にリンクします'),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.bug_report_outlined),
-                title: const Text('不具合を報告'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _launchBugReport(context),
+              _sectionCard(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.mail_outline),
+                    title: const Text('お問い合わせ'),
+                    subtitle: Text(_supportEmail,
+                        style: const TextStyle(fontSize: 12)),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _launchEmail(context),
+                  ),
+                  _thinDivider(),
+                  ListTile(
+                    leading: const Icon(Icons.star_outline),
+                    title: const Text('レビューを書く'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () =>
+                        _showSnack(context, 'ストア公開後にリンクします'),
+                  ),
+                  _thinDivider(),
+                  ListTile(
+                    leading: const Icon(Icons.bug_report_outlined),
+                    title: const Text('不具合を報告'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _launchBugReport(context),
+                  ),
+                ],
               ),
 
               // ── 法的情報 ──
               _sectionHeader('法的情報'),
-              ListTile(
-                leading: const Icon(Icons.privacy_tip_outlined),
-                title: const Text('プライバシーポリシー'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _launchUrl(context, _privacyPolicyUrl),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.description_outlined),
-                title: const Text('利用規約'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _launchUrl(context, _termsUrl),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.source_outlined),
-                title: const Text('オープンソースライセンス'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => showLicensePage(
-                  context: context,
-                  applicationName: 'うちの子免許証',
-                  applicationVersion: '1.0.0',
-                ),
+              _sectionCard(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.privacy_tip_outlined),
+                    title: const Text('プライバシーポリシー'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _launchUrl(context, _privacyPolicyUrl),
+                  ),
+                  _thinDivider(),
+                  ListTile(
+                    leading: const Icon(Icons.description_outlined),
+                    title: const Text('利用規約'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _launchUrl(context, _termsUrl),
+                  ),
+                  _thinDivider(),
+                  ListTile(
+                    leading: const Icon(Icons.source_outlined),
+                    title: const Text('オープンソースライセンス'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => showLicensePage(
+                      context: context,
+                      applicationName: 'うちの子免許証',
+                      applicationVersion: '1.0.0',
+                    ),
+                  ),
+                ],
               ),
 
               // ── その他 ──
               _sectionHeader('その他'),
-              if (kDevMode) ...[
-                ListTile(
-                  leading: Icon(Icons.restore,
-                      color: Colors.orange.shade400),
-                  title: Text(
-                    'FTUEをリセット（開発用）',
-                    style:
-                        TextStyle(color: Colors.orange.shade400),
+              _sectionCard(
+                children: [
+                  if (kDevMode) ...[
+                    ListTile(
+                      leading: Icon(Icons.restore,
+                          color: Colors.orange.shade400),
+                      title: Text(
+                        'FTUEをリセット（開発用）',
+                        style: TextStyle(color: Colors.orange.shade400),
+                      ),
+                      onTap: () async {
+                        await AppPreferences.setFtueCompleted();
+                        _showSnack(context,
+                            'SharedPreferencesを手動クリアしてアプリを再起動してください');
+                      },
+                    ),
+                    _thinDivider(),
+                  ],
+                  ListTile(
+                    leading:
+                        Icon(Icons.delete_outline, color: Colors.red.shade400),
+                    title: Text(
+                      'データを全て削除',
+                      style: TextStyle(color: Colors.red.shade400),
+                    ),
+                    onTap: () => _showDeleteDialog(context, ref),
                   ),
-                  onTap: () async {
-                    await AppPreferences.setFtueCompleted();
-                    _showSnack(context,
-                        'SharedPreferencesを手動クリアしてアプリを再起動してください');
-                  },
-                ),
-                const Divider(height: 1),
-              ],
-              ListTile(
-                leading:
-                    Icon(Icons.delete_outline, color: Colors.red.shade400),
-                title: Text(
-                  'データを全て削除',
-                  style: TextStyle(color: Colors.red.shade400),
-                ),
-                onTap: () => _showDeleteDialog(context, ref),
+                ],
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: AppSpacing.xl),
             ],
           );
         },
@@ -238,9 +265,10 @@ class SettingsScreen extends ConsumerWidget {
 
   // ── ヘルパー ──
 
+  /// セクション見出し
   static Widget _sectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      padding: const EdgeInsets.fromLTRB(4, AppSpacing.lg, 4, AppSpacing.sm),
       child: Text(
         title,
         style: const TextStyle(
@@ -249,6 +277,30 @@ class SettingsScreen extends ConsumerWidget {
           color: AppColors.textMedium,
         ),
       ),
+    );
+  }
+
+  /// セクションをCardで囲むウィジェット
+  static Widget _sectionCard({required List<Widget> children}) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: children,
+        ),
+      ),
+    );
+  }
+
+  /// Card内の項目間の薄い区切り線
+  static Widget _thinDivider() {
+    return const Divider(
+      height: 0,
+      thickness: 0.5,
+      indent: 56,
+      color: AppColors.surfaceVariant,
     );
   }
 
@@ -310,6 +362,9 @@ class SettingsScreen extends ConsumerWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        ),
         title: const Text('データを全て削除'),
         content: const Text(
             '本当に全てのデータを削除しますか？\nこの操作は取り消せません。'),

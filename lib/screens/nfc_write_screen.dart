@@ -143,8 +143,7 @@ class _NfcWriteScreenState extends State<NfcWriteScreen>
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('NFCに書き込む'),
-        backgroundColor: AppColors.background,
-        elevation: 0.5,
+        elevation: 0,
         leading: _state == _NfcWriteState.waiting ||
                 _state == _NfcWriteState.writing
             ? const SizedBox.shrink()

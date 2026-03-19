@@ -10,6 +10,7 @@ import '../models/pet.dart';
 import '../providers/database_provider.dart';
 import '../services/database_service.dart';
 import '../theme/colors.dart';
+import '../theme/spacing.dart';
 import '../widgets/photo_crop_preview.dart';
 
 // === 定数 ===
@@ -47,8 +48,6 @@ class PetNotebookScreen extends ConsumerWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('ペット手帳'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
       ),
       body: petsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -72,9 +71,9 @@ class PetNotebookScreen extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.menu_book, size: 80, color: AppColors.primary.withValues(alpha: 0.5)),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           const Text('まだペットが登録されていません', style: TextStyle(fontSize: 16, color: Colors.grey)),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           Text('右下の＋ボタンから登録できます',
             style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
         ],
@@ -85,7 +84,7 @@ class PetNotebookScreen extends ConsumerWidget {
   /// ペット一覧のリスト表示
   Widget _buildPetList(BuildContext context, WidgetRef ref, List<Pet> pets, List<LicenseCard> licenses) {
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 80),
       itemCount: pets.length,
       itemBuilder: (context, index) {
         final pet = pets[index];
@@ -151,24 +150,24 @@ class _PetCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusLg)),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
               // アイコン: 免許証があればコスチューム付き証明写真、なければ生写真 or 種別アイコン
               _buildAvatar(),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.md),
               // 情報
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(pet.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSpacing.xs),
                     Text(
                       [
                         pet.species,
@@ -294,7 +293,7 @@ class _PetFormSheetState extends State<_PetFormSheet> {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding: EdgeInsets.fromLTRB(20, 16, 20, bottom + 16),
+      padding: EdgeInsets.fromLTRB(20, AppSpacing.md, 20, bottom + AppSpacing.md),
       child: Form(
         key: _formKey,
         child: ListView(
@@ -307,13 +306,13 @@ class _PetFormSheetState extends State<_PetFormSheet> {
                 decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             Text(_isEditing ? 'ペット情報を編集' : 'ペットを追加', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
 
             // 写真（免許証作成時の写真を自動表示）
             Center(child: _buildFormAvatar()),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
             // 名前（必須）
             TextFormField(
@@ -321,13 +320,13 @@ class _PetFormSheetState extends State<_PetFormSheet> {
               decoration: const InputDecoration(labelText: '名前 *', border: OutlineInputBorder()),
               validator: (v) => (v == null || v.trim().isEmpty) ? '名前を入力してください' : null,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
             // 種別（必須）
             const Text('種別 *', style: TextStyle(fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Wrap(
-              spacing: 8,
+              spacing: AppSpacing.sm,
               children: _speciesList.map((s) => ChoiceChip(
                 label: Text(s),
                 selected: _species == s,
@@ -335,18 +334,18 @@ class _PetFormSheetState extends State<_PetFormSheet> {
                 onSelected: (_) => setState(() => _species = s),
               )).toList(),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
             // 品種（任意）
             TextFormField(
               controller: _breedCtrl,
               decoration: const InputDecoration(labelText: '品種', border: OutlineInputBorder()),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
             // 生年月日（任意）
             const Text('生年月日', style: TextStyle(fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             GestureDetector(
               onTap: () async {
                 DateTime tempDate = _birthDate ?? DateTime.now();
@@ -354,7 +353,7 @@ class _PetFormSheetState extends State<_PetFormSheet> {
                   context: context,
                   backgroundColor: Colors.white,
                   shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
                   ),
                   builder: (ctx) {
                     return SizedBox(
@@ -362,7 +361,7 @@ class _PetFormSheetState extends State<_PetFormSheet> {
                       child: Column(
                         children: [
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -413,14 +412,14 @@ class _PetFormSheetState extends State<_PetFormSheet> {
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                       borderSide: BorderSide(color: Colors.grey.shade300),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                       borderSide: BorderSide(color: Colors.grey.shade300),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
                   ),
                   controller: TextEditingController(
                     text: _birthDate != null
@@ -430,13 +429,13 @@ class _PetFormSheetState extends State<_PetFormSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
             // 性別（任意）
             const Text('性別', style: TextStyle(fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Wrap(
-              spacing: 8,
+              spacing: AppSpacing.sm,
               children: _genderList.map((g) => ChoiceChip(
                 label: Text(g),
                 selected: _gender == g,
@@ -444,28 +443,28 @@ class _PetFormSheetState extends State<_PetFormSheet> {
                 onSelected: (selected) => setState(() => _gender = selected ? g : null),
               )).toList(),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
             // かかりつけ病院
             TextFormField(
               controller: _hospitalCtrl,
               decoration: const InputDecoration(labelText: 'かかりつけ病院', border: OutlineInputBorder()),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
             // マイクロチップ番号
             TextFormField(
               controller: _microchipCtrl,
               decoration: const InputDecoration(labelText: 'マイクロチップ番号', border: OutlineInputBorder()),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
             // 保険情報
             TextFormField(
               controller: _insuranceCtrl,
               decoration: const InputDecoration(labelText: '保険情報', border: OutlineInputBorder()),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
             // メモ
             TextFormField(
@@ -473,12 +472,12 @@ class _PetFormSheetState extends State<_PetFormSheet> {
               decoration: const InputDecoration(labelText: 'メモ', border: OutlineInputBorder()),
               maxLines: 3,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.lg),
 
             // 保存ボタン
             SizedBox(
               width: double.infinity,
-              height: 48,
+              height: AppSpacing.xxl,
               child: ElevatedButton(
                 onPressed: _save,
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
@@ -725,13 +724,13 @@ class _BasicInfoTab extends StatelessWidget {
         if (pet.memo != null) ...[
           const SizedBox(height: 12),
           const Text('メモ', style: TextStyle(fontSize: 13, color: Colors.grey)),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: AppColors.background,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
             ),
             child: Text(pet.memo!),
           ),
@@ -861,7 +860,7 @@ class _HealthRecordTabState extends State<_HealthRecordTab> {
             children: [
               // セグメントコントロール
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, 12, AppSpacing.md, 0),
                 child: SegmentedButton<_RecordFilter>(
                   segments: const [
                     ButtonSegment(value: _RecordFilter.all, label: Text('すべて')),
@@ -890,7 +889,7 @@ class _HealthRecordTabState extends State<_HealthRecordTab> {
               ),
               // 追加ボタン
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
                 child: SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -900,7 +899,7 @@ class _HealthRecordTabState extends State<_HealthRecordTab> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
                       side: const BorderSide(color: AppColors.primary),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
@@ -911,7 +910,7 @@ class _HealthRecordTabState extends State<_HealthRecordTab> {
                 child: filtered.isEmpty
                     ? const Center(child: Text('記録がまだありません', style: TextStyle(color: Colors.grey)))
                     : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
                         itemCount: filtered.length,
                         separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (_, i) {
@@ -955,7 +954,7 @@ class _HealthRecordTabState extends State<_HealthRecordTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(AppSpacing.md),
               child: Text('記録の種類を選択', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
             ListTile(
@@ -982,7 +981,7 @@ class _HealthRecordTabState extends State<_HealthRecordTab> {
                 _showAddOther(context);
               },
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
           ],
         ),
       ),
@@ -1012,7 +1011,7 @@ class _HealthRecordTabState extends State<_HealthRecordTab> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 _DatePickerField(
                   label: '記録日',
                   date: recordDate,
@@ -1070,7 +1069,7 @@ class _HealthRecordTabState extends State<_HealthRecordTab> {
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(labelText: '体重 (kg)', border: OutlineInputBorder()),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 _DatePickerField(
                   label: '記録日',
                   date: logDate,
@@ -1124,7 +1123,7 @@ class _HealthRecordTabState extends State<_HealthRecordTab> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 _DatePickerField(
                   label: '記録日',
                   date: recordDate,
@@ -1209,7 +1208,7 @@ class _DatePickerField extends StatelessWidget {
             children: [
               // ヘッダー
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

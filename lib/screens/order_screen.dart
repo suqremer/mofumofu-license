@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/colors.dart';
+import '../theme/spacing.dart';
 import '../widgets/product_gallery.dart';
 
 /// 注文トップ画面: カード / タグ / セット の3つから選択
@@ -19,7 +20,7 @@ class OrderScreen extends StatelessWidget {
         elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -31,14 +32,14 @@ class OrderScreen extends StatelessWidget {
                 color: AppColors.textMedium,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
             // 商品スライドショー
             const ProductGallery(
               photos: kAllProductPhotos,
               height: 180,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.lg),
 
             // --- PVCカード ---
             _ProductCard(
@@ -54,7 +55,7 @@ class OrderScreen extends StatelessWidget {
               ],
               onTap: () => context.push('/order/card'),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
             // --- レジンタグ ---
             _ProductCard(
@@ -70,7 +71,7 @@ class OrderScreen extends StatelessWidget {
               ],
               onTap: () => context.push('/order/tag'),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
             // --- セット ---
             _ProductCard(
@@ -87,15 +88,15 @@ class OrderScreen extends StatelessWidget {
               ],
               onTap: () => context.push('/order/set'),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.lg),
 
             // 注意事項
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
                 color: AppColors.secondary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +116,7 @@ class OrderScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.sm),
                   const Text(
                     '• 決済は外部サイト（Stripe）で安全に処理されます\n'
                     '• 決済完了後、専用フォームから写真を送っていただきます\n'
@@ -129,7 +130,7 @@ class OrderScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: AppSpacing.xl),
           ],
         ),
       ),
@@ -168,7 +169,7 @@ class _ProductCard extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           border: Border.all(
             color: badge != null
                 ? AppColors.accent.withValues(alpha: 0.5)
@@ -190,11 +191,11 @@ class _ProductCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: AppSpacing.xxl,
+                  height: AppSpacing.xxl,
                   decoration: BoxDecoration(
                     color: iconColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                   ),
                   child: Icon(icon, color: iconColor, size: 26),
                 ),
@@ -225,10 +226,10 @@ class _ProductCard extends StatelessWidget {
                             ),
                           ),
                           if (badge != null) ...[
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSpacing.sm),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
+                                  horizontal: AppSpacing.sm, vertical: 2),
                               decoration: BoxDecoration(
                                 color: AppColors.accent,
                                 borderRadius: BorderRadius.circular(10),
@@ -262,12 +263,12 @@ class _ProductCard extends StatelessWidget {
             // 特徴リスト
             ...features.map(
               (f) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                 child: Row(
                   children: [
                     Icon(Icons.check_circle_outline,
                         size: 15, color: iconColor.withValues(alpha: 0.7)),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
                         f,
@@ -292,7 +293,7 @@ class _ProductCard extends StatelessWidget {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
                   ),
                   elevation: 0,
                 ),

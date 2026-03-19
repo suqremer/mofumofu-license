@@ -8,6 +8,7 @@ import '../models/license_template.dart';
 import '../providers/database_provider.dart';
 import '../services/app_preferences.dart';
 import '../theme/colors.dart';
+import '../theme/spacing.dart';
 import '../theme/typography.dart';
 import '../widgets/license_card_preview.dart';
 import '../widgets/paywall_bottom_sheet.dart';
@@ -105,7 +106,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   if (!AppPreferences.isPremium) _buildMonthlyCounter(),
                   const SizedBox(height: 20),
                   _buildCounterGuide(context),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.lg),
                   _buildIssuedLicenses(context, licensesAsync),
                 ] else ...[
                   // 注文済み: 免許証を上部に、スライドショーは下部
@@ -120,9 +121,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   _buildProductShowcase(compact: true),
                 ],
 
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 const BannerAdWidget(),
-                const SizedBox(height: 32),
+                const SizedBox(height: AppSpacing.xl),
               ],
             ),
           ),
@@ -143,7 +144,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       width: double.infinity,
       padding: EdgeInsets.only(
         top: topPadding + 12,
-        bottom: 24,
+        bottom: AppSpacing.lg,
         left: 20,
         right: 20,
       ),
@@ -159,15 +160,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
       child: Column(
         children: [
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           // 看板
           Container(
             width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+            padding: const EdgeInsets.symmetric(
+                vertical: AppSpacing.lg, horizontal: AppSpacing.lg),
             decoration: BoxDecoration(
               color: AppColors.background,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               border: Border.all(color: AppColors.secondary, width: 2),
               boxShadow: [
                 BoxShadow(
@@ -179,72 +181,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
             child: Column(
               children: [
-                // 内側の二重枠線（装飾）
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 16, horizontal: 12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: AppColors.accent.withValues(alpha: 0.5),
-                      width: 1,
-                    ),
+                Text(
+                  'うちの子公安委員会',
+                  style: GoogleFonts.zenMaruGothic(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textMedium,
+                    letterSpacing: 2.0,
                   ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'うちの子公安委員会',
-                        style: GoogleFonts.zenMaruGothic(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textMedium,
-                          letterSpacing: 2.0,
-                        ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'もふもふ免許センター',
+                  style: GoogleFonts.zenMaruGothic(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark,
+                    letterSpacing: 3.0,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                // 横線装飾
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Divider(
+                          color: AppColors.accent, thickness: 0.8),
+                    ),
+                    Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 12),
+                      child: Icon(
+                        Icons.pets,
+                        size: 16,
+                        color: AppColors.accent,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'もふもふ免許センター',
-                        style: GoogleFonts.zenMaruGothic(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textDark,
-                          letterSpacing: 3.0,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // 横線装飾
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Divider(
-                                color: AppColors.accent, thickness: 0.8),
-                          ),
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 12),
-                            child: Icon(
-                              Icons.pets,
-                              size: 16,
-                              color: AppColors.accent,
-                            ),
-                          ),
-                          const Expanded(
-                            child: Divider(
-                                color: AppColors.accent, thickness: 0.8),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '本日も元気に営業中',
-                        style: GoogleFonts.zenMaruGothic(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: AppColors.textMedium,
-                        ),
-                      ),
-                    ],
+                    ),
+                    const Expanded(
+                      child: Divider(
+                          color: AppColors.accent, thickness: 0.8),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '本日も元気に営業中',
+                  style: GoogleFonts.zenMaruGothic(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.textMedium,
                   ),
                 ),
               ],
@@ -266,7 +251,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         color: Colors.transparent,
         child: InkWell(
           onTap: _navigateToCreate,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           child: Ink(
             decoration: BoxDecoration(
               gradient: const LinearGradient(
@@ -274,7 +259,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 end: Alignment.bottomRight,
                 colors: [AppColors.primary, AppColors.primaryDark],
               ),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
               boxShadow: [
                 BoxShadow(
                   color: AppColors.primary.withValues(alpha: 0.3),
@@ -288,7 +273,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 // 番号札の穴（装飾）
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.only(top: 8, bottom: 4),
+                  padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: AppSpacing.xs),
                   child: Center(
                     child: Container(
                       width: 28,
@@ -302,7 +287,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 // メインコンテンツ
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  padding: const EdgeInsets.fromLTRB(20, AppSpacing.sm, 20, 20),
                   child: Row(
                     children: [
                       // 受付窓口アイコン
@@ -311,12 +296,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         height: 52,
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                         ),
                         child: const Icon(Icons.add_a_photo,
                             color: Colors.white, size: 26),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: AppSpacing.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,7 +323,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 color: Colors.white,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: AppSpacing.xs),
                             Text(
                               '証明写真をお持ちのうえ窓口へ',
                               style: GoogleFonts.notoSansJp(
@@ -375,7 +360,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final barColor = remaining > 0 ? AppColors.secondary : AppColors.primary;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -400,7 +385,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           const SizedBox(height: 6),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(AppSpacing.xs),
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 6,
@@ -424,7 +409,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 12),
+            padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: 12),
             child: Text(
               '窓口案内',
               style: AppTypography.headingSmall,
@@ -490,7 +475,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 10),
+            padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: 10),
             child: Text(
               compact ? 'うちの子グッズ' : 'うちの子グッズ',
               style: AppTypography.headingSmall,
@@ -520,13 +505,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       data: (licenses) {
         if (licenses.isEmpty) {
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                 border: Border.all(
                   color: AppColors.primary.withValues(alpha: 0.2),
                 ),
@@ -536,7 +521,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   Icon(Icons.pets,
                       size: 40,
                       color: AppColors.primary.withValues(alpha: 0.5)),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.sm),
                   const Text(
                     'まだ免許証がないよ！',
                     style: TextStyle(
@@ -545,7 +530,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       color: AppColors.textDark,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     '上の受付窓口から作ってみよう',
                     style: TextStyle(
@@ -565,12 +550,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               title: '発行済み免許証',
               onSeeMore: () => context.push('/collection'),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             SizedBox(
               height: 230,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 itemCount: licenses.length > 10 ? 10 : licenses.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
@@ -605,7 +590,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: SafeArea(
           child: Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -618,7 +603,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       child: _buildSampleLicenseCard(),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.lg),
                   // 誘導テキスト
                   Text(
                     'あなたの子もこんな免許証に！',
@@ -628,7 +613,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.sm),
                   Text(
                     'ペットの写真で世界に一つだけの免許証がつくれます',
                     textAlign: TextAlign.center,
@@ -661,13 +646,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
                   // スキップ
                   TextButton(
                     onPressed: _dismissFtue,
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
+                        horizontal: AppSpacing.lg,
                         vertical: 10,
                       ),
                       side: BorderSide(
@@ -704,7 +689,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.secondaryLight.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         border: Border.all(color: AppColors.accent, width: 2),
         boxShadow: [
           BoxShadow(
@@ -725,7 +710,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             'にゃん転免許',
             style: GoogleFonts.zenMaruGothic(
@@ -734,7 +719,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               color: AppColors.textDark,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Expanded(
@@ -754,7 +739,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 height: 100,
                 decoration: BoxDecoration(
                   color: AppColors.secondary,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
                 child: const Icon(
                   Icons.pets,
@@ -776,7 +761,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _sampleInfoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -823,11 +808,11 @@ class _CounterCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         child: Ink(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
             border: Border.all(
               color: AppColors.secondary.withValues(alpha: 0.2),
               width: 1,
@@ -841,7 +826,7 @@ class _CounterCard extends StatelessWidget {
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md, horizontal: AppSpacing.sm),
             child: Column(
               children: [
                 Container(
@@ -853,7 +838,7 @@ class _CounterCard extends StatelessWidget {
                   ),
                   child: Icon(icon, color: AppColors.secondary, size: 22),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   label,
                   textAlign: TextAlign.center,
