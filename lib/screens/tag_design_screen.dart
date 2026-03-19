@@ -3,15 +3,13 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/license_card.dart';
-import '../models/license_template.dart';
 import '../theme/colors.dart';
 
 /// タグ用丸形デザイン画面:
-/// ペット写真を Φ25mm（295px @ 300dpi）の円形にトリミングして PNG 書き出し
+/// 編集済みペット写真を高解像度の円形にトリミングして PNG 書き出し
 class TagDesignScreen extends StatefulWidget {
   final LicenseCard card;
 
@@ -22,9 +20,6 @@ class TagDesignScreen extends StatefulWidget {
 }
 
 class _TagDesignScreenState extends State<TagDesignScreen> {
-  /// 丸形キャプチャ用のキー
-  final _captureKey = GlobalKey();
-
   /// 写真の位置とスケール
   double _scale = 1.0;
   Offset _offset = Offset.zero;
@@ -37,12 +32,12 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
   bool _isSaving = false;
   String? _savedPath;
 
-  /// savedImagePath から photoRect をクロップした画像ファイル
-  File? _croppedPhotoFile;
-  bool _isCropping = true;
+  /// 高解像度元画像（Canvas直接描画用）
+  ui.Image? _sourceImage;
+  bool _isLoading = true;
 
-  /// 出力サイズ: Φ25mm @ 300dpi ≈ 295px
-  static const int _exportSize = 295;
+  /// 出力サイズ: Φ25mm 高解像度（~1040dpi）
+  static const int _exportSize = 1024;
 
   /// 画面上のプレビューサイズ
   static const double _previewSize = 240.0;
@@ -50,76 +45,41 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
   @override
   void initState() {
     super.initState();
-    _cropPhotoFromSavedImage();
+    _loadSourceImage();
   }
 
-  /// savedImagePath から証明写真エリアをクロップしてテンポラリファイルに保存
-  Future<void> _cropPhotoFromSavedImage() async {
-    final savedPath = widget.card.savedImagePath;
-    if (savedPath == null || !File(savedPath).existsSync()) {
-      // savedImagePath がなければ生写真をそのまま使う
-      if (mounted) setState(() => _isCropping = false);
+  /// photoPath から編集済み写真を読み込み、初期スケールを計算
+  Future<void> _loadSourceImage() async {
+    final photoFile = File(widget.card.photoPath);
+    if (!photoFile.existsSync()) {
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
     try {
-      // 画像をデコード
-      final bytes = await File(savedPath).readAsBytes();
+      final bytes = await photoFile.readAsBytes();
       final codec = await ui.instantiateImageCodec(bytes);
       final frame = await codec.getNextFrame();
-      final image = frame.image;
-
-      // photoRectRatio（0〜1の比率）× 実画像サイズでクロップ
-      // フレーム枠線が映り込まないよう各辺を少し内側に縮小
-      final template = LicenseTemplate.fromId(widget.card.templateType);
-      final r = template.photoRectRatio;
-      final imgW = image.width.toDouble();
-      final imgH = image.height.toDouble();
-      const inset = 0.005; // 0.5%内側にずらす
-      final cropRect = Rect.fromLTWH(
-        (r.left + inset) * imgW,
-        (r.top + inset) * imgH,
-        (r.width - inset * 2) * imgW,
-        (r.height - inset * 2) * imgH,
-      );
-
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
-      canvas.drawImageRect(
-        image,
-        cropRect,
-        Rect.fromLTWH(0, 0, cropRect.width, cropRect.height),
-        Paint(),
-      );
-
-      final picture = recorder.endRecording();
-      final croppedImage =
-          await picture.toImage(cropRect.width.toInt(), cropRect.height.toInt());
-      final byteData =
-          await croppedImage.toByteData(format: ui.ImageByteFormat.png);
-
-      image.dispose();
-      croppedImage.dispose();
-
-      if (byteData == null) {
-        if (mounted) setState(() => _isCropping = false);
-        return;
-      }
-
-      // テンポラリファイルに保存
-      final dir = await getApplicationDocumentsDirectory();
-      final tempPath = '${dir.path}/tag_crop_temp.png';
-      final file = File(tempPath);
-      await file.writeAsBytes(byteData.buffer.asUint8List());
 
       if (mounted) {
         setState(() {
-          _croppedPhotoFile = file;
-          _isCropping = false;
+          _sourceImage = frame.image;
+          // 初期スケール: cover相当（円を隙間なく埋める）
+          final imgW = frame.image.width.toDouble();
+          final imgH = frame.image.height.toDouble();
+          final containScale =
+              imgW / imgH < 1.0 ? _previewSize / imgW : _previewSize / imgH;
+          final displayW = imgW * containScale;
+          final displayH = imgH * containScale;
+          _scale = (_previewSize / displayW).clamp(1.0, 4.0);
+          if (_previewSize / displayH > _scale) {
+            _scale = (_previewSize / displayH).clamp(1.0, 4.0);
+          }
+          _isLoading = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _isCropping = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -246,11 +206,10 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
 
   /// 丸形エディタ: ドラッグ＋ピンチで調整
   Widget _buildCircularEditor() {
-    // クロップ済み画像 > 生写真 の優先順で使用
-    final photoFile = _croppedPhotoFile ?? File(widget.card.photoPath);
+    final photoFile = File(widget.card.photoPath);
 
     return Center(
-      child: _isCropping
+      child: _isLoading
           ? const SizedBox(
               width: _previewSize,
               height: _previewSize,
@@ -285,30 +244,27 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
                   ],
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: RepaintBoundary(
-                  key: _captureKey,
-                  child: Container(
-                    width: _previewSize,
-                    height: _previewSize,
-                    color: Colors.white,
-                    child: photoFile.existsSync()
-                        ? Transform.translate(
-                            offset: _offset,
-                            child: Transform.scale(
-                              scale: _scale,
-                              child: Image.file(
-                                photoFile,
-                                fit: BoxFit.contain,
-                                width: _previewSize,
-                                height: _previewSize,
-                              ),
+                child: Container(
+                  width: _previewSize,
+                  height: _previewSize,
+                  color: Colors.white,
+                  child: photoFile.existsSync()
+                      ? Transform.translate(
+                          offset: _offset,
+                          child: Transform.scale(
+                            scale: _scale,
+                            child: Image.file(
+                              photoFile,
+                              fit: BoxFit.contain,
+                              width: _previewSize,
+                              height: _previewSize,
                             ),
-                          )
-                        : const Center(
-                            child: Icon(Icons.pets,
-                                size: 60, color: AppColors.textLight),
                           ),
-                  ),
+                        )
+                      : const Center(
+                          child: Icon(Icons.pets,
+                              size: 60, color: AppColors.textLight),
+                        ),
                 ),
               ),
             ),
@@ -368,44 +324,79 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
   }
 
   void _resetPosition() {
+    if (_sourceImage == null) {
+      setState(() {
+        _scale = 1.0;
+        _offset = Offset.zero;
+      });
+      return;
+    }
+    // cover相当の初期スケールに戻す
+    final imgW = _sourceImage!.width.toDouble();
+    final imgH = _sourceImage!.height.toDouble();
+    final containScale =
+        imgW / imgH < 1.0 ? _previewSize / imgW : _previewSize / imgH;
+    final displayW = imgW * containScale;
+    final displayH = imgH * containScale;
+    var newScale = (_previewSize / displayW).clamp(1.0, 4.0);
+    if (_previewSize / displayH > newScale) {
+      newScale = (_previewSize / displayH).clamp(1.0, 4.0);
+    }
     setState(() {
-      _scale = 1.0;
+      _scale = newScale;
       _offset = Offset.zero;
     });
   }
 
-  /// RepaintBoundary を高解像度でキャプチャして PNG 書き出し
+  /// 元画像から直接 Canvas で高解像度円形画像を生成
   Future<Uint8List?> _captureCircularImage() async {
-    final boundary =
-        _captureKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-    if (boundary == null) return null;
+    if (_sourceImage == null) return null;
 
-    // 出力解像度 / プレビューサイズ = pixelRatio
-    final pixelRatio = _exportSize / _previewSize;
-    final image = await boundary.toImage(pixelRatio: pixelRatio);
+    final image = _sourceImage!;
+    final imgW = image.width.toDouble();
+    final imgH = image.height.toDouble();
+    final size = _exportSize.toDouble();
+    final ratio = size / _previewSize;
 
-    // 円形にクリップして書き出し
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    final size = _exportSize.toDouble();
 
     // 円形クリッピング
-    final path = Path()..addOval(Rect.fromLTWH(0, 0, size, size));
-    canvas.clipPath(path);
+    final circlePath = Path()..addOval(Rect.fromLTWH(0, 0, size, size));
+    canvas.clipPath(circlePath);
 
-    // キャプチャした画像を描画
+    // 白背景
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size, size),
+      Paint()..color = Colors.white,
+    );
+
+    // ユーザーの操作を出力座標系に変換して適用
+    canvas.translate(_offset.dx * ratio, _offset.dy * ratio);
+    canvas.translate(size / 2, size / 2);
+    canvas.scale(_scale);
+    canvas.translate(-size / 2, -size / 2);
+
+    // contain-fit: 元画像を出力サイズに収める
+    final containScale =
+        (size / imgW) < (size / imgH) ? size / imgW : size / imgH;
+    final displayW = imgW * containScale;
+    final displayH = imgH * containScale;
+    final left = (size - displayW) / 2;
+    final top = (size - displayH) / 2;
+
     canvas.drawImageRect(
       image,
-      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
-      Rect.fromLTWH(0, 0, size, size),
-      Paint(),
+      Rect.fromLTWH(0, 0, imgW, imgH),
+      Rect.fromLTWH(left, top, displayW, displayH),
+      Paint()..filterQuality = FilterQuality.high,
     );
 
     final picture = recorder.endRecording();
     final finalImage = await picture.toImage(size.toInt(), size.toInt());
-    final byteData = await finalImage.toByteData(format: ui.ImageByteFormat.png);
+    final byteData =
+        await finalImage.toByteData(format: ui.ImageByteFormat.png);
 
-    image.dispose();
     finalImage.dispose();
 
     return byteData?.buffer.asUint8List();
