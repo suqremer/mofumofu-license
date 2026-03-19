@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/colors.dart';
@@ -88,6 +89,10 @@ class OrderScreen extends StatelessWidget {
               ],
               onTap: () => context.push('/order/set'),
             ),
+            const SizedBox(height: AppSpacing.md),
+
+            // NFC書き込みガイド
+            _NfcGuideSection(),
             const SizedBox(height: AppSpacing.lg),
 
             // 注意事項
@@ -133,6 +138,239 @@ class OrderScreen extends StatelessWidget {
             const SizedBox(height: AppSpacing.xl),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// NFC書き込みガイド（アコーディオン展開式）
+class _NfcGuideSection extends StatelessWidget {
+  static const _nfcTemplate =
+      '🐾 うちの子免許証\n'
+      'ペット名: （例: ポチ）\n'
+      '品種: （例: 柴犬）\n'
+      '飼い主: （例: 山田太郎）\n'
+      'TEL: （例: 090-1234-5678）';
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          leading: Icon(Icons.nfc, color: AppColors.primary, size: 22),
+          title: const Text(
+            'NFC書き込みについて',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
+          ),
+          children: [
+            // 自分で書き込む方法
+            _buildSubHeader('自分で書き込む方法'),
+            const SizedBox(height: 6),
+            const Text(
+              '無料アプリ「NFC Tools」を使って、ご自身で'
+              'カード/タグにペット情報を書き込めます。',
+              style: TextStyle(fontSize: 13, color: AppColors.textMedium, height: 1.5),
+            ),
+            const SizedBox(height: 8),
+            _buildStep('1', 'App Store / Google Play で「NFC Tools」をインストール'),
+            _buildStep('2', 'アプリを開き「書き込み」→「レコード追加」→「テキスト」'),
+            _buildStep('3', '下のテンプレートをコピーして貼り付け'),
+            _buildStep('4', '「書き込み」をタップし、カード/タグにスマホをかざす'),
+            const SizedBox(height: 12),
+
+            // テンプレート
+            _buildSubHeader('書き込みテンプレート'),
+            const SizedBox(height: 6),
+            GestureDetector(
+              onTap: () {
+                Clipboard.setData(const ClipboardData(text: _nfcTemplate));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('テンプレートをコピーしました'),
+                    behavior: SnackBarBehavior.floating,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.copy, size: 14, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          'タップしてコピー',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      _nfcTemplate,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textDark,
+                        height: 1.5,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 代行オプション
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                border: Border.all(
+                    color: AppColors.accent.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.build_circle_outlined,
+                          size: 16, color: AppColors.accent),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'NFC書き込み代行オプション',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          '+¥500',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'NFCの書き込みが難しい方や、NFC非対応のスマホをお使いの方は、'
+                    'こちらで書き込んだ状態で発送いたします。\n'
+                    '注文フォームで「NFC書き込み代行」を選択してください。',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textMedium,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubHeader(String text) {
+    return Row(
+      children: [
+        Container(
+          width: 3,
+          height: 14,
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep(String number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textDark,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

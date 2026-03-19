@@ -223,6 +223,13 @@ class LicenseComposer {
       saturation: request.photoSaturation,
     );
 
+    // USA テンプレートのゴーストイメージ用に合成済み写真を生成
+    ui.Image? composedPhoto;
+    if (template.type == TemplateType.usa) {
+      final composedBytes = await composePhotoPreview(request, scale: 1.0);
+      composedPhoto = await _decodeImage(composedBytes);
+    }
+
     final painter = LicensePainter(
       template: template,
       frameColorId: request.frameColor,
@@ -238,6 +245,7 @@ class LicenseComposer {
           ? Color(request.photoBgColor!)
           : const Color(0xFFFFFFFF),
       photoColorFilter: photoColorFilter,
+      composedPhotoImage: composedPhoto,
       petName: request.petName,
       species: request.species,
       breed: request.breed,

@@ -358,7 +358,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                   fontSize: 13, color: AppColors.textMedium),
             ),
             const SizedBox(height: 20),
-            // アクションボタン（上段: 編集+保存+シェア+NFC、下段: 削除）
+            // アクションボタン（上段: 編集+保存+シェア+注文、下段: 削除）
             Row(
               children: [
                 _detailActionButton(
@@ -385,15 +385,6 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                   onTap: () {
                     Navigator.pop(ctx);
                     _shareExistingLicense(card);
-                  },
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                _detailActionButton(
-                  icon: Icons.nfc,
-                  label: 'NFC',
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    context.push('/nfc-write', extra: card);
                   },
                 ),
                 const SizedBox(width: AppSpacing.sm),

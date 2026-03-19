@@ -49,6 +49,9 @@ class LicensePainter extends CustomPainter {
   /// 写真の色調整フィルタ（明るさ/コントラスト/彩度）
   final ColorFilter? photoColorFilter;
 
+  /// 合成済み写真（写真+コスチューム+色調整）— ゴーストイメージ用
+  final ui.Image? composedPhotoImage;
+
   late final String _licenseNumber;
 
   LicensePainter({
@@ -64,6 +67,7 @@ class LicensePainter extends CustomPainter {
     this.outfitImage,
     this.photoBgColor = const Color(0xFFFFFFFF),
     this.photoColorFilter,
+    this.composedPhotoImage,
     required this.petName,
     required this.species,
     this.breed,
@@ -162,7 +166,8 @@ class LicensePainter extends CustomPainter {
         oldDelegate.photoOffsetX != photoOffsetX ||
         oldDelegate.photoOffsetY != photoOffsetY ||
         oldDelegate.photoBgColor != photoBgColor ||
-        oldDelegate.photoColorFilter != photoColorFilter;
+        oldDelegate.photoColorFilter != photoColorFilter ||
+        oldDelegate.composedPhotoImage != composedPhotoImage;
   }
 
   bool _overlaysChanged(List<CostumeOverlay> old) {
@@ -856,7 +861,9 @@ class LicensePainter extends CustomPainter {
     // QRコード削除（パロディ免許に不要）
 
     // ── 6. ゴーストイメージ（写真の薄いコピー、ADDRESS付近の右下）──
-    if (photoImage != null) {
+    // composedPhotoImage（コスチューム+色調整済み）があればそちらを使用
+    final ghostSource = composedPhotoImage ?? photoImage;
+    if (ghostSource != null) {
       final ghostSize = 80 * s;
       final ghostRect = Rect.fromLTWH(
           size.width - margin - ghostSize - 10 * s,
@@ -867,8 +874,8 @@ class LicensePainter extends CustomPainter {
           ghostRect, Radius.circular(4 * s)));
       canvas.drawRect(ghostRect,
           Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.3));
-      final imgW = photoImage!.width.toDouble();
-      final imgH = photoImage!.height.toDouble();
+      final imgW = ghostSource.width.toDouble();
+      final imgH = ghostSource.height.toDouble();
       final imgAspect = imgW / imgH;
       final rectAspect = ghostRect.width / ghostRect.height;
       Rect srcRect;
@@ -879,7 +886,7 @@ class LicensePainter extends CustomPainter {
         final cropH = imgW / rectAspect;
         srcRect = Rect.fromLTWH(0, (imgH - cropH) / 2, imgW, cropH);
       }
-      canvas.drawImageRect(photoImage!, srcRect, ghostRect,
+      canvas.drawImageRect(ghostSource, srcRect, ghostRect,
           Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.12));
       canvas.restore();
     }
