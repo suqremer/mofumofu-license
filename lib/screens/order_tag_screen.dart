@@ -372,6 +372,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                         ],
                       ),
                       child: PhotoCropPreview(
+                        key: ValueKey(card.id),
                         card: card,
                         circular: true,
                         size: 100,
@@ -441,6 +442,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                 fit: StackFit.expand,
                 children: [
                   PhotoCropPreview(
+                    key: ValueKey(card.id),
                     card: card,
                     size: constraints.maxWidth,
                   ),

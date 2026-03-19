@@ -444,6 +444,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                 fit: StackFit.expand,
                 children: [
                   PhotoCropPreview(
+                    key: ValueKey(card.id),
                     card: card,
                     size: constraints.maxWidth,
                   ),
@@ -560,6 +561,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: PhotoCropPreview(
+                        key: ValueKey(card.id),
                         card: card,
                         size: 70,
                       ),
