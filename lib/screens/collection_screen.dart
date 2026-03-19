@@ -570,15 +570,6 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                 ),
                 const SizedBox(width: 8),
                 _detailActionButton(
-                  icon: Icons.copy,
-                  label: '複製',
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _duplicateLicense(card);
-                  },
-                ),
-                const SizedBox(width: 8),
-                _detailActionButton(
                   icon: Icons.nfc,
                   label: 'NFC',
                   onTap: () {
@@ -799,46 +790,6 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
       'gender': card.gender,
       'specialty': card.specialty ?? '',
       'createdAt': card.createdAt,
-      'templateType': card.templateType,
-      'frameColor': card.frameColor,
-      'costumeId': card.costumeId,
-      if (extra != null) ...{
-        if (extra['costumeOverlays'] != null)
-          'costumeOverlays': extra['costumeOverlays'],
-        if (extra['photoBgColor'] != null)
-          'photoBgColor': extra['photoBgColor'],
-        if (extra['photoScale'] != null)
-          'photoScale': extra['photoScale'],
-        if (extra['photoOffsetX'] != null)
-          'photoOffsetX': extra['photoOffsetX'],
-        if (extra['photoOffsetY'] != null)
-          'photoOffsetY': extra['photoOffsetY'],
-        if (extra['outfitId'] != null)
-          'outfitId': extra['outfitId'],
-        if (extra['validityId'] != null)
-          'validityId': extra['validityId'],
-        if (extra['photoBrightness'] != null)
-          'photoBrightness': extra['photoBrightness'],
-        if (extra['photoContrast'] != null)
-          'photoContrast': extra['photoContrast'],
-        if (extra['photoSaturation'] != null)
-          'photoSaturation': extra['photoSaturation'],
-      },
-    });
-  }
-
-  /// 免許証を複製して新規作成フローに入る
-  void _duplicateLicense(LicenseCard card) {
-    final extra = card.extraData;
-    context.push('/create/info', extra: {
-      // editId を渡さない → 新規作成として扱われる
-      'photoPath': card.photoPath,
-      'petName': card.petName,
-      'species': card.species,
-      'breed': card.breed ?? '',
-      'birthDate': card.birthDate?.toIso8601String(),
-      'gender': card.gender,
-      'specialty': card.specialty ?? '',
       'templateType': card.templateType,
       'frameColor': card.frameColor,
       'costumeId': card.costumeId,
