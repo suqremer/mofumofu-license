@@ -37,8 +37,8 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
   /// 高解像度元画像（Canvas直接描画用）
   ui.Image? _sourceImage;
 
-  /// プレビュー用の合成済み画像ファイル
-  File? _composedPreviewFile;
+  /// プレビュー用の合成済み画像バイト列
+  Uint8List? _composedPreviewBytes;
   bool _isLoading = true;
 
   /// 出力サイズ: Φ25mm 高解像度（~1040dpi）
@@ -100,11 +100,6 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
       final composedBytes =
           await LicenseComposer().composePhotoPreview(request, scale: 3.0);
 
-      // プレビュー表示用にテンポラリファイルに保存
-      final dir = await getApplicationDocumentsDirectory();
-      final tempFile = File('${dir.path}/tag_preview_temp.png');
-      await tempFile.writeAsBytes(composedBytes);
-
       // 合成結果を ui.Image にデコード
       final codec = await ui.instantiateImageCodec(composedBytes);
       final frame = await codec.getNextFrame();
@@ -112,7 +107,7 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
       if (mounted) {
         setState(() {
           _sourceImage = frame.image;
-          _composedPreviewFile = tempFile;
+          _composedPreviewBytes = composedBytes;
           // 初期スケール: cover相当（円を隙間なく埋める）
           final imgW = frame.image.width.toDouble();
           final imgH = frame.image.height.toDouble();
@@ -294,13 +289,13 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
                   width: _previewSize,
                   height: _previewSize,
                   color: Colors.white,
-                  child: _composedPreviewFile != null
+                  child: _composedPreviewBytes != null
                       ? Transform.translate(
                           offset: _offset,
                           child: Transform.scale(
                             scale: _scale,
-                            child: Image.file(
-                              _composedPreviewFile!,
+                            child: Image.memory(
+                              _composedPreviewBytes!,
                               fit: BoxFit.contain,
                               width: _previewSize,
                               height: _previewSize,

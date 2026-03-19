@@ -91,7 +91,7 @@ class _NfcWriteScreenState extends State<NfcWriteScreen>
     setState(() => _state = _NfcWriteState.waiting);
 
     final text = _buildPreviewText();
-    final result = await NfcService.instance.writeText(
+    final response = await NfcService.instance.writeText(
       text: text,
       onTagDiscovered: () {
         if (mounted) {
@@ -102,7 +102,7 @@ class _NfcWriteScreenState extends State<NfcWriteScreen>
 
     if (!mounted) return;
 
-    switch (result) {
+    switch (response.result) {
       case NfcWriteResult.success:
         setState(() => _state = _NfcWriteState.success);
         _successAnimController.forward();
@@ -125,7 +125,8 @@ class _NfcWriteScreenState extends State<NfcWriteScreen>
       case NfcWriteResult.writeFailed:
         setState(() {
           _state = _NfcWriteState.error;
-          _errorMessage = '書き込みに失敗しました。カードを確認してもう一度お試しください';
+          _errorMessage = '書き込みに失敗しました。カードを確認してもう一度お試しください'
+              '${response.errorDetail != null ? '\n\n[詳細] ${response.errorDetail}' : ''}';
         });
     }
   }

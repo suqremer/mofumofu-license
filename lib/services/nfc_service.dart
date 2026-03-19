@@ -13,6 +13,14 @@ enum NfcWriteResult {
   timeout,
 }
 
+/// NFC書き込み結果 + エラー詳細
+class NfcWriteResponse {
+  final NfcWriteResult result;
+  final String? errorDetail;
+
+  const NfcWriteResponse(this.result, [this.errorDetail]);
+}
+
 /// NFC書き込みサービス
 class NfcService {
   NfcService._();
@@ -60,27 +68,27 @@ class NfcService {
   /// [text] 書き込むテキスト
   /// [onTagDiscovered] タグ検出時のコールバック（UI更新用）
   /// [timeoutSeconds] タイムアウト秒数（デフォルト30秒）
-  Future<NfcWriteResult> writeText({
+  Future<NfcWriteResponse> writeText({
     required String text,
     VoidCallback? onTagDiscovered,
     int timeoutSeconds = 30,
   }) async {
     if (!await isAvailable()) {
-      return NfcWriteResult.notAvailable;
+      return const NfcWriteResponse(NfcWriteResult.notAvailable);
     }
 
     final bytes = calculateBytes(text);
     if (bytes > maxCapacity) {
-      return NfcWriteResult.capacityExceeded;
+      return const NfcWriteResponse(NfcWriteResult.capacityExceeded);
     }
 
-    final completer = Completer<NfcWriteResult>();
+    final completer = Completer<NfcWriteResponse>();
 
     // タイムアウトタイマー
     final timer = Timer(Duration(seconds: timeoutSeconds), () {
       if (!completer.isCompleted) {
         NfcManager.instance.stopSession();
-        completer.complete(NfcWriteResult.timeout);
+        completer.complete(const NfcWriteResponse(NfcWriteResult.timeout));
       }
     });
 
@@ -92,13 +100,14 @@ class NfcService {
           try {
             final ndef = Ndef.from(tag);
             if (ndef == null || !ndef.isWritable) {
-              completer.complete(NfcWriteResult.writeFailed);
+              completer.complete(const NfcWriteResponse(
+                NfcWriteResult.writeFailed, 'Ndef.from returned null or not writable'));
               NfcManager.instance.stopSession(errorMessage: 'このタグは書き込みに対応していません');
               return;
             }
 
             if (ndef.maxSize < bytes) {
-              completer.complete(NfcWriteResult.capacityExceeded);
+              completer.complete(const NfcWriteResponse(NfcWriteResult.capacityExceeded));
               NfcManager.instance.stopSession(errorMessage: 'タグの容量が不足しています');
               return;
             }
@@ -108,12 +117,13 @@ class NfcService {
             ]);
 
             await ndef.write(message);
-            completer.complete(NfcWriteResult.success);
+            completer.complete(const NfcWriteResponse(NfcWriteResult.success));
             NfcManager.instance.stopSession();
           } catch (e) {
             debugPrint('NFC write error: $e');
             if (!completer.isCompleted) {
-              completer.complete(NfcWriteResult.writeFailed);
+              completer.complete(NfcWriteResponse(
+                NfcWriteResult.writeFailed, 'onDiscovered error: $e'));
             }
             NfcManager.instance.stopSession(errorMessage: '書き込みに失敗しました');
           }
@@ -121,7 +131,8 @@ class NfcService {
         onError: (error) async {
           debugPrint('NFC session error: $error');
           if (!completer.isCompleted) {
-            completer.complete(NfcWriteResult.writeFailed);
+            completer.complete(NfcWriteResponse(
+              NfcWriteResult.writeFailed, 'onError: $error'));
           }
         },
       );
@@ -129,7 +140,8 @@ class NfcService {
       debugPrint('NFC start session error: $e');
       timer.cancel();
       if (!completer.isCompleted) {
-        return NfcWriteResult.writeFailed;
+        return NfcWriteResponse(
+          NfcWriteResult.writeFailed, 'startSession threw: $e');
       }
     }
 
