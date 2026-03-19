@@ -130,9 +130,10 @@ class NfcService {
         },
         onError: (error) async {
           debugPrint('NFC session error: $error');
+          final detail = 'onError: type=${error.type}, message=${error.message}';
           if (!completer.isCompleted) {
             completer.complete(NfcWriteResponse(
-              NfcWriteResult.writeFailed, 'onError: $error'));
+              NfcWriteResult.writeFailed, detail));
           }
         },
       );
