@@ -270,12 +270,18 @@ class LicenseComposer {
   /// 写真エリアだけ（写真+顔ハメ+コスチューム、フレーム/テキストなし）を合成
   ///
   /// ホーム画面のプレビュー用。テキストやフレームが重ならないクリーンな写真。
-  Future<Uint8List> composePhotoPreview(LicenseComposeRequest request) async {
+  /// [scale] で出力解像度を倍率指定（タグ用高解像度出力など）。
+  Future<Uint8List> composePhotoPreview(
+    LicenseComposeRequest request, {
+    double scale = 1.0,
+  }) async {
     final template = LicenseTemplate.fromId(request.templateType);
     final pr = template.photoRectRatio;
-    // 出力サイズ = 写真エリアのピクセルサイズ
-    final outW = (template.outputSize.width * pr.width).toInt();
-    final outH = (template.outputSize.height * pr.height).toInt();
+    // 出力サイズ = 写真エリアのピクセルサイズ × scale
+    final baseW = template.outputSize.width * pr.width;
+    final baseH = template.outputSize.height * pr.height;
+    final outW = (baseW * scale).toInt();
+    final outH = (baseH * scale).toInt();
 
     final ui.Image photoImage = await _decodeImage(request.photoBytes);
     final costumeImages = await _loadCostumeImages(request.costumeOverlays);
@@ -296,7 +302,12 @@ class LicenseComposer {
       Rect.fromLTWH(0, 0, outW.toDouble(), outH.toDouble()),
     );
 
-    final photoRect = Rect.fromLTWH(0, 0, outW.toDouble(), outH.toDouble());
+    // scale倍率でCanvas全体をスケーリング（レイアウト計算はbase座標系で行う）
+    if (scale != 1.0) {
+      canvas.scale(scale, scale);
+    }
+
+    final photoRect = Rect.fromLTWH(0, 0, baseW, baseH);
 
     // 背景色
     final bgColor = request.photoBgColor != null
@@ -433,8 +444,9 @@ class LicenseComposer {
     canvas.restore();
 
     final picture = recorder.endRecording();
-    final image = await picture.toImage(outW, outH);
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final resultImage = await picture.toImage(outW, outH);
+    final byteData =
+        await resultImage.toByteData(format: ui.ImageByteFormat.png);
     return byteData!.buffer.asUint8List();
   }
 

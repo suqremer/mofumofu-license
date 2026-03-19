@@ -5,7 +5,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
+import '../models/costume_overlay.dart';
 import '../models/license_card.dart';
+import '../services/license_composer.dart';
 import '../theme/colors.dart';
 
 /// タグ用丸形デザイン画面:
@@ -34,6 +36,9 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
 
   /// 高解像度元画像（Canvas直接描画用）
   ui.Image? _sourceImage;
+
+  /// プレビュー用の合成済み画像ファイル
+  File? _composedPreviewFile;
   bool _isLoading = true;
 
   /// 出力サイズ: Φ25mm 高解像度（~1040dpi）
@@ -48,22 +53,66 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
     _loadSourceImage();
   }
 
-  /// photoPath から編集済み写真を読み込み、初期スケールを計算
+  /// composePhotoPreview で写真+コスチューム合成済み画像を生成し、
+  /// それをソース画像として読み込む
   Future<void> _loadSourceImage() async {
-    final photoFile = File(widget.card.photoPath);
-    if (!photoFile.existsSync()) {
-      if (mounted) setState(() => _isLoading = false);
-      return;
-    }
-
     try {
-      final bytes = await photoFile.readAsBytes();
-      final codec = await ui.instantiateImageCodec(bytes);
+      final card = widget.card;
+      final photoFile = File(card.photoPath);
+      if (!photoFile.existsSync()) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
+      final photoBytes = await photoFile.readAsBytes();
+      final extra = card.extraData ?? {};
+
+      // extraData からコスチュームオーバーレイを復元
+      final overlayMaps = extra['costumeOverlays'] as List<dynamic>? ?? [];
+      final overlays = overlayMaps
+          .map((m) => CostumeOverlay.fromMap(Map<String, dynamic>.from(m as Map)))
+          .toList();
+
+      final request = LicenseComposeRequest(
+        petName: card.petName,
+        species: card.species,
+        breed: card.breed,
+        birthDate: card.birthDate,
+        gender: card.gender,
+        specialty: card.specialty,
+        licenseType: card.licenseType,
+        photoBytes: photoBytes,
+        costumeId: card.costumeId,
+        frameColor: card.frameColor,
+        templateType: card.templateType,
+        costumeOverlays: overlays,
+        outfitId: extra['outfitId'] as String?,
+        photoScale: (extra['photoScale'] as num?)?.toDouble() ?? 1.0,
+        photoOffsetX: (extra['photoOffsetX'] as num?)?.toDouble() ?? 0.0,
+        photoOffsetY: (extra['photoOffsetY'] as num?)?.toDouble() ?? 0.0,
+        photoBrightness: (extra['photoBrightness'] as num?)?.toDouble() ?? 0.0,
+        photoContrast: (extra['photoContrast'] as num?)?.toDouble() ?? 0.0,
+        photoSaturation: (extra['photoSaturation'] as num?)?.toDouble() ?? 0.0,
+        photoBgColor: extra['photoBgColor'] as int?,
+      );
+
+      // scale=3.0 で高解像度合成（~870×1116px）
+      final composedBytes =
+          await LicenseComposer().composePhotoPreview(request, scale: 3.0);
+
+      // プレビュー表示用にテンポラリファイルに保存
+      final dir = await getApplicationDocumentsDirectory();
+      final tempFile = File('${dir.path}/tag_preview_temp.png');
+      await tempFile.writeAsBytes(composedBytes);
+
+      // 合成結果を ui.Image にデコード
+      final codec = await ui.instantiateImageCodec(composedBytes);
       final frame = await codec.getNextFrame();
 
       if (mounted) {
         setState(() {
           _sourceImage = frame.image;
+          _composedPreviewFile = tempFile;
           // 初期スケール: cover相当（円を隙間なく埋める）
           final imgW = frame.image.width.toDouble();
           final imgH = frame.image.height.toDouble();
@@ -206,8 +255,6 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
 
   /// 丸形エディタ: ドラッグ＋ピンチで調整
   Widget _buildCircularEditor() {
-    final photoFile = File(widget.card.photoPath);
-
     return Center(
       child: _isLoading
           ? const SizedBox(
@@ -234,7 +281,6 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
                 height: _previewSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.accent, width: 3),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.2),
@@ -248,13 +294,13 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
                   width: _previewSize,
                   height: _previewSize,
                   color: Colors.white,
-                  child: photoFile.existsSync()
+                  child: _composedPreviewFile != null
                       ? Transform.translate(
                           offset: _offset,
                           child: Transform.scale(
                             scale: _scale,
                             child: Image.file(
-                              photoFile,
+                              _composedPreviewFile!,
                               fit: BoxFit.contain,
                               width: _previewSize,
                               height: _previewSize,
