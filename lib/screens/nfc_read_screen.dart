@@ -88,8 +88,7 @@ class _NfcReadScreenState extends State<NfcReadScreen>
       case NfcReadResult.noNdef:
         setState(() {
           _state = _NfcReadState.error;
-          _errorMessage = 'このタグにはデータがありません'
-              '${response.errorDetail != null ? '\n${response.errorDetail}' : ''}';
+          _errorMessage = 'このタグにはデータがありません';
         });
       case NfcReadResult.timeout:
         setState(() {
@@ -99,8 +98,7 @@ class _NfcReadScreenState extends State<NfcReadScreen>
       case NfcReadResult.readFailed:
         setState(() {
           _state = _NfcReadState.error;
-          _errorMessage = '読み取りに失敗しました'
-              '${response.errorDetail != null ? '\n\n[詳細] ${response.errorDetail}' : ''}';
+          _errorMessage = '読み取りに失敗しました';
         });
     }
   }
@@ -424,6 +422,24 @@ class _NfcReadScreenState extends State<NfcReadScreen>
     );
   }
 
+  Widget _tipRow(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('・ ', style: TextStyle(fontSize: 13, color: AppColors.textMedium)),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 13, color: AppColors.textMedium, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildErrorView() {
     return Center(
       child: Padding(
@@ -463,7 +479,32 @@ class _NfcReadScreenState extends State<NfcReadScreen>
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.secondary.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'うまくいかないときは',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _tipRow('端末の上部にタグをしっかりかざす'),
+                  _tipRow('カバーが厚い場合は外してみる'),
+                  _tipRow('タグを動かさずに数秒待つ'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
             SizedBox(
               width: 200,
               height: 48,

@@ -892,26 +892,17 @@ class LicensePainter extends CustomPainter {
       canvas.restore();
     } else if (photoImage != null) {
       // 合成済み写真がない場合: 写真+顔ハメ+コスチュームをゴースト内に直接描画
+      // ghostRect 全体を写真エリアとして扱い、コスチュームも同じ基準で配置
       canvas.save();
       canvas.clipRRect(RRect.fromRectAndRadius(
           ghostRect, Radius.circular(4 * s)));
       canvas.drawRect(ghostRect,
           Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.3));
 
-      // 写真エリアの比率からゴースト内の仮想写真矩形を計算
-      final pr = template.photoRectRatio;
-      // ゴースト矩形をカード全体に見立てて写真エリアを割り出す
-      final gPhotoRect = Rect.fromLTWH(
-        ghostRect.left + pr.left * ghostRect.width,
-        ghostRect.top + pr.top * ghostRect.height,
-        pr.width * ghostRect.width,
-        pr.height * ghostRect.height,
-      );
-
       final ghostPaint = Paint()
         ..color = const Color(0xFFFFFFFF).withValues(alpha: ghostAlpha);
 
-      // 写真を描画
+      // 写真を ghostRect 全体に描画
       final imgW = photoImage!.width.toDouble();
       final imgH = photoImage!.height.toDouble();
       final imgAspect = imgW / imgH;
@@ -926,7 +917,7 @@ class LicensePainter extends CustomPainter {
       }
       canvas.drawImageRect(photoImage!, srcRect, ghostRect, ghostPaint);
 
-      // 顔ハメを描画
+      // 顔ハメを ghostRect 基準で描画
       if (outfitId != null && outfitImage != null) {
         final costume = Costume.findById(outfitId!);
         final oImgW = outfitImage!.width.toDouble();
@@ -938,10 +929,8 @@ class LicensePainter extends CustomPainter {
         };
         final oSrcRect = Rect.fromLTWH(0, 0, oImgW, oImgH * cropRatio);
         final oSrcAspect = oSrcRect.width / oSrcRect.height;
-        final drawWidth = gPhotoRect.width * costume.defaultScale;
+        final drawWidth = ghostRect.width * costume.defaultScale;
         final drawHeight = drawWidth / oSrcAspect;
-        final isOverseas = gPhotoRect.height / gPhotoRect.width > 1.35;
-        final heightScale = isOverseas ? (400.0 / 372.0) : 1.0;
         final verticalRatio = switch (costume.id) {
           'tuxedo' => 0.56,
           'pirate' => 0.56,
@@ -957,19 +946,19 @@ class LicensePainter extends CustomPainter {
         };
         final horizontalShift = switch (costume.id) {
           'pirate' => 0.0,
-          'sailor' => gPhotoRect.width * 0.002,
-          'gakuran' => gPhotoRect.width * 0.005,
-          'kimono' => gPhotoRect.width * 0.02,
-          'police' => gPhotoRect.width * 0.01,
+          'sailor' => ghostRect.width * 0.002,
+          'gakuran' => ghostRect.width * 0.005,
+          'kimono' => ghostRect.width * 0.02,
+          'police' => ghostRect.width * 0.01,
           _ => 0.0,
         };
-        final drawLeft = gPhotoRect.left + (gPhotoRect.width - drawWidth) / 2 + horizontalShift;
-        final drawTop = gPhotoRect.bottom - drawHeight * verticalRatio * heightScale;
+        final drawLeft = ghostRect.left + (ghostRect.width - drawWidth) / 2 + horizontalShift;
+        final drawTop = ghostRect.bottom - drawHeight * verticalRatio;
         final fitRect = Rect.fromLTWH(drawLeft, drawTop, drawWidth, drawHeight);
         canvas.drawImageRect(outfitImage!, oSrcRect, fitRect, ghostPaint);
       }
 
-      // コスチュームオーバーレイを描画
+      // コスチュームオーバーレイを ghostRect 基準で描画
       for (final overlay in costumeOverlays) {
         final costume = Costume.findById(overlay.costumeId);
         final costumeImg = costumeImages[overlay.costumeId];
@@ -977,7 +966,7 @@ class LicensePainter extends CustomPainter {
           final cImgW = costumeImg.width.toDouble();
           final cImgH = costumeImg.height.toDouble();
           final aspect = cImgW / cImgH;
-          final baseW = gPhotoRect.width * costume.defaultScale * overlay.scale;
+          final baseW = ghostRect.width * costume.defaultScale * overlay.scale;
           final baseH = baseW;
           double drawW, drawH;
           if (aspect >= 1) {
@@ -987,8 +976,8 @@ class LicensePainter extends CustomPainter {
             drawH = baseH;
             drawW = baseH * aspect;
           }
-          final cx = gPhotoRect.left + overlay.cx * gPhotoRect.width;
-          final cy = gPhotoRect.top + overlay.cy * gPhotoRect.height;
+          final cx = ghostRect.left + overlay.cx * ghostRect.width;
+          final cy = ghostRect.top + overlay.cy * ghostRect.height;
           canvas.save();
           canvas.translate(cx, cy);
           canvas.rotate(overlay.rotation);
