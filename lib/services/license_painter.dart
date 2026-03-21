@@ -902,7 +902,7 @@ class LicensePainter extends CustomPainter {
       final ghostPaint = Paint()
         ..color = const Color(0xFFFFFFFF).withValues(alpha: ghostAlpha);
 
-      // 写真を ghostRect 全体に描画
+      // 写真を ghostRect 全体に描画（photoScale/Offset適用）
       final imgW = photoImage!.width.toDouble();
       final imgH = photoImage!.height.toDouble();
       final imgAspect = imgW / imgH;
@@ -915,7 +915,23 @@ class LicensePainter extends CustomPainter {
         final cropH = imgW / rectAspect;
         srcRect = Rect.fromLTWH(0, (imgH - cropH) / 2, imgW, cropH);
       }
+      canvas.save();
+      canvas.clipRect(ghostRect);
+      canvas.translate(
+        photoOffsetX * ghostRect.width,
+        photoOffsetY * ghostRect.height,
+      );
+      if (photoScale != 1.0) {
+        canvas.translate(
+            ghostRect.left + ghostRect.width / 2,
+            ghostRect.top + ghostRect.height / 2);
+        canvas.scale(photoScale);
+        canvas.translate(
+            -(ghostRect.left + ghostRect.width / 2),
+            -(ghostRect.top + ghostRect.height / 2));
+      }
       canvas.drawImageRect(photoImage!, srcRect, ghostRect, ghostPaint);
+      canvas.restore();
 
       // 顔ハメを ghostRect 基準で描画
       if (outfitId != null && outfitImage != null) {

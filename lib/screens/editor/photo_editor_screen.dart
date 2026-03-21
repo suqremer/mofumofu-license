@@ -1559,9 +1559,65 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              itemCount: outfits.length,
+              itemCount: outfits.length + 1,
               itemBuilder: (context, index) {
-                final costume = outfits[index];
+                // index 0 = 「なし」ボタン
+                if (index == 0) {
+                  final isNone = _selectedOutfitId == null;
+                  return GestureDetector(
+                    onTap: isNone
+                        ? null
+                        : () {
+                            setState(() {
+                              _selectedOutfitId = null;
+                            });
+                            _outfitUiImage?.dispose();
+                            _outfitUiImage = null;
+                          },
+                    child: AnimatedScale(
+                      scale: isNone ? 1.0 : 0.95,
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.elasticOut,
+                      child: Container(
+                        width: 72,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          color: isNone
+                              ? AppColors.primary.withValues(alpha: 0.15)
+                              : const Color(0xFF2A2A2A),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isNone
+                                ? AppColors.primary
+                                : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.block,
+                              size: 28,
+                              color: isNone ? Colors.white : Colors.grey[500],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'なし',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isNone ? Colors.white : Colors.grey[500],
+                                fontWeight: isNone ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                final costume = outfits[index - 1];
                 final isSelected = _selectedOutfitId == costume.id;
                 final isLocked = costume.isPremium && !PurchaseManager.instance.isPremium;
 
