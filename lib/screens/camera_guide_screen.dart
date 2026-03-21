@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -156,9 +155,6 @@ class _CameraGuideScreenState extends State<CameraGuideScreen>
               child: CircularProgressIndicator(color: Colors.white),
             ),
 
-          // ガイドオーバーレイ
-          if (_isInitialized) _buildGuideOverlay(),
-
           // 上部バー
           _buildTopBar(),
 
@@ -190,13 +186,6 @@ class _CameraGuideScreenState extends State<CameraGuideScreen>
     );
   }
 
-  Widget _buildGuideOverlay() {
-    return CustomPaint(
-      painter: _GuideOverlayPainter(),
-      size: Size.infinite,
-    );
-  }
-
   Widget _buildTopBar() {
     return Positioned(
       top: 0,
@@ -212,23 +201,6 @@ class _CameraGuideScreenState extends State<CameraGuideScreen>
               IconButton(
                 onPressed: () => context.pop(),
                 icon: const Icon(Icons.close, color: Colors.white, size: 28),
-              ),
-              // ガイドテキスト
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'ペットの顔をガイドに合わせてね',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
               ),
               const SizedBox(width: 48), // バランス用
             ],
@@ -289,122 +261,3 @@ class _CameraGuideScreenState extends State<CameraGuideScreen>
   }
 }
 
-/// ガイドオーバーレイ描画
-///
-/// 画面中央に楕円形のペット顔ガイド + 体の位置ガイド（点線）を表示。
-/// ガイド外を半透明黒でマスクしてフォーカスエリアを明確にする。
-class _GuideOverlayPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height * 0.38);
-    final faceRadiusX = size.width * 0.22;
-    final faceRadiusY = faceRadiusX * 1.15; // 少し縦長の楕円
-
-    // 半透明マスク（ガイド部分を切り抜き）
-    final maskPaint = Paint()..color = Colors.black.withValues(alpha: 0.45);
-    final maskPath = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    final guidePath = Path()
-      ..addOval(Rect.fromCenter(
-        center: center,
-        width: faceRadiusX * 2,
-        height: faceRadiusY * 2,
-      ));
-    final maskedPath =
-        Path.combine(PathOperation.difference, maskPath, guidePath);
-    canvas.drawPath(maskedPath, maskPaint);
-
-    // ガイド枠（楕円）
-    final guideBorderPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: center,
-        width: faceRadiusX * 2,
-        height: faceRadiusY * 2,
-      ),
-      guideBorderPaint,
-    );
-
-    // 体の範囲ガイド（点線の台形）
-    final bodyTop = center.dy + faceRadiusY * 0.85;
-    final bodyBottom = center.dy + faceRadiusY * 2.2;
-    final bodyTopHalfW = faceRadiusX * 0.9;
-    final bodyBottomHalfW = faceRadiusX * 1.5;
-
-    final dashPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-
-    // 点線で体のガイドを描画
-    _drawDashedLine(canvas, dashPaint,
-        Offset(center.dx - bodyTopHalfW, bodyTop),
-        Offset(center.dx - bodyBottomHalfW, bodyBottom));
-    _drawDashedLine(canvas, dashPaint,
-        Offset(center.dx + bodyTopHalfW, bodyTop),
-        Offset(center.dx + bodyBottomHalfW, bodyBottom));
-    _drawDashedLine(canvas, dashPaint,
-        Offset(center.dx - bodyBottomHalfW, bodyBottom),
-        Offset(center.dx + bodyBottomHalfW, bodyBottom));
-
-    // 「顔」ラベル
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: '🐾 お顔',
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.9),
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    textPainter.paint(
-      canvas,
-      Offset(center.dx - textPainter.width / 2, center.dy - faceRadiusY - 28),
-    );
-
-    // 「体」ラベル
-    final bodyLabel = TextPainter(
-      text: TextSpan(
-        text: '👔 衣装エリア',
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.6),
-          fontSize: 12,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    bodyLabel.paint(
-      canvas,
-      Offset(center.dx - bodyLabel.width / 2, bodyBottom + 8),
-    );
-  }
-
-  void _drawDashedLine(
-      Canvas canvas, Paint paint, Offset start, Offset end) {
-    const dashLength = 8.0;
-    const gapLength = 5.0;
-    final dx = end.dx - start.dx;
-    final dy = end.dy - start.dy;
-    final distance = sqrt(dx * dx + dy * dy);
-    final unitDx = dx / distance;
-    final unitDy = dy / distance;
-
-    var drawn = 0.0;
-    while (drawn < distance) {
-      final segEnd = (drawn + dashLength).clamp(0.0, distance);
-      canvas.drawLine(
-        Offset(start.dx + unitDx * drawn, start.dy + unitDy * drawn),
-        Offset(start.dx + unitDx * segEnd, start.dy + unitDy * segEnd),
-        paint,
-      );
-      drawn += dashLength + gapLength;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}

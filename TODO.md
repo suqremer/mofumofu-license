@@ -28,7 +28,7 @@
 | 19 | コスチューム課金区分決定 | しゅーと | Done（無料12種/プレミアム35種、計47種。顔ハメ無料: 学ラン・セーラー・警察。季節限定: 12月サンタ・4月着物） |
 | 20 | コスチューム画像組み込み・テスト | Claude | Done |
 | 20.1 | デコ位置ズレ修正（photoScale/Offset適用時のLicensePainter/Composer座標変換） | Claude | Done（二重変換を削除、clipRectのみ維持） |
-| 20.2 | カメラ撮影ガイドの位置調整（実機テストで微調整） | しゅーと+Claude | |
+| 20.2 | カメラ撮影ガイドの位置調整（実機テストで微調整） | しゅーと+Claude | Done（ガイドオーバーレイ削除、カメラ撮影機能は維持） |
 | 20.3 | NFC書き込み機能実装 | Claude | Done（nfc_service.dart + nfc_write_screen.dart + コレクション画面NFCボタン） |
 | 20.4 | NFC iOS対応（Info.plist + Capabilities設定） | Claude | Done（TAG entitlement+iso14443 polling、実機テストOK） |
 | 20.5 | NFC プライバシーポリシー更新（飼い主名・電話番号の記載追加） | Claude | Done（§7 NFC機能セクション追加、代行サービス時のデータ削除方針も記載） |
@@ -49,7 +49,7 @@
 | 26 | ダークモード対応確認 | Claude | Done（ライトモード専用、darkTheme未設定でシステムダークモードの影響なし） |
 | 27 | フォント埋め込み確認 | Claude | Done（Zen Maru Gothic+Noto Sans JP をバンドル、allowRuntimeFetching=false設定） |
 | 28 | kDevMode falseチェック手順確立 | Claude | Done（main.dartにリリースビルドガード: kDevMode+kUseTestAds両方チェック、trueならクラッシュ） |
-| 29 | 景品表示法対応 | しゅーと | |
+| 29 | 景品表示法対応 | しゅーと | Done（全項目問題なし。特商法の責任者名を本名に修正） |
 | 30 | 開業届・青色申告申請 | しゅーと | |
 
 ## Phase 4: 申請提出（Day 14-16）
