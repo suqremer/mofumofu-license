@@ -11,7 +11,7 @@
 | 6 | 写真権限拒否時の挙動確認・実装 | Claude | Done |
 | 7 | 小規模事業者プログラム申請 | しゅーと | Done（2026-03-14申請済、メールでステータス通知待ち。承認後は手数料30%→15%） |
 | 8 | バーチャルオフィス申込 | しゅーと | スキップ（自宅住所を使用） |
-| 9 | ドメイン取得 | しゅーと | PVC事業開始前に取得（GitHub Pagesで先行） |
+| 9 | ドメイン取得 | しゅーと | Done（uchinoko-license.com取得、GitHub Pages紐付け+HTTPS化完了） |
 
 ## Phase 2: コア機能実装（Day 3-8）
 | # | タスク | 担当 | 状態 |
@@ -30,9 +30,9 @@
 | 20.1 | デコ位置ズレ修正（photoScale/Offset適用時のLicensePainter/Composer座標変換） | Claude | Done（二重変換を削除、clipRectのみ維持） |
 | 20.2 | カメラ撮影ガイドの位置調整（実機テストで微調整） | しゅーと+Claude | |
 | 20.3 | NFC書き込み機能実装 | Claude | Done（nfc_service.dart + nfc_write_screen.dart + コレクション画面NFCボタン） |
-| 20.4 | NFC iOS対応（Info.plist + Capabilities設定） | Claude | |
-| 20.5 | NFC プライバシーポリシー更新（飼い主名・電話番号の記載追加） | Claude | |
-| 20.6 | NFC 実機テスト（NTAG215書き込み確認） | しゅーと | |
+| 20.4 | NFC iOS対応（Info.plist + Capabilities設定） | Claude | Done（TAG entitlement+iso14443 polling、実機テストOK） |
+| 20.5 | NFC プライバシーポリシー更新（飼い主名・電話番号の記載追加） | Claude | Done（§7 NFC機能セクション追加、代行サービス時のデータ削除方針も記載） |
+| 20.6 | NFC 実機テスト（NTAG215書き込み確認） | しゅーと | Done（書き込み+読み取り両方OK確認済み） |
 | 20.7 | 商品スライドショー実装（ホーム+注文画面、条件分岐レイアウト） | Claude | Done（ProductGalleryウィジェット、hasOrderedフラグで表示切替） |
 | 20.8 | ホーム画面リデザイン（窓口2×2グリッド化+条件分岐レイアウト） | Claude | Done |
 | 20.9 | 注文画面修正（Φ33mm→Φ25mm、関西弁→標準語、overflow修正） | Claude | Done |
@@ -72,7 +72,7 @@
 ### 物理カード製造ライン
 | # | タスク | 担当 | 状態 |
 |---|--------|------|------|
-| 38 | 独自ドメイン取得+GitHub Pagesから移行 | しゅーと | |
+| 38 | 独自ドメイン取得+GitHub Pagesから移行 | しゅーと | Done（uchinoko-license.com、#9と同時完了） |
 | 39 | カード裏面デザイン作成（NFC表示+QRコード配置） | しゅーと | #38のURL確定後 |
 | 40 | 印刷テンプレートのbleed確認 | Claude | #39のデザイン確定後 |
 | 41 | NTAG215カードテスト | しゅーと | |
@@ -95,7 +95,7 @@
 | 46.6 | Googleフォーム URL差し替え（order_card_screen.dart / order_tag_screen.dart の PLACEHOLDER） | Claude | Done |
 | 47 | 注文管理ワークフロー構築（Stripe×Googleフォーム突き合わせ） | しゅーと | |
 | 48 | 注文確認・発送通知メールの仕組み（Stripe標準通知） | しゅーと | |
-| 49 | 返品ポリシー更新（物理商品部分追加） | Claude | |
+| 49 | 返品ポリシー更新（物理商品部分追加） | Claude | Done（受注生産品返品不可、不良品7日以内代替対応、キャンセル24h以内） |
 | 50 | Stripe商品画像追加（PVCカード/レジンタグ/セットの商品写真撮影+アップロード） | しゅーと | |
 
 ## リリース後TODO
