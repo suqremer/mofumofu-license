@@ -40,14 +40,13 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
       ? 'https://buy.stripe.com/SET_PLACEHOLDER'
       : 'https://buy.stripe.com/CARD_PLACEHOLDER';
 
-  // TODO: しゅーとが Google フォーム作成後に差し替え
-  static const _formUrl = 'https://forms.gle/PLACEHOLDER';
+  static const _formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfSkYTQgcdnhExlgoIGxQLj_dvnTSgTbDGlpIK3Xarx6QHk-g/viewform';
 
-  String get _title => widget.isSet ? 'セット注文' : 'PVCカード注文';
+  String get _title => widget.isSet ? 'セット注文' : 'カード注文';
   int get _unitPrice => widget.isSet ? 2980 : 1980;
   String get _description => widget.isSet
-      ? 'PVCカード + レジンタグのセット'
-      : 'PVC製クレジットカードサイズの免許証';
+      ? 'カード＋タグのセット'
+      : 'クレジットカードサイズの本格カード';
 
   Color get _accentColor =>
       widget.isSet ? AppColors.accent : AppColors.secondary;
