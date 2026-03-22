@@ -113,6 +113,52 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
     super.dispose();
   }
 
+  void _showPremiumDialog() {
+    final pm = PurchaseManager.instance;
+    final package = pm.currentOffering?.availablePackages.firstOrNull;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('プレミアムコスチューム'),
+        content: const Text(
+          '全47種類のコスチューム・フレーム色が使い放題！\n枚数制限も解除されます。\n\n¥300（買い切り）',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('あとで'),
+          ),
+          ValueListenableBuilder<bool>(
+            valueListenable: pm.isPurchasing,
+            builder: (_, purchasing, __) => ElevatedButton(
+              onPressed: purchasing || package == null
+                  ? null
+                  : () async {
+                      final success = await pm.purchasePackage(package);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (success && mounted) setState(() {});
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: purchasing
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('購入する', style: TextStyle(color: Colors.white)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// フレーム/テンプレート変更時にフリップ演出
   void _animateFlip() {
     _flipController.forward(from: 0.0);
@@ -850,7 +896,7 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
           button: true,
           child: GestureDetector(
           onTap: isLocked
-              ? null
+              ? () => _showPremiumDialog()
               : () {
                   if (_selectedFrameColorId != fc.id) {
                     setState(() {
