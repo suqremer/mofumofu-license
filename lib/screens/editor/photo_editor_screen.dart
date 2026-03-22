@@ -243,6 +243,60 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   // 完了 — ブラシ操作があればマスク適用してから返す
   // ---------------------------------------------------------------------------
 
+  void _showPremiumDialog() {
+    final pm = PurchaseManager.instance;
+    final package = pm.currentOffering?.availablePackages.firstOrNull;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF2A2A2A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'プレミアムコスチューム',
+          style: TextStyle(color: Colors.white, fontSize: 18),
+        ),
+        content: const Text(
+          '全47種類のコスチュームが使い放題！\n枚数制限も解除されます。\n\n¥300（買い切り）',
+          style: TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('あとで', style: TextStyle(color: Colors.grey)),
+          ),
+          ValueListenableBuilder<bool>(
+            valueListenable: pm.isPurchasing,
+            builder: (_, purchasing, __) => ElevatedButton(
+              onPressed: purchasing || package == null
+                  ? null
+                  : () async {
+                      final success = await pm.purchasePackage(package);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (success && mounted) setState(() {});
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: purchasing
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('購入する', style: TextStyle(color: Colors.white)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showTutorialDialog() {
     final (title, steps) = switch (_mode) {
       EditorMode.outfit => (
@@ -1622,14 +1676,16 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 final isLocked = costume.isPremium && !PurchaseManager.instance.isPremium;
 
                 return GestureDetector(
-                  onTap: isLocked || isSelected
+                  onTap: isSelected
                       ? null
-                      : () {
-                          setState(() {
-                            _selectedOutfitId = costume.id;
-                          });
-                          _loadOutfitImage(Costume.findById(costume.id).assetPath);
-                        },
+                      : isLocked
+                          ? () => _showPremiumDialog()
+                          : () {
+                              setState(() {
+                                _selectedOutfitId = costume.id;
+                              });
+                              _loadOutfitImage(Costume.findById(costume.id).assetPath);
+                            },
                   child: AnimatedScale(
                     scale: isSelected ? 1.0 : 0.95,
                     duration: const Duration(milliseconds: 150),
@@ -2259,7 +2315,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
 
                 return GestureDetector(
                   onTap: isLocked
-                      ? null
+                      ? () => _showPremiumDialog()
                       : () {
                           setState(() {
                             _costumeOverlays.add(CostumeOverlay(
