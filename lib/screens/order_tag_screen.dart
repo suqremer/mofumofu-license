@@ -27,7 +27,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
 
   // TODO: しゅーとが Stripe Payment Links 作成後に差し替え
   // TODO: 複数枚注文時の数量パラメータ対応（#46.5）
-  static const _paymentUrl = 'https://buy.stripe.com/TAG_PLACEHOLDER';
+  static const _paymentUrl = 'https://buy.stripe.com/7sY7sK8gm3MaeMS7Al5os00';
   static const _formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfSkYTQgcdnhExlgoIGxQLj_dvnTSgTbDGlpIK3Xarx6QHk-g/viewform';
   static const _unitPrice = 1980;
 
