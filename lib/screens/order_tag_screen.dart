@@ -57,7 +57,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('レジンタグ注文'),
+        title: const Text('うちの子タグ注文'),
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.textDark,
         elevation: 0,
@@ -123,7 +123,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                     const SizedBox(width: AppSpacing.sm),
                     const Expanded(
                       child: Text(
-                        'ハンドメイドレジンタグ（Φ25mm）',
+                        'ハンドメイドうちの子タグ（Φ25mm）',
                         style: TextStyle(fontSize: 14, color: AppColors.textMedium),
                       ),
                     ),

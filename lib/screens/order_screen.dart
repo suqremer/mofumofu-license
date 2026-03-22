@@ -42,9 +42,9 @@ class OrderScreen extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.lg),
 
-            // --- PVCカード ---
+            // --- うちの子免許証 ---
             _ProductCard(
-              title: 'PVCカード',
+              title: 'うちの子免許証',
               subtitle: '本格的なクレジットカードサイズ',
               price: '¥1,980',
               icon: Icons.credit_card,
@@ -58,9 +58,9 @@ class OrderScreen extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
 
-            // --- レジンタグ ---
+            // --- うちの子タグ ---
             _ProductCard(
-              title: 'レジンタグ',
+              title: 'うちの子タグ',
               subtitle: '首輪に付ける丸型タグ',
               price: '¥1,980',
               icon: Icons.pets,
@@ -83,7 +83,7 @@ class OrderScreen extends StatelessWidget {
               iconColor: AppColors.accent,
               badge: '¥980お得！',
               features: const [
-                'PVCカード + レジンタグ',
+                'カード＋タグセット',
                 '単品合計¥3,960 → ¥2,980',
                 '同じ写真でまとめて注文',
               ],
