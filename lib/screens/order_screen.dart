@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/colors.dart';
@@ -145,13 +144,6 @@ class OrderScreen extends StatelessWidget {
 
 /// NFC書き込みガイド（アコーディオン展開式）
 class _NfcGuideSection extends StatelessWidget {
-  static const _nfcTemplate =
-      '🐾 うちの子免許証\n'
-      'ペット名: （例: ポチ）\n'
-      '品種: （例: 柴犬）\n'
-      '飼い主: （例: 山田太郎）\n'
-      'TEL: （例: 090-1234-5678）';
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -180,70 +172,23 @@ class _NfcGuideSection extends StatelessWidget {
             _buildSubHeader('自分で書き込む方法'),
             const SizedBox(height: 6),
             const Text(
-              '無料アプリ「NFC Tools」を使って、ご自身で'
+              'このアプリのNFC機能を使って、ご自身で'
               'カード/タグにペット情報を書き込めます。',
               style: TextStyle(fontSize: 13, color: AppColors.textMedium, height: 1.5),
             ),
             const SizedBox(height: 8),
-            _buildStep('1', 'App Store / Google Play で「NFC Tools」をインストール'),
-            _buildStep('2', 'アプリを開き「書き込み」→「レコード追加」→「テキスト」'),
-            _buildStep('3', '下のテンプレートをコピーして貼り付け'),
-            _buildStep('4', '「書き込み」をタップし、カード/タグにスマホをかざす'),
-            const SizedBox(height: 12),
+            _buildStep('1', 'コレクション画面で書き込みたいカードをタップ'),
+            _buildStep('2', '「NFC」ボタン →「書き込み」を選択'),
+            _buildStep('3', 'NTAG215タグをiPhoneの上部にかざす'),
+            _buildStep('4', '完了メッセージが出たら書き込み成功'),
+            const SizedBox(height: 16),
 
-            // テンプレート
-            _buildSubHeader('書き込みテンプレート'),
+            // 書き込み内容を確認する方法
+            _buildSubHeader('書き込み内容を確認する方法'),
             const SizedBox(height: 6),
-            GestureDetector(
-              onTap: () {
-                Clipboard.setData(const ClipboardData(text: _nfcTemplate));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('テンプレートをコピーしました'),
-                    behavior: SnackBarBehavior.floating,
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.copy, size: 14, color: AppColors.primary),
-                        const SizedBox(width: 4),
-                        Text(
-                          'タップしてコピー',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      _nfcTemplate,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textDark,
-                        height: 1.5,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            _buildStep('1', 'コレクション画面で「NFC」ボタン →「読み取り」を選択'),
+            _buildStep('2', '書き込み済みのタグをiPhoneの上部にかざす'),
+            _buildStep('3', 'ペット名や飼い主情報が正しく表示されればOK'),
             const SizedBox(height: 16),
 
             // 代行オプション

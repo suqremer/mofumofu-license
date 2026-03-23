@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -22,13 +24,25 @@ class AdManager {
   /// 広告を表示すべきか（kDevMode / プレミアム購入済みなら非表示）
   bool get shouldShowAds => !kDevMode && !PurchaseManager.instance.isPremium;
 
-  /// UMP同意 + MobileAds SDK を初期化
+  /// ATT + UMP同意 + MobileAds SDK を初期化
   ///
-  /// 1. UMP で同意情報を更新（GDPR/ATT対応）
-  /// 2. 同意フォームが必要なら表示
-  /// 3. 同意完了後に MobileAds を初期化
+  /// 1. ATT（App Tracking Transparency）ダイアログを表示（iOS）
+  /// 2. UMP で同意情報を更新（GDPR対応）
+  /// 3. 同意フォームが必要なら表示
+  /// 4. 同意完了後に MobileAds を初期化
   Future<void> initialize() async {
     if (_initialized || !shouldShowAds) return;
+
+    // ATT ダイアログ（iOS 14.5+ 必須）
+    if (Platform.isIOS) {
+      try {
+        final status =
+            await AppTrackingTransparency.requestTrackingAuthorization();
+        debugPrint('AdMob: ATT status: $status');
+      } catch (e) {
+        debugPrint('AdMob: ATT error (continuing): $e');
+      }
+    }
 
     // UMP 同意フロー（10秒でタイムアウト → 無限ハング防止）
     try {

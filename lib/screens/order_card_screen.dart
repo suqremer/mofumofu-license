@@ -34,8 +34,6 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
   /// セット注文時: カードID → タグ用丸形画像保存済みか
   final Map<int, bool> _tagSavedStatus = {};
 
-  // TODO: しゅーとが Stripe Payment Links 作成後に差し替え
-  // TODO: 複数枚注文時の数量パラメータ対応（#46.5）
   String get _paymentUrl => widget.isSet
       ? 'https://buy.stripe.com/7sY6oGcwCdmKgV007T5os02'
       : 'https://buy.stripe.com/dRm3cu9kq96u8ou7Al5os01';

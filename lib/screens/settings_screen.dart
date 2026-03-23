@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/dev_config.dart';
@@ -17,9 +18,9 @@ class SettingsScreen extends ConsumerWidget {
 
   static const _supportEmail = 'uchino.ko.license@gmail.com';
   static const _privacyPolicyUrl =
-      'https://suqremer.github.io/mofumofu-license-pages/privacy-policy';
+      'https://uchinoko-license.com/privacy-policy/';
   static const _termsUrl =
-      'https://suqremer.github.io/mofumofu-license-pages/terms';
+      'https://uchinoko-license.com/terms/';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -179,8 +180,16 @@ class SettingsScreen extends ConsumerWidget {
                     leading: const Icon(Icons.star_outline),
                     title: const Text('レビューを書く'),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () =>
-                        _showSnack(context, 'ストア公開後にリンクします'),
+                    onTap: () async {
+                      final inAppReview = InAppReview.instance;
+                      if (await inAppReview.isAvailable()) {
+                        await inAppReview.requestReview();
+                      } else {
+                        await inAppReview.openStoreListing(
+                          appStoreId: '6744202334',
+                        );
+                      }
+                    },
                   ),
                   _thinDivider(),
                   ListTile(
