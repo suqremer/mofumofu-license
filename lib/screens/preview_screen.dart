@@ -433,7 +433,7 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
       final imageToSave = _composedImageHiRes ?? _composedImage!;
       await Gal.putImageBytes(imageToSave,
           name:
-              'mofumofu_license_${DateTime.now().millisecondsSinceEpoch}');
+              'mofumofu_license_${DateTime.now().millisecondsSinceEpoch}.png');
 
       if (!mounted) return;
       setState(() {
