@@ -240,7 +240,8 @@ class _NfcGuideSection extends StatelessWidget {
                   const Text(
                     'NFCの書き込みが難しい方や、NFC非対応のスマホをお使いの方は、'
                     'こちらで書き込んだ状態で発送いたします。\n'
-                    '注文フォームで「NFC書き込み代行」を選択してください。',
+                    '注文フォームで「NFC書き込み代行」を選択してください。\n'
+                    '※ 書き込み代行をご希望の場合、別途¥500をメールにて請求させていただきます。',
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textMedium,

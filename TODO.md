@@ -50,7 +50,7 @@
 | 27 | フォント埋め込み確認 | Claude | Done（Zen Maru Gothic+Noto Sans JP をバンドル、allowRuntimeFetching=false設定） |
 | 28 | kDevMode falseチェック手順確立 | Claude | Done（main.dartにリリースビルドガード: kDevMode+kUseTestAds両方チェック、trueならクラッシュ） |
 | 29 | 景品表示法対応 | しゅーと | Done（全項目問題なし。特商法の責任者名を本名に修正） |
-| 30 | 開業届・青色申告申請 | しゅーと | |
+| 30 | 開業届・青色申告申請 | しゅーと | Done（2026-03-23 freee開業で電子提出完了） |
 
 ## Phase 4: 申請提出（Day 14-16）
 | # | タスク | 担当 | 状態 |
@@ -61,7 +61,7 @@
 | 34 | 年齢レーティング回答 | しゅーと | Done（4+、サードパーティ広告のみ「はい」） |
 | 35 | App Privacy（栄養ラベル）申告 | しゅーと+Claude | Done（7データ種別入力完了。トラッキング: デバイスID+広告データ） |
 | 36 | 最終TestFlight実機テスト | しゅーと | |
-| 36.1 | RevenueCat APIキーを本番用(appl_)に差し替え | しゅーと+Claude | ⚠️提出前必須。現在test_キー（Sandbox専用） |
+| 36.1 | RevenueCat APIキーを本番用(appl_)に差し替え | しゅーと+Claude | Done（appl_devqORajcICbBWJDTuWHZFRfxZW に差し替え済み） |
 | 36.2 | In-App Purchase entitlements追加 | Claude | Done（追加不要。StoreKit IAPはプロビジョニングプロファイルで自動有効化、entitlementsキー不要） |
 | 36.3 | AdMob UMP同意フローにタイムアウト追加 | Claude | Done（ad_manager.dart:35-40で10秒タイムアウト実装済み） |
 | 36.5 | 申請前チーム最終レビュー（法務/ASO/技術の総点検） | Claude | 提出直前にチームで全体横断チェック。著作権/なめ猫回避/ガイドライン抵触/メタデータ整合性/IAP動作を一括検証 |
@@ -85,7 +85,7 @@
 |---|--------|------|------|
 | 45 | Stripeアカウント開設+Payment Links作成（カード¥1,980/タグ¥1,980/セット¥2,980） | しゅーと | Done（Sandbox完了、本番は身分証審査待ち） |
 | 45.1 | Googleフォーム作成（注文番号/お名前/商品種別/枚数/写真アップロード/NFC書き込み代行チェック+内容/備考） | しゅーと | Done（https://docs.google.com/forms/d/e/1FAIpQLSfSkYTQgcdnhExlgoIGxQLj_dvnTSgTbDGlpIK3Xarx6QHk-g/viewform） |
-| 45.2 | NFC書き込み代行の+¥500請求フロー確立（Stripe請求書機能で個別請求） | しゅーと | |
+| 45.2 | 注文〜発送フロー確立（#47,#48統合、NFC代行含む） | しゅーと+Claude | → 詳細は下記「注文フロー詳細」参照 |
 | 46 | タグ用丸形デザイン画面（Φ25mm丸形トリミング+PNG書き出し） | Claude | Done |
 | 46.1 | 注文トップ画面（カード/タグ/セット選択） | Claude | Done |
 | 46.2 | カード注文画面（免許証選択→Stripe Payment Link遷移） | Claude | Done |
@@ -93,14 +93,48 @@
 | 46.4 | ルーティング+コレクション画面に注文ボタン追加 | Claude | Done |
 | 46.5 | Stripe Payment Links URL差し替え（order_card_screen.dart / order_tag_screen.dart の PLACEHOLDER）+ 複数枚注文時の数量パラメータ対応 | Claude | Stripe本番審査通過後。Sandbox URLs: カード=test_14A28q.../タグ=test_8x28wO.../セット=test_fZu28q... |
 | 46.6 | Googleフォーム URL差し替え（order_card_screen.dart / order_tag_screen.dart の PLACEHOLDER） | Claude | Done |
-| 47 | 注文管理ワークフロー構築（Stripe×Googleフォーム突き合わせ） | しゅーと | |
-| 48 | 注文確認・発送通知メールの仕組み（Stripe標準通知） | しゅーと | |
+| 47 | 注文管理ワークフロー構築（Stripe×Googleフォーム突き合わせ） | しゅーと | → #45.2に統合 |
+| 48 | 注文確認・発送通知メールの仕組み（Stripe標準通知） | しゅーと | → #45.2に統合 |
 | 49 | 返品ポリシー更新（物理商品部分追加） | Claude | Done（受注生産品返品不可、不良品7日以内代替対応、キャンセル24h以内） |
 | 50 | Stripe商品画像追加（PVCカード/レジンタグ/セットの商品写真撮影+アップロード） | しゅーと | |
+
+### #45.2 注文〜発送フロー詳細（リリース前に確立する）
+
+**① 注文検知**
+- [ ] Stripeの支払い通知メール（自動）でしゅーとが注文に気づく
+- [ ] Googleフォームの回答通知メール設定（フォーム設定→回答タブ→メール通知ON）
+
+**② 突き合わせ（注文確認）**
+- [ ] Stripe決済一覧とGoogleフォーム回答を注文番号で照合
+- [ ] 決済済み＋フォーム回答済み → 製造開始
+- [ ] 決済のみ（フォーム未回答）→ メールで「フォームに写真を送ってください」と案内
+
+**③ NFC書き込み代行（+¥500）の請求フロー**
+- [ ] フォームで「NFC代行希望」にチェックが入っていた場合
+- [ ] Stripeダッシュボード → 請求書（Invoice）を手動作成 → 顧客メールに送信（¥500）
+- [ ] 入金確認後、書き込み内容をもとにNTAG215にデータ書き込み
+
+**④ 製造**
+- [ ] フォームの写真を元にカード/タグを製造
+- [ ] NFC代行ありの場合はタグにデータ書き込み
+
+**⑤ 発送**
+- [ ] クリックポストで発送
+- [ ] 発送完了メールを顧客に送信（テンプレ作成）→ 追跡番号を記載
+
+**⑥ 完了**
+- [ ] Googleスプレッドシート等で注文管理（注文番号/顧客名/商品/状態/追跡番号）
+
+## リリース前TODO（追加）
+- [ ] 設定画面: プレミアム購入後の即時反映確認（iPadで確認予定）
+- [ ] SNS投稿案を考える（どんなふうに紹介投稿するかの案出し）
+- [ ] 商品写真撮影＆差し替え（カード表裏/タグ表裏/イメージ写真 → アプリ内スライドショー + Stripe商品ページ）
 
 ## リリース後TODO
 - [ ] オファーコード作成（App Store Connect → App内課金 → オファーコード）→ SNSで紹介してくれる友達にプレミアムを無料プレゼント
 - [ ] プロモ戦略検討（ASO改善・SNS施策等）
+- [ ] AdMob × Firebase リンク（AdMob → アプリの設定 → Firebaseにリンク。分析データ連携用）
+- [ ] AdMob ストアURL追加（AdMob → アプリ → ストアを追加 → App Store URLを入力。広告配信開始に必須）
 
 ## 実機テスト修正一覧（2026-03-16）
 
