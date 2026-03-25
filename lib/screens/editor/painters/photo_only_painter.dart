@@ -10,6 +10,7 @@ class PhotoOnlyPainter extends CustomPainter {
   final double photoScale;
   final double photoOffsetX;
   final double photoOffsetY;
+  final double photoRotation;
   final double photoAspect;
   final ui.Image? outfitImage;
   final String? outfitId;
@@ -20,6 +21,7 @@ class PhotoOnlyPainter extends CustomPainter {
     required this.photoScale,
     required this.photoOffsetX,
     required this.photoOffsetY,
+    this.photoRotation = 0.0,
     required this.photoAspect,
     this.outfitImage,
     this.outfitId,
@@ -50,7 +52,7 @@ class PhotoOnlyPainter extends CustomPainter {
       srcRect = Rect.fromLTWH(0, (imgH - cropH) / 2, imgW, cropH);
     }
 
-    // photoScale/Offset を適用（canvas変換で自由スクロール+ズーム）
+    // photoScale/Offset/Rotation を適用（canvas変換で自由スクロール+ズーム+回転）
     final dstRect = Rect.fromLTWH(0, 0, size.width, size.height);
     canvas.save();
     canvas.clipRect(dstRect);
@@ -59,6 +61,12 @@ class PhotoOnlyPainter extends CustomPainter {
       photoOffsetX * size.width,
       photoOffsetY * size.height,
     );
+    // 回転（中心基準）
+    if (photoRotation != 0.0) {
+      canvas.translate(size.width / 2, size.height / 2);
+      canvas.rotate(photoRotation);
+      canvas.translate(-size.width / 2, -size.height / 2);
+    }
     // ズーム（中心基準）
     if (photoScale != 1.0) {
       canvas.translate(size.width / 2, size.height / 2);
@@ -123,6 +131,7 @@ class PhotoOnlyPainter extends CustomPainter {
         photoScale != oldDelegate.photoScale ||
         photoOffsetX != oldDelegate.photoOffsetX ||
         photoOffsetY != oldDelegate.photoOffsetY ||
+        photoRotation != oldDelegate.photoRotation ||
         outfitImage != oldDelegate.outfitImage ||
         outfitId != oldDelegate.outfitId ||
         photoColorFilter != oldDelegate.photoColorFilter;

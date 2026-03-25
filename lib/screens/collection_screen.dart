@@ -681,6 +681,8 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
           'photoOffsetX': extra['photoOffsetX'],
         if (extra['photoOffsetY'] != null)
           'photoOffsetY': extra['photoOffsetY'],
+        if (extra['photoRotation'] != null)
+          'photoRotation': extra['photoRotation'],
         if (extra['outfitId'] != null)
           'outfitId': extra['outfitId'],
         if (extra['validityId'] != null)

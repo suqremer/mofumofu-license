@@ -547,11 +547,18 @@ class _PetFormSheetState extends State<_PetFormSheet> {
 
     final db = DatabaseService();
     if (_isEditing) {
+      // ペット名が変更された場合、免許証のペット名も一括更新
+      final oldName = widget.pet?.name;
+      final newName = pet.name;
+      if (oldName != null && oldName != newName) {
+        await db.updateLicensePetName(oldName, newName);
+      }
       await db.updatePet(pet);
     } else {
       await db.insertPet(pet);
     }
     widget.ref.invalidate(petsProvider);
+    widget.ref.invalidate(licensesProvider);
     if (!mounted) return;
     Navigator.of(context).pop();
   }

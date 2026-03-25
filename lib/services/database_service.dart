@@ -171,6 +171,17 @@ class DatabaseService {
     return db.update('pets', pet.toMap(), where: 'id = ?', whereArgs: [pet.id]);
   }
 
+  /// ペット名変更時に、旧名の免許証も新名に一括更新
+  Future<int> updateLicensePetName(String oldName, String newName) async {
+    final db = await database;
+    return db.update(
+      'licenses',
+      {'pet_name': newName},
+      where: 'pet_name = ?',
+      whereArgs: [oldName],
+    );
+  }
+
   Future<int> deletePet(int id) async {
     final db = await database;
     return db.delete('pets', where: 'id = ?', whereArgs: [id]);

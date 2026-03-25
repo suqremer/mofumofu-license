@@ -65,6 +65,7 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
   double _photoScale = 1.0;
   double _photoOffsetX = 0.0;
   double _photoOffsetY = 0.0;
+  double _photoRotation = 0.0;
 
   // === 写真色調整（明るさ/コントラスト/彩度） ===
   double _photoBrightness = 0.0;
@@ -194,6 +195,7 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
         'photoScale': _photoScale,
         'photoOffsetX': _photoOffsetX,
         'photoOffsetY': _photoOffsetY,
+        'photoRotation': _photoRotation,
         'photoBrightness': _photoBrightness,
         'photoContrast': _photoContrast,
         'photoSaturation': _photoSaturation,
@@ -214,6 +216,8 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
             (result['photoOffsetX'] as num?)?.toDouble() ?? _photoOffsetX;
         _photoOffsetY =
             (result['photoOffsetY'] as num?)?.toDouble() ?? _photoOffsetY;
+        _photoRotation =
+            (result['photoRotation'] as num?)?.toDouble() ?? _photoRotation;
         _photoBrightness =
             (result['photoBrightness'] as num?)?.toDouble() ?? _photoBrightness;
         _photoContrast =
@@ -317,6 +321,7 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
     _photoScale = (extra['photoScale'] as num?)?.toDouble() ?? 1.0;
     _photoOffsetX = (extra['photoOffsetX'] as num?)?.toDouble() ?? 0.0;
     _photoOffsetY = (extra['photoOffsetY'] as num?)?.toDouble() ?? 0.0;
+    _photoRotation = (extra['photoRotation'] as num?)?.toDouble() ?? 0.0;
     _photoBrightness = (extra['photoBrightness'] as num?)?.toDouble() ?? 0.0;
     _photoContrast = (extra['photoContrast'] as num?)?.toDouble() ?? 0.0;
     _photoSaturation = (extra['photoSaturation'] as num?)?.toDouble() ?? 0.0;
@@ -490,6 +495,7 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
           'photoScale': _photoScale,
           'photoOffsetX': _photoOffsetX,
           'photoOffsetY': _photoOffsetY,
+          'photoRotation': _photoRotation,
           'costumeOverlays':
               _costumeOverlays.map((o) => o.toMap()).toList(),
           'outfitId': _selectedOutfitId,
@@ -648,6 +654,7 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
             photoScale: _photoScale,
             photoOffsetX: _photoOffsetX,
             photoOffsetY: _photoOffsetY,
+            photoRotation: _photoRotation,
             outfitId: _selectedOutfitId,
             outfitImage: _outfitImage,
             photoBgColor: _photoBgColor,
@@ -1329,6 +1336,7 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
       'photoScale': _photoScale,
       'photoOffsetX': _photoOffsetX,
       'photoOffsetY': _photoOffsetY,
+      'photoRotation': _photoRotation,
       'photoBrightness': _photoBrightness,
       'photoContrast': _photoContrast,
       'photoSaturation': _photoSaturation,

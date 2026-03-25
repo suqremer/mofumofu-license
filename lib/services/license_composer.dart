@@ -75,6 +75,9 @@ class LicenseComposeRequest {
   /// 写真の垂直オフセット（-0.5〜0.5）
   final double photoOffsetY;
 
+  /// 写真の回転（ラジアン）
+  final double photoRotation;
+
   /// 顔ハメコスチュームID（任意）
   final String? outfitId;
 
@@ -111,6 +114,7 @@ class LicenseComposeRequest {
     this.photoScale = 1.0,
     this.photoOffsetX = 0.0,
     this.photoOffsetY = 0.0,
+    this.photoRotation = 0.0,
     this.outfitId,
     this.photoBgColor,
     this.photoBrightness = 0.0,
@@ -239,6 +243,7 @@ class LicenseComposer {
       photoScale: request.photoScale,
       photoOffsetX: request.photoOffsetX,
       photoOffsetY: request.photoOffsetY,
+      photoRotation: request.photoRotation,
       outfitId: request.outfitId,
       outfitImage: outfitImage,
       photoBgColor: request.photoBgColor != null
@@ -345,6 +350,13 @@ class LicenseComposer {
         request.photoOffsetX * photoRect.width,
         request.photoOffsetY * photoRect.height,
       );
+      if (request.photoRotation != 0.0) {
+        canvas.translate(
+            photoRect.width / 2, photoRect.height / 2);
+        canvas.rotate(request.photoRotation);
+        canvas.translate(
+            -photoRect.width / 2, -photoRect.height / 2);
+      }
       if (request.photoScale != 1.0) {
         canvas.translate(
             photoRect.width / 2, photoRect.height / 2);

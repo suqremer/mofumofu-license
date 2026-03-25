@@ -61,6 +61,7 @@ class _InfoInputScreenState extends State<InfoInputScreen>
   double _photoScale = 1.0;
   double _photoOffsetX = 0.0;
   double _photoOffsetY = 0.0;
+  double _photoRotation = 0.0;
   List<Map<String, dynamic>>? _costumeOverlays;
   String? _outfitId;
   String? _originalPhotoPath;
@@ -160,6 +161,7 @@ class _InfoInputScreenState extends State<InfoInputScreen>
     _photoScale = (data['photoScale'] as num?)?.toDouble() ?? 1.0;
     _photoOffsetX = (data['photoOffsetX'] as num?)?.toDouble() ?? 0.0;
     _photoOffsetY = (data['photoOffsetY'] as num?)?.toDouble() ?? 0.0;
+    _photoRotation = (data['photoRotation'] as num?)?.toDouble() ?? 0.0;
     _costumeOverlays = (data['costumeOverlays'] as List<dynamic>?)
         ?.map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
@@ -410,6 +412,7 @@ class _InfoInputScreenState extends State<InfoInputScreen>
       'photoScale': _photoScale,
       'photoOffsetX': _photoOffsetX,
       'photoOffsetY': _photoOffsetY,
+      'photoRotation': _photoRotation,
       if (_costumeOverlays != null) 'costumeOverlays': _costumeOverlays,
       if (_outfitId != null) 'outfitId': _outfitId,
       if (_originalPhotoPath != null) 'originalPhotoPath': _originalPhotoPath,
@@ -427,6 +430,7 @@ class _InfoInputScreenState extends State<InfoInputScreen>
         _photoScale = (result['photoScale'] as num?)?.toDouble() ?? _photoScale;
         _photoOffsetX = (result['photoOffsetX'] as num?)?.toDouble() ?? _photoOffsetX;
         _photoOffsetY = (result['photoOffsetY'] as num?)?.toDouble() ?? _photoOffsetY;
+        _photoRotation = (result['photoRotation'] as num?)?.toDouble() ?? _photoRotation;
         _costumeOverlays = (result['costumeOverlays'] as List<dynamic>?)
             ?.map((e) => Map<String, dynamic>.from(e as Map))
             .toList();

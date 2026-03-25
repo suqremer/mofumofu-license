@@ -44,6 +44,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   double _photoScale = 1.0;
   double _photoOffsetX = 0.0;
   double _photoOffsetY = 0.0;
+  double _photoRotation = 0.0; // ラジアン
   bool _gestureIsPhotoMove = false; // ジェスチャー中に2本指→写真移動モード
 
   // === 写真色調整（明るさ/コントラスト/彩度） ===
@@ -83,6 +84,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
 
   // === ジェスチャー用 ===
   double _gestureStartScale = 1.0;
+  double _gestureStartPhotoRotation = 0.0;
 
   // === ブラシ関連 ===
   BrushTool? _brushTool;
@@ -143,6 +145,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
     _photoScale = (extra['photoScale'] as num?)?.toDouble() ?? 1.0;
     _photoOffsetX = (extra['photoOffsetX'] as num?)?.toDouble() ?? 0.0;
     _photoOffsetY = (extra['photoOffsetY'] as num?)?.toDouble() ?? 0.0;
+    _photoRotation = (extra['photoRotation'] as num?)?.toDouble() ?? 0.0;
     _photoBrightness = (extra['photoBrightness'] as num?)?.toDouble() ?? 0.0;
     _photoContrast = (extra['photoContrast'] as num?)?.toDouble() ?? 0.0;
     _photoSaturation = (extra['photoSaturation'] as num?)?.toDouble() ?? 0.0;
@@ -430,6 +433,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
       'photoScale': _photoScale,
       'photoOffsetX': _photoOffsetX,
       'photoOffsetY': _photoOffsetY,
+      'photoRotation': _photoRotation,
       'photoBrightness': _photoBrightness,
       'photoContrast': _photoContrast,
       'photoSaturation': _photoSaturation,
@@ -868,6 +872,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 // outfit: 常に写真移動 / brush: 1本指→ブラシ, 2本指→ビューズーム
                 onScaleStart: (details) {
                         _gestureStartScale = _photoScale;
+                        _gestureStartPhotoRotation = _photoRotation;
                         _gestureStartViewScale = _viewScale;
                         _gestureStartViewOffset = Offset(_viewOffsetX, _viewOffsetY);
                         _gestureFocalPoint = details.localFocalPoint;
@@ -919,7 +924,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                             _viewScale = newScale;
                           });
                         } else if (_mode == EditorMode.outfit) {
-                          // outfitモードのみ: 写真の移動・ズーム
+                          // outfitモードのみ: 写真の移動・ズーム・回転
                           setState(() {
                             _photoScale = (_gestureStartScale * details.scale)
                                 .clamp(0.3, 3.0);
@@ -931,6 +936,9 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                                     details.focalPointDelta.dy /
                                         previewSize.height)
                                 .clamp(-1.5, 1.5);
+                            if (details.pointerCount >= 2) {
+                              _photoRotation = _gestureStartPhotoRotation + details.rotation;
+                            }
                           });
                         } else if (_mode == EditorMode.brush) {
                           // 1本指ブラシ描画
@@ -1023,6 +1031,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                           photoScale: _photoScale,
                           photoOffsetX: _photoOffsetX,
                           photoOffsetY: _photoOffsetY,
+                          photoRotation: _photoRotation,
                           photoAspect: _photoAspect,
                           outfitImage: _selectedOutfitId != null ? _outfitUiImage : null,
                           outfitId: _selectedOutfitId,
@@ -1779,6 +1788,50 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                       _photoScale = 1.0;
                       _photoOffsetX = 0.0;
                       _photoOffsetY = 0.0;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2A2A),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.restart_alt, color: Colors.grey[500], size: 18),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 回転スライダー
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                Icon(Icons.rotate_left, color: Colors.grey[600], size: 16),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderThemeData(
+                      trackHeight: 3,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                      activeTrackColor: Colors.white.withValues(alpha: 0.5),
+                      inactiveTrackColor: Colors.grey[800],
+                      thumbColor: Colors.white,
+                    ),
+                    child: Slider(
+                      value: _photoRotation,
+                      min: -3.14159,
+                      max: 3.14159,
+                      onChanged: (v) => setState(() => _photoRotation = v),
+                    ),
+                  ),
+                ),
+                Icon(Icons.rotate_right, color: Colors.grey[600], size: 16),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _photoRotation = 0.0;
                     });
                   },
                   child: Container(

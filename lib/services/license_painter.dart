@@ -37,6 +37,9 @@ class LicensePainter extends CustomPainter {
   /// 写真の垂直オフセット（-0.5〜0.5、写真高さに対する比率）
   final double photoOffsetY;
 
+  /// 写真の回転（ラジアン）
+  final double photoRotation;
+
   /// 顔ハメコスチュームID
   final String? outfitId;
 
@@ -63,6 +66,7 @@ class LicensePainter extends CustomPainter {
     this.photoScale = 1.0,
     this.photoOffsetX = 0.0,
     this.photoOffsetY = 0.0,
+    this.photoRotation = 0.0,
     this.outfitId,
     this.outfitImage,
     this.photoBgColor = const Color(0xFFFFFFFF),
@@ -165,9 +169,11 @@ class LicensePainter extends CustomPainter {
         oldDelegate.photoScale != photoScale ||
         oldDelegate.photoOffsetX != photoOffsetX ||
         oldDelegate.photoOffsetY != photoOffsetY ||
+        oldDelegate.photoRotation != photoRotation ||
         oldDelegate.photoBgColor != photoBgColor ||
         oldDelegate.photoColorFilter != photoColorFilter ||
-        oldDelegate.composedPhotoImage != composedPhotoImage;
+        oldDelegate.composedPhotoImage != composedPhotoImage ||
+        oldDelegate.costumeImages.length != costumeImages.length;
   }
 
   bool _overlaysChanged(List<CostumeOverlay> old) {
@@ -921,6 +927,15 @@ class LicensePainter extends CustomPainter {
         photoOffsetX * ghostRect.width,
         photoOffsetY * ghostRect.height,
       );
+      if (photoRotation != 0.0) {
+        canvas.translate(
+            ghostRect.left + ghostRect.width / 2,
+            ghostRect.top + ghostRect.height / 2);
+        canvas.rotate(photoRotation);
+        canvas.translate(
+            -(ghostRect.left + ghostRect.width / 2),
+            -(ghostRect.top + ghostRect.height / 2));
+      }
       if (photoScale != 1.0) {
         canvas.translate(
             ghostRect.left + ghostRect.width / 2,
@@ -1316,13 +1331,21 @@ class LicensePainter extends CustomPainter {
         srcRect = Rect.fromLTWH(0, (imgH - cropH) / 2, imgW, cropH);
       }
 
-      // photoScale/Offset を適用（canvas変換で自由スクロール+ズーム）
+      // photoScale/Offset/Rotation を適用（canvas変換で自由スクロール+ズーム+回転）
       canvas.save();
       canvas.clipRect(photoRect);
       canvas.translate(
         photoOffsetX * photoRect.width,
         photoOffsetY * photoRect.height,
       );
+      // 回転（中心基準）
+      if (photoRotation != 0.0) {
+        canvas.translate(photoRect.left + photoRect.width / 2,
+            photoRect.top + photoRect.height / 2);
+        canvas.rotate(photoRotation);
+        canvas.translate(-(photoRect.left + photoRect.width / 2),
+            -(photoRect.top + photoRect.height / 2));
+      }
       if (photoScale != 1.0) {
         canvas.translate(photoRect.left + photoRect.width / 2,
             photoRect.top + photoRect.height / 2);

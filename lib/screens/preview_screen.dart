@@ -210,6 +210,7 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
         photoScale: (data['photoScale'] as num?)?.toDouble() ?? 1.0,
         photoOffsetX: (data['photoOffsetX'] as num?)?.toDouble() ?? 0.0,
         photoOffsetY: (data['photoOffsetY'] as num?)?.toDouble() ?? 0.0,
+        photoRotation: (data['photoRotation'] as num?)?.toDouble() ?? 0.0,
         outfitId: data['outfitId'] as String?,
         photoBgColor: data['photoBgColor'] as int?,
         photoBrightness: (data['photoBrightness'] as num?)?.toDouble() ?? 0.0,
@@ -308,6 +309,8 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
           'photoOffsetX': data['photoOffsetX'],
         if (data['photoOffsetY'] != null)
           'photoOffsetY': data['photoOffsetY'],
+        if (data['photoRotation'] != null && data['photoRotation'] != 0.0)
+          'photoRotation': data['photoRotation'],
         if (data['outfitId'] != null)
           'outfitId': data['outfitId'],
         if (data['validityId'] != null)
