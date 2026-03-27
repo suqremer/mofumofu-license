@@ -51,7 +51,7 @@ class OrderScreen extends StatelessWidget {
               features: const [
                 'PVC製の高品質カード',
                 'クレジットカードサイズ',
-                'NFC + QRコード付き',
+                'NFC付き',
               ],
               onTap: () => context.push('/order/card'),
             ),

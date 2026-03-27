@@ -606,34 +606,53 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
             Expanded(child: Text('写真の送付はお済みですか？', style: TextStyle(fontSize: 17))),
           ],
         ),
-        content: const Text(
-          '専用フォームからタグ用の丸形画像を送ってください。\n\n'
-          'カメラロールに保存した画像をアップロードしてね！',
-          style: TextStyle(fontSize: 14, color: AppColors.textMedium, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('あとで送る'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('送付済み'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _launchPhotoForm();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              '専用フォームからタグ用の丸形画像を送ってください。\n\n'
+              'カメラロールに保存した画像をアップロードしてね！',
+              style: TextStyle(fontSize: 14, color: AppColors.textMedium, height: 1.5),
             ),
-            child: const Text('フォームを開く'),
-          ),
-        ],
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('あとで送る'),
+                  ),
+                ),
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('送付済み'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _launchPhotoForm();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text('フォームを開く'),
+              ),
+            ),
+          ],
+        ),
+        actions: const [],
       ),
     );
   }
