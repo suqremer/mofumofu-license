@@ -1,6 +1,6 @@
 # うちの子免許証 — 実施設計書
 
-> 最終更新: 2026-03-18
+> 最終更新: 2026-03-26
 
 ---
 
@@ -145,7 +145,7 @@ lib/
 LicenseComposer.compose()
   ├── テンプレート背景描画 (japan / usa)
   ├── フレーム色描画 (6色)
-  ├── 証明写真描画 (photoScale/Offset適用)
+  ├── 証明写真描画 (photoScale/Offset/Rotation適用)
   ├── コスチューム群描画 (回転+拡縮)
   ├── 顔ハメパネル描画
   ├── テキスト描画 (ペット情報/ライセンス番号/有効期限)
@@ -161,7 +161,7 @@ LicenseComposer.compose()
 | タブ | パス | 画面 | 概要 |
 |------|------|------|------|
 | ホーム | `/` | HomeScreen | 看板ヘッダー、受付番号札CTA、発行済みリスト |
-| コレクション | `/collection` | CollectionScreen | グリッド一覧、並べ替え、詳細シート |
+| コレクション | `/collection` | CollectionScreen | グリッド一覧、並べ替え、削除、詳細シート |
 | 設定 | `/settings` | SettingsScreen | プラン情報、サポート、法務リンク |
 
 ### 4.2 免許証作成フロー（右スライドイン）
@@ -193,6 +193,7 @@ LicenseComposer.compose()
 | `/order/set` | OrderCardScreen(isSet) | セット注文 |
 | `/order/tag-design` | TagDesignScreen | タグ用丸形画像作成 |
 | `/nfc-write` | NfcWriteScreen | NFC書き込み |
+| `/nfc-read` | NfcReadScreen | NFC読み取り（迷子対策） |
 
 ---
 
@@ -216,7 +217,7 @@ LicenseComposer.compose()
 | frame_color | TEXT | フレーム色（デフォルト: gold） |
 | template_type | TEXT | japan / usa |
 | saved_image_path | TEXT? | 合成済み画像パス |
-| extra_data | TEXT? | JSON拡張データ（v2マイグレーションで追加） |
+| extra_data | TEXT? | JSON拡張データ。costumeOverlays、photoScale/OffsetX/OffsetY/Rotation、photoBrightness/Contrast/Saturation、outfitId、validityId、photoBgColor を格納 |
 | created_at | TEXT | ISO8601 |
 | updated_at | TEXT | ISO8601 |
 
@@ -249,6 +250,8 @@ LicenseComposer.compose()
 | pet_id | INTEGER FK | pets.id |
 | weight | REAL | 体重(kg) |
 | date | TEXT | 記録日 |
+
+> **注**: ペット手帳でペット名変更時、同名の免許証（licenses.pet_name）も `updateLicensePetName()` で自動更新される。
 
 ### 5.2 SharedPreferences + Keychain
 
@@ -307,7 +310,7 @@ LicenseComposer.compose()
 ### 7.2 RevenueCat設定
 - **Product ID**: `mofumofu_premium`（¥300 Lifetime）
 - **Entitlement**: `Uchino Ko License Pro`
-- **APIキー**: `test_OnTkjyVSKfGgHxVviskyQLmwCmd`（テスト用。提出前に`appl_`キーに差し替え必須）
+- **APIキー**: `appl_devqORajcICbBWJDTuWHZFRfxZW`（本番用。差し替え完了）
 
 ### 7.3 コスチューム区分（確定: 無料12種 / プレミアム35種、計47種）
 
@@ -324,7 +327,7 @@ LicenseComposer.compose()
 
 ### 7.4 フレーム色区分
 - 無料: ブラック、ブルー
-- プレミアム: ゴールド、シルバー、ローズゴールド、ホログラフィック
+- プレミアム: ゴールド、シルバー、ローズゴールド、ホログラム
 
 ---
 
@@ -382,7 +385,7 @@ Step 5: Stripe Payment Links で決済（url_launcher）
 - アプリ内で証明写真を Φ25mm 丸形にトリミング（25mmプラ板に貼付）
 - savedImagePath から photoRect 領域をクロップしてプレビュー表示
 - ドラッグ + ピンチで位置・サイズ調整
-- 出力: Φ295px PNG（300dpi相当）
+- 出力: Φ1024px PNG（~1040dpi、高解像度印刷対応）
 - **カメラロールに保存**（galパッケージ、アルバム名「うちの子免許証」）+ 共有シート
 - 保存完了時に `Navigator.pop(context, true)` で注文画面へ結果返却
 
@@ -408,7 +411,7 @@ NDEF Text Record 形式でペット迷子情報を書き込み:
 
 ### 9.3 対応状況
 - **Android**: 実装済み（nfc_manager + Kotlin 2.x パッチ適用）
-- **iOS**: 未実装（Info.plist + Capabilities設定が必要）
+- **iOS**: 実装済み（Info.plist + Capabilities設定完了、TAG entitlement + iso14443 polling、実機テストOK）
 
 ---
 
@@ -422,7 +425,7 @@ NDEF Text Record 形式でペット迷子情報を書き込み:
 
 ### 10.2 UMP同意フロー
 - GDPR / ATT対応の同意フロー
-- タイムアウト推奨: 10秒（#36.3で対応予定）
+- タイムアウト: 10秒（実装済み）
 
 ---
 
@@ -454,14 +457,14 @@ NDEF Text Record 形式でペット迷子情報を書き込み:
 
 | # | 項目 | 状態 |
 |---|------|------|
-| 1 | RevenueCat APIキーを本番用(`appl_`)に差し替え | 未 |
-| 2 | In-App Purchase entitlements追加（Xcode） | 未 |
-| 3 | AdMob UMP同意フローにタイムアウト追加 | 未 |
-| 4 | NFC iOS対応（Info.plist + Capabilities） | 未 |
-| 5 | NFC プライバシーポリシー更新 | 未 |
-| 6 | kDevMode=false / kUseTestAds=false 確認 | 未 |
+| 1 | RevenueCat APIキーを本番用(`appl_`)に差し替え | Done |
+| 2 | In-App Purchase entitlements追加（Xcode） | Done（追加不要。StoreKit IAPはプロビジョニングプロファイルで自動有効化） |
+| 3 | AdMob UMP同意フローにタイムアウト追加 | Done（10秒タイムアウト実装済み） |
+| 4 | NFC iOS対応（Info.plist + Capabilities） | Done（TAG entitlement + iso14443 polling、実機テストOK） |
+| 5 | NFC プライバシーポリシー更新 | Done（§7 NFC機能セクション追加済み） |
+| 6 | kDevMode=false / kUseTestAds=false 確認 | Done（リリースビルドガード実装済み） |
 | 7 | TestFlight実機テスト（IAP Sandbox含む） | 未 |
-| 8 | スクリーンショット撮影（3サイズ） | 未 |
+| 8 | スクリーンショット撮影 | 進行中（7枚完成、⑦グッズ完成後に撮影） |
 | 9 | 最終TestFlight + チーム最終レビュー | 未 |
 | 10 | App Store審査提出 | 未 |
 
@@ -634,25 +637,27 @@ enum AnchorPosition {
 ## 15. 開発進捗サマリー
 
 ### 完了済み
-- 全画面UI実装（17画面）
-- 画像合成エンジン（Canvas描画 + 2048px出力）
+- 全画面UI実装（18画面、NFC読み取り画面追加）
+- 画像合成エンジン（Canvas描画 + 2048px出力、写真回転対応）
 - 背景自動削除（ONNX Runtime）
-- 課金システム（RevenueCat + ¥300 Lifetime）
-- 広告（AdMob バナー）
-- NFC書き込み機能（Android）
+- 課金システム（RevenueCat + ¥300 Lifetime、本番キー差し替え済み）
+- 広告（AdMob バナー、UMP同意フロー10秒タイムアウト）
+- NFC書き込み・読み取り機能（iOS + Android両対応）
 - 注文システムUI（4画面 + タグ用丸形デザイン）
-- 法務ドキュメント（5ページ）
+- 法務ドキュメント（5ページ、NFC機能・物理商品対応済み）
 - ASO / 審査メモ / App Privacy
+- デコ素材（コスチューム47種確定）
+- Googleフォーム作成（注文受付用）
+- RevenueCat本番キー差し替え
+- kDevMode / kUseTestAds リリースビルドガード
 
 ### 未完了（リリースブロッカー）
-- TestFlight実機テスト
-- RevenueCat本番キー差し替え
-- IAP entitlements追加
-- スクリーンショット撮影
-- デコ素材追加
+- TestFlight最終実機テスト
+- スクリーンショット撮影（7枚完成、⑦グッズ完成後）
+- 申請前チーム最終レビュー
+- App Store審査提出
 
 ### 未完了（リリース後）
-- NFC iOS対応
-- Stripe連携（URL差し替え）
-- Googleフォーム作成
+- Stripe本番URL差し替え（Stripe審査通過後）
 - 物理商品製造ライン構築
+- 商品写真撮影＆アプリ内画像差し替え
