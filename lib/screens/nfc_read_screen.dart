@@ -15,6 +15,8 @@ enum _NfcReadState {
   scanning,
   success,
   error,
+  erasing,
+  erased,
 }
 
 class _NfcReadScreenState extends State<NfcReadScreen>
@@ -103,6 +105,48 @@ class _NfcReadScreenState extends State<NfcReadScreen>
     }
   }
 
+  Future<void> _confirmAndErase() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('タグの内容を消去'),
+        content: const Text('タグに書き込まれたデータを消去します。\nこの操作は取り消せません。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('消去する'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _state = _NfcReadState.erasing);
+
+    final response = await NfcService.instance.eraseTag();
+
+    if (!mounted) return;
+
+    if (response.result == NfcWriteResult.success) {
+      setState(() => _state = _NfcReadState.erased);
+    } else {
+      setState(() {
+        _state = _NfcReadState.error;
+        _errorMessage = switch (response.result) {
+          NfcWriteResult.timeout => 'タイムアウトしました。もう一度お試しください',
+          NfcWriteResult.notAvailable => 'NFCに対応していません',
+          _ => '消去に失敗しました',
+        };
+      });
+    }
+  }
+
   void _reset() {
     _successAnimController.reset();
     setState(() {
@@ -133,6 +177,8 @@ class _NfcReadScreenState extends State<NfcReadScreen>
           _NfcReadState.scanning => _buildScanningView(),
           _NfcReadState.success => _buildSuccessView(),
           _NfcReadState.error => _buildErrorView(),
+          _NfcReadState.erasing => _buildErasingView(),
+          _NfcReadState.erased => _buildErasedView(),
         },
       ),
     );
@@ -417,7 +463,138 @@ class _NfcReadScreenState extends State<NfcReadScreen>
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          // タグ消去ボタン
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: _confirmAndErase,
+              icon: Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+              label: Text(
+                'タグの内容を消去',
+                style: TextStyle(color: AppColors.error),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildErasingView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(
+            width: 60,
+            height: 60,
+            child: CircularProgressIndicator(
+              strokeWidth: 4,
+              valueColor: AlwaysStoppedAnimation(AppColors.error),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            '消去中...',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'iOSのNFCダイアログでタグをかざしてください',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textMedium,
+            ),
+          ),
+          const SizedBox(height: 40),
+          TextButton(
+            onPressed: () {
+              NfcService.instance.stopSession();
+              _reset();
+            },
+            child: const Text('キャンセル'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErasedView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.success.withValues(alpha: 0.15),
+              ),
+              child: const Icon(
+                Icons.check_circle,
+                size: 60,
+                color: AppColors.success,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'タグの内容を消去しました',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'タグのデータは空になりました',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textMedium,
+              ),
+            ),
+            const SizedBox(height: 40),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OutlinedButton(
+                  onPressed: _reset,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.secondary,
+                    side: const BorderSide(color: AppColors.secondary),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  ),
+                  child: const Text('もう一度読む'),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.secondary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  ),
+                  child: const Text('閉じる',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

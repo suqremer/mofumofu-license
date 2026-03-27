@@ -303,6 +303,76 @@ class NfcService {
     return result;
   }
 
+  /// NFCタグの内容を消去（空のNDEFメッセージを書き込み）
+  Future<NfcWriteResponse> eraseTag({
+    int timeoutSeconds = 30,
+  }) async {
+    if (!await isAvailable()) {
+      return const NfcWriteResponse(NfcWriteResult.notAvailable);
+    }
+
+    final completer = Completer<NfcWriteResponse>();
+
+    final timer = Timer(Duration(seconds: timeoutSeconds), () {
+      if (!completer.isCompleted) {
+        NfcManager.instance.stopSession();
+        completer.complete(const NfcWriteResponse(NfcWriteResult.timeout));
+      }
+    });
+
+    try {
+      await NfcManager.instance.startSession(
+        pollingOptions: {NfcPollingOption.iso14443},
+        alertMessage: '消去するタグをかざしてください',
+        onDiscovered: (NfcTag tag) async {
+          try {
+            final ndef = Ndef.from(tag);
+            if (ndef == null || !ndef.isWritable) {
+              completer.complete(const NfcWriteResponse(
+                NfcWriteResult.writeFailed, 'タグが書き込みに対応していません'));
+              NfcManager.instance.stopSession(errorMessage: 'このタグは書き込みに対応していません');
+              return;
+            }
+
+            // 空のNDEFメッセージで上書き
+            final emptyMessage = NdefMessage([
+              NdefRecord.createText(''),
+            ]);
+
+            await ndef.write(emptyMessage);
+            completer.complete(const NfcWriteResponse(NfcWriteResult.success));
+            NfcManager.instance.stopSession(alertMessage: '消去しました！');
+          } catch (e) {
+            debugPrint('NFC erase error: $e');
+            if (!completer.isCompleted) {
+              completer.complete(NfcWriteResponse(
+                NfcWriteResult.writeFailed, 'erase error: $e'));
+            }
+            NfcManager.instance.stopSession(errorMessage: '消去に失敗しました');
+          }
+        },
+        onError: (error) async {
+          debugPrint('NFC erase session error: $error');
+          if (!completer.isCompleted) {
+            completer.complete(NfcWriteResponse(
+              NfcWriteResult.writeFailed, 'onError: ${error.message}'));
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('NFC erase start session error: $e');
+      timer.cancel();
+      if (!completer.isCompleted) {
+        return NfcWriteResponse(
+          NfcWriteResult.writeFailed, 'startSession threw: $e');
+      }
+    }
+
+    final result = await completer.future;
+    timer.cancel();
+    return result;
+  }
+
   /// NFCセッションを停止
   void stopSession() {
     try {
