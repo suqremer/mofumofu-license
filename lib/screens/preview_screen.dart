@@ -761,6 +761,11 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
           '保存やシェアして自慢しよう',
           style: TextStyle(fontSize: 14, color: AppColors.textMedium),
         ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          '※ この免許証は公的な証明書ではありません',
+          style: TextStyle(fontSize: 11, color: AppColors.textLight),
+        ),
       ],
     );
   }
