@@ -86,6 +86,7 @@ flutter:
     - assets/costumes/
     - assets/tutorial/
     - assets/fonts/
+    - assets/product_photos/
 
 
   fonts:

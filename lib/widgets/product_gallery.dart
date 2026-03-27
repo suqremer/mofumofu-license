@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -20,17 +19,17 @@ class ProductPhoto {
 
 /// PVCカード商品写真一覧
 const kCardPhotos = [
-  ProductPhoto(label: 'カード表面', placeholderIcon: Icons.credit_card),
-  ProductPhoto(label: 'カード裏面', placeholderIcon: Icons.flip),
-  ProductPhoto(label: '飾ったイメージ', placeholderIcon: Icons.collections),
+  ProductPhoto(assetPath: 'assets/product_photos/card_front.jpg', label: 'カード表面', placeholderIcon: Icons.credit_card),
+  ProductPhoto(assetPath: 'assets/product_photos/card_back.jpg', label: 'カード裏面', placeholderIcon: Icons.flip),
+  ProductPhoto(assetPath: 'assets/product_photos/card_display.jpg', label: '飾ったイメージ', placeholderIcon: Icons.collections),
 ];
 
 /// レジンタグ商品写真一覧
 const kTagPhotos = [
-  ProductPhoto(label: 'タグ表面', placeholderIcon: Icons.pets),
-  ProductPhoto(label: 'タグ裏面', placeholderIcon: Icons.flip),
-  ProductPhoto(label: '手に持ったイメージ', placeholderIcon: Icons.back_hand_outlined),
-  ProductPhoto(label: '首輪に付けたイメージ', placeholderIcon: Icons.checkroom),
+  ProductPhoto(assetPath: 'assets/product_photos/tag_front.jpg', label: 'タグ表面', placeholderIcon: Icons.pets),
+  ProductPhoto(assetPath: 'assets/product_photos/tag_back.jpg', label: 'タグ裏面', placeholderIcon: Icons.flip),
+  ProductPhoto(assetPath: 'assets/product_photos/tag_size.jpg', label: 'サイズ感', placeholderIcon: Icons.straighten),
+  ProductPhoto(assetPath: 'assets/product_photos/set_overview.jpg', label: 'セット', placeholderIcon: Icons.inventory_2),
 ];
 
 /// ホーム画面用: カード+タグの全写真
@@ -138,8 +137,7 @@ class _ProductGalleryState extends State<ProductGallery> {
   }
 
   Widget _buildPhotoCard(ProductPhoto photo) {
-    final hasImage = photo.assetPath != null &&
-        File(photo.assetPath!).existsSync();
+    final hasImage = photo.assetPath != null;
 
     return Container(
       decoration: BoxDecoration(
@@ -158,7 +156,7 @@ class _ProductGalleryState extends State<ProductGallery> {
           ? Stack(
               fit: StackFit.expand,
               children: [
-                Image.file(File(photo.assetPath!), fit: BoxFit.cover),
+                Image.asset(photo.assetPath!, fit: BoxFit.cover),
                 _buildLabel(photo.label),
               ],
             )
