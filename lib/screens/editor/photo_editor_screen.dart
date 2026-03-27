@@ -937,7 +937,21 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                                         previewSize.height)
                                 .clamp(-1.5, 1.5);
                             if (details.pointerCount >= 2) {
-                              _photoRotation = _gestureStartPhotoRotation + details.rotation;
+                              final rawRotation = _gestureStartPhotoRotation + details.rotation;
+                              // デッドゾーン: 回転量が0.15rad(≈8.6°)未満なら回転しない
+                              if ((details.rotation).abs() > 0.15) {
+                                // 水平・垂直スナップアシスト(0°, 90°, 180°, 270°)
+                                const snapAngles = [0.0, 1.5708, -1.5708, 3.1416, -3.1416];
+                                const snapThreshold = 0.05; // ≈2.9°
+                                double snapped = rawRotation;
+                                for (final angle in snapAngles) {
+                                  if ((rawRotation - angle).abs() < snapThreshold) {
+                                    snapped = angle;
+                                    break;
+                                  }
+                                }
+                                _photoRotation = snapped;
+                              }
                             }
                           });
                         } else if (_mode == EditorMode.brush) {

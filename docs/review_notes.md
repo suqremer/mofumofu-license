@@ -55,7 +55,7 @@ No login or account is required. The app works entirely offline after download.
 - **No user accounts**: No registration, login, or personal data collection.
 - **On-device processing**: Photo editing and AI background removal run entirely on-device. No images are uploaded to any server.
 - **ATT Compliance**: The app displays the App Tracking Transparency prompt before initializing personalized ads. If the user declines, only non-personalized ads are shown.
-- **Privacy Policy**: https://suqremer.github.io/mofumofu-license-pages/privacy-policy/
+- **Privacy Policy**: https://uchinoko-license.com/privacy-policy/
 - **No data shared with third parties** beyond what is disclosed above (AdMob, Crashlytics).
 
 ## Important Disclaimers
@@ -76,5 +76,5 @@ No login or account is required. The app works entirely offline after download.
 
 ## Support
 - Email: uchino.ko.license@gmail.com
-- Support page: https://suqremer.github.io/mofumofu-license-pages/
-- Privacy Policy: https://suqremer.github.io/mofumofu-license-pages/privacy-policy/
+- Support page: https://uchinoko-license.com/
+- Privacy Policy: https://uchinoko-license.com/privacy-policy/

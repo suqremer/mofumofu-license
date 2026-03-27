@@ -240,8 +240,8 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                 _buildStepHeader(4, '専用フォームから写真を送付'),
                 const SizedBox(height: AppSpacing.sm),
                 const Text(
-                  '決済完了後、Googleフォームでタグ用の丸形画像を送ってください。\n'
-                  '注文番号はStripeからのメールに記載されています。',
+                  'Googleフォームでタグ用の丸形画像を送ってください。\n'
+                  'カメラロールに保存した画像をアップロードしてね！',
                   style: TextStyle(
                       fontSize: 13, color: AppColors.textMedium, height: 1.5),
                 ),
@@ -603,19 +603,22 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
           children: [
             Icon(Icons.check_circle, color: AppColors.success, size: 24),
             SizedBox(width: AppSpacing.sm),
-            Text('決済は完了しましたか？', style: TextStyle(fontSize: 17)),
+            Expanded(child: Text('写真の送付はお済みですか？', style: TextStyle(fontSize: 17))),
           ],
         ),
         content: const Text(
-          '決済が完了したら、専用フォームからタグ用の写真を送ってください。\n\n'
-          'カメラロールに保存した丸形画像をアップロードしてね！\n'
-          '注文番号はStripeからのメールに記載されています。',
+          '専用フォームからタグ用の丸形画像を送ってください。\n\n'
+          'カメラロールに保存した画像をアップロードしてね！',
           style: TextStyle(fontSize: 14, color: AppColors.textMedium, height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('あとで送る'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('送付済み'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -628,7 +631,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
             ),
-            child: const Text('写真を送る'),
+            child: const Text('フォームを開く'),
           ),
         ],
       ),

@@ -333,10 +333,10 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   widget.isSet
-                      ? '決済完了後、Googleフォームで免許証画像とタグ用画像を送ってください。\n'
-                        '注文番号はStripeからのメールに記載されています。'
-                      : '決済完了後、Googleフォームで免許証の画像を送ってください。\n'
-                        '注文番号はStripeからのメールに記載されています。',
+                      ? 'Googleフォームで免許証画像とタグ用画像を送ってください。\n'
+                        'カメラロールに保存した画像をアップロードしてね！'
+                      : 'Googleフォームで免許証の画像を送ってください。\n'
+                        'カメラロールに保存した画像をアップロードしてね！',
                   style: const TextStyle(fontSize: 13, color: AppColors.textMedium, height: 1.5),
                 ),
                 const SizedBox(height: 12),
@@ -732,21 +732,25 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
           children: [
             Icon(Icons.check_circle, color: AppColors.success, size: 24),
             SizedBox(width: AppSpacing.sm),
-            Text('決済は完了しましたか？', style: TextStyle(fontSize: 17)),
+            Expanded(child: Text('写真の送付はお済みですか？', style: TextStyle(fontSize: 17))),
           ],
         ),
         content: Text(
           widget.isSet
-              ? '決済が完了したら、専用フォームから免許証画像とタグ用の丸形画像を送ってください。\n\n'
-                '注文番号はStripeからのメールに記載されています。'
-              : '決済が完了したら、専用フォームから免許証の画像を送ってください。\n\n'
-                '注文番号はStripeからのメールに記載されています。',
+              ? '専用フォームから免許証画像とタグ用の丸形画像を送ってください。\n\n'
+                'カメラロールに保存した画像をアップロードしてね！'
+              : '専用フォームから免許証の画像を送ってください。\n\n'
+                'カメラロールに保存した画像をアップロードしてね！',
           style: const TextStyle(fontSize: 14, color: AppColors.textMedium, height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('あとで送る'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('送付済み'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -759,7 +763,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
             ),
-            child: const Text('写真を送る'),
+            child: const Text('フォームを開く'),
           ),
         ],
       ),
