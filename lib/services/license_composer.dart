@@ -130,6 +130,14 @@ class LicenseComposeRequest {
     LicenseCard card,
     Uint8List photoBytes,
   ) {
+    final extra = card.extraData ?? {};
+    final overlayMaps = extra['costumeOverlays'] as List<dynamic>?;
+    final overlays = overlayMaps != null
+        ? overlayMaps
+            .map((m) => CostumeOverlay.fromMap(Map<String, dynamic>.from(m as Map)))
+            .toList()
+        : <CostumeOverlay>[];
+
     return LicenseComposeRequest(
       petName: card.petName,
       species: card.species,
@@ -142,8 +150,17 @@ class LicenseComposeRequest {
       costumeId: card.costumeId,
       frameColor: card.frameColor,
       templateType: card.templateType,
-      validityId: 'nap', // DB未保存のためデフォルト
-      costumeOverlays: const [], // DB未保存のためデフォルト
+      validityId: extra['validityId'] as String? ?? 'nap',
+      costumeOverlays: overlays,
+      photoScale: (extra['photoScale'] as num?)?.toDouble() ?? 1.0,
+      photoOffsetX: (extra['photoOffsetX'] as num?)?.toDouble() ?? 0.0,
+      photoOffsetY: (extra['photoOffsetY'] as num?)?.toDouble() ?? 0.0,
+      photoRotation: (extra['photoRotation'] as num?)?.toDouble() ?? 0.0,
+      outfitId: extra['outfitId'] as String?,
+      photoBgColor: extra['photoBgColor'] as int?,
+      photoBrightness: (extra['photoBrightness'] as num?)?.toDouble() ?? 0.0,
+      photoContrast: (extra['photoContrast'] as num?)?.toDouble() ?? 0.0,
+      photoSaturation: (extra['photoSaturation'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

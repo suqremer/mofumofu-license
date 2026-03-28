@@ -90,6 +90,7 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
         photoScale: (extra['photoScale'] as num?)?.toDouble() ?? 1.0,
         photoOffsetX: (extra['photoOffsetX'] as num?)?.toDouble() ?? 0.0,
         photoOffsetY: (extra['photoOffsetY'] as num?)?.toDouble() ?? 0.0,
+        photoRotation: (extra['photoRotation'] as num?)?.toDouble() ?? 0.0,
         photoBrightness: (extra['photoBrightness'] as num?)?.toDouble() ?? 0.0,
         photoContrast: (extra['photoContrast'] as num?)?.toDouble() ?? 0.0,
         photoSaturation: (extra['photoSaturation'] as num?)?.toDouble() ?? 0.0,
