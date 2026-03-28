@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -696,6 +697,17 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
     // オフセットの逆変換
     double px = vx - _photoOffsetX * previewSize.width;
     double py = vy - _photoOffsetY * previewSize.height;
+    // 回転の逆変換（中心基準）
+    if (_photoRotation != 0.0) {
+      final cx = previewSize.width / 2;
+      final cy = previewSize.height / 2;
+      final dx = px - cx;
+      final dy = py - cy;
+      final cos = math.cos(-_photoRotation);
+      final sin = math.sin(-_photoRotation);
+      px = cx + dx * cos - dy * sin;
+      py = cy + dx * sin + dy * cos;
+    }
     // スケールの逆変換（中心基準）
     if (_photoScale != 1.0) {
       px = previewSize.width / 2 + (px - previewSize.width / 2) / _photoScale;
@@ -1066,6 +1078,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                             photoScale: _photoScale,
                             photoOffsetX: _photoOffsetX,
                             photoOffsetY: _photoOffsetY,
+                            photoRotation: _photoRotation,
                             operations: _brushOps,
                             currentPoints: _currentStrokePoints,
                             currentLassoPoints: _currentLassoPoints,

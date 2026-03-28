@@ -12,6 +12,7 @@ class BrushOverlayPainter extends CustomPainter {
   final double photoScale;
   final double photoOffsetX;
   final double photoOffsetY;
+  final double photoRotation;
   final List<BrushOperation> operations;
   final List<Offset>? currentPoints;
   final List<Offset>? currentLassoPoints;
@@ -24,6 +25,7 @@ class BrushOverlayPainter extends CustomPainter {
     required this.photoScale,
     required this.photoOffsetX,
     required this.photoOffsetY,
+    this.photoRotation = 0.0,
     required this.operations,
     this.currentPoints,
     this.currentLassoPoints,
@@ -58,6 +60,17 @@ class BrushOverlayPainter extends CustomPainter {
       if (photoScale != 1.0) {
         px = size.width / 2 + (px - size.width / 2) * photoScale;
         py = size.height / 2 + (py - size.height / 2) * photoScale;
+      }
+      // 回転を適用（中心基準）
+      if (photoRotation != 0.0) {
+        final cx = size.width / 2;
+        final cy = size.height / 2;
+        final dx = px - cx;
+        final dy = py - cy;
+        final cos = math.cos(photoRotation);
+        final sin = math.sin(photoRotation);
+        px = cx + dx * cos - dy * sin;
+        py = cy + dx * sin + dy * cos;
       }
       px += photoOffsetX * size.width;
       py += photoOffsetY * size.height;
