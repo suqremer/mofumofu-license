@@ -321,6 +321,8 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
           'photoContrast': data['photoContrast'],
         if (data['photoSaturation'] != null && data['photoSaturation'] != 0.0)
           'photoSaturation': data['photoSaturation'],
+        if (data['originalPhotoPath'] != null)
+          'originalPhotoPath': data['originalPhotoPath'],
       };
 
       final card = LicenseCard(
