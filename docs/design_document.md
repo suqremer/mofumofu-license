@@ -1,6 +1,6 @@
 # うちの子免許証 — 実施設計書
 
-> 最終更新: 2026-03-26
+> 最終更新: 2026-03-30
 
 ---
 
@@ -45,6 +45,30 @@
 - **iOS ビルド**: Codemagic CI/CD → TestFlight配信
 - **Bundle ID**: `com.suqremer.mofumofu_license`
 
+### 2.2 新規PCセットアップ手順
+
+```bash
+# 1. リポジトリをクローン
+git clone https://github.com/suqremer/mofumofu-license.git
+cd mofumofu-license
+
+# 2. 依存パッケージ取得
+flutter pub get
+
+# 3. Androidエミュレータで動作確認（iOS Simulatorはmac専用）
+flutter run -d emulator-5554
+```
+
+- APIキー等は全てコード内にハードコード済み。追加の秘密鍵や.envは不要
+- iOS ビルドは Codemagic（CI/CD）経由で TestFlight に配信
+- Android SDK は非ASCIIユーザー名の場合 `C:\Android\Sdk` 等に配置すること
+
+### 2.3 開発時の注意事項
+
+- **ビルド番号**: Codemagic が自動インクリメントするため、pubspec.yaml の値は無視される。App Store Connect にアップロード失敗した場合は Codemagic の設定でビルド番号を手動で上げる
+- **実機テスト必須**: NFC・カメラ・IAP（課金）はエミュレータでは動作しない。TestFlight実機で確認すること
+- **AdMob**: エミュレータでは「Test Ad」表示が正常動作。本番広告はリリース後のiOS実機のみ
+
 ---
 
 ## 3. アーキテクチャ
@@ -52,6 +76,13 @@
 ### 3.1 全体構成
 
 ```
+assets/
+├── costumes/                    # コスチューム画像（47種）
+├── fonts/                       # バンドルフォント（Zen Maru Gothic / Noto Sans JP）
+├── product_photos/              # 商品写真（PVCカード/レジンタグ/セット、計7枚）
+├── sounds/                      # 効果音
+└── tutorial/                    # チュートリアルGIF（5本）
+
 lib/
 ├── main.dart                    # エントリーポイント（Firebase/RevenueCat/AdMob/ONNX初期化）
 ├── router.dart                  # go_router ルーティング定義
@@ -152,6 +183,15 @@ LicenseComposer.compose()
   └── PNG出力 (2048×1292 @2x, PVC印刷対応)
 ```
 
+### 3.4 写真回転機能
+
+コスチュームタブで写真の角度調整が可能。斜めに撮れた写真の補正用。
+
+- **スライダー**: -180°〜180°（-π〜π ラジアン）、リセットボタン付き
+- **2本指ジェスチャー**: ピンチ操作で拡縮と同時に回転可能
+- **デッドゾーン**: 回転量が8.6°（0.15rad）未満の場合は回転しない（拡縮だけしたい時の誤操作防止）
+- **スナップアシスト**: 0°/±90°/±180° 付近（2.9°以内）で自動吸着
+
 ---
 
 ## 4. 画面一覧と遷移
@@ -217,7 +257,7 @@ LicenseComposer.compose()
 | frame_color | TEXT | フレーム色（デフォルト: gold） |
 | template_type | TEXT | japan / usa |
 | saved_image_path | TEXT? | 合成済み画像パス |
-| extra_data | TEXT? | JSON拡張データ。costumeOverlays、photoScale/OffsetX/OffsetY/Rotation、photoBrightness/Contrast/Saturation、outfitId、validityId、photoBgColor を格納 |
+| extra_data | TEXT? | JSON拡張データ。costumeOverlays、photoScale/OffsetX/OffsetY/Rotation、photoBrightness/Contrast/Saturation、outfitId、validityId、photoBgColor、originalPhotoPath を格納 |
 | created_at | TEXT | ISO8601 |
 | updated_at | TEXT | ISO8601 |
 
@@ -409,9 +449,15 @@ NDEF Text Record 形式でペット迷子情報を書き込み:
 - リアルタイムバイトカウンター表示
 - 書き込みタイムアウト: 30秒
 
-### 9.3 対応状況
+### 9.3 消去機能
+- 読み取り画面（NfcReadScreen）で内容確認後、「タグの内容を消去」ボタンで消去可能
+- 確認ダイアログ → 空NDEFメッセージを書き込みで実質消去
+- 消去完了画面を表示
+
+### 9.4 対応状況
 - **Android**: 実装済み（nfc_manager + Kotlin 2.x パッチ適用）
 - **iOS**: 実装済み（Info.plist + Capabilities設定完了、TAG entitlement + iso14443 polling、実機テストOK）
+- **機能**: 書き込み・読み取り・消去の3機能
 
 ---
 
@@ -447,7 +493,11 @@ NDEF Text Record 形式でペット迷子情報を書き込み:
 - **App Privacy**: 7データ種別申告済み（トラッキング: デバイスID + 広告データ）
 - **審査用メモ**: v2作成済み（Review Notes）
 
-### 11.3 注意事項
+### 11.3 アプリ内免責表示
+- 交付完了画面（preview_screen）に「※ この免許証は公的な証明書ではありません」を表示
+- App Store説明文にも同様の免責を記載
+
+### 11.4 注意事項
 - 「なめ猫」連想回避: 猫+学ラン+免許証の組み合わせをメインビジュアルにしない
 - 連絡先メール: uchino.ko.license@gmail.com
 
@@ -463,10 +513,10 @@ NDEF Text Record 形式でペット迷子情報を書き込み:
 | 4 | NFC iOS対応（Info.plist + Capabilities） | Done（TAG entitlement + iso14443 polling、実機テストOK） |
 | 5 | NFC プライバシーポリシー更新 | Done（§7 NFC機能セクション追加済み） |
 | 6 | kDevMode=false / kUseTestAds=false 確認 | Done（リリースビルドガード実装済み） |
-| 7 | TestFlight実機テスト（IAP Sandbox含む） | 未 |
-| 8 | スクリーンショット撮影 | 進行中（7枚完成、⑦グッズ完成後に撮影） |
-| 9 | 最終TestFlight + チーム最終レビュー | 未 |
-| 10 | App Store審査提出 | 未 |
+| 7 | TestFlight実機テスト（IAP Sandbox含む） | Done |
+| 8 | スクリーンショット撮影（8枚） | Done（App Store Connectアップロード済み） |
+| 9 | 最終TestFlight + チーム最終レビュー | Done（法務/ASO/技術の3チームレビュー完了） |
+| 10 | App Store審査提出 | Done（審査中） |
 
 ---
 
@@ -634,4 +684,33 @@ enum AnchorPosition {
 
 ---
 
-※ 開発進捗・タスク管理は `HANDOFF.md` を参照。
+## 15. 開発進捗サマリー
+
+> 詳細なタスク管理は `HANDOFF.md` も参照。
+
+### 完了済み
+- 全画面UI実装（18画面、NFC読み取り画面追加）
+- 画像合成エンジン（Canvas描画 + 2048px出力、写真回転対応）
+- 背景自動削除（ONNX Runtime）
+- 課金システム（RevenueCat + ¥300 Lifetime、本番キー差し替え済み）
+- 広告（AdMob バナー、UMP同意フロー10秒タイムアウト）
+- NFC書き込み・読み取り・消去機能（iOS + Android両対応）
+- 注文システムUI（4画面 + タグ用丸形デザイン）
+- 法務ドキュメント（5ページ、NFC機能・物理商品対応済み）
+- ASO / 審査メモ / App Privacy
+- デコ素材（コスチューム47種確定）
+- Googleフォーム作成（注文受付用）
+- RevenueCat本番キー差し替え
+- kDevMode / kUseTestAds リリースビルドガード
+- Stripe本番URL差し替え・商品画像追加
+- 商品写真撮影＆アプリ内スライドショー組み込み（7枚）
+- App Storeスクリーンショット（8枚アップロード済み）
+- 申請前チーム最終レビュー（法務/ASO/技術）
+- アプリ内免責表示（交付完了画面＋ASO説明文）
+- **v1.0.0 App Storeリリース完了**
+
+### 未完了（リリース後）
+- v1.0.1アップデート（回転ブラシ修正・タグ回転・復元ブラシ修正）
+- オファーコード作成（友人向けプレミアム無料配布）
+- iPad最適化（スクリーンショット・UI対応）
+- 物理商品製造ライン構築
