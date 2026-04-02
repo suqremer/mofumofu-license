@@ -54,6 +54,13 @@
 - 製造・発送はしゅーとの手作業
 - Stripe本番審査通過待ち（現在Sandbox URL）
 
+### バージョニング
+- リリース用のcommit & push時に `pubspec.yaml` のバージョンを上げる
+- 1.0.0 → 1.0.1 → ... → 1.0.9 → 1.1.0 のように順に上げる
+- `lib/screens/settings_screen.dart` のバージョン表示も必ず同時に更新する
+- ビルド番号（+xxx）はCodemagicが自動計算するので触らない
+- バージョンを上げる際は、しゅーとに「バージョンを X.X.X にしますがいいですか？」と確認してから変更する
+
 ### 開発ルール
 - commitルールは `README.md` 及びグローバルCLAUDE.mdに従う（日本語、prefix付き）
 - commit / push はしゅーとの指示があるまでしない
