@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import '../models/costume.dart';
 import '../models/costume_overlay.dart';
 import '../models/license_template.dart';
-import '../config/dev_config.dart';
 import '../services/license_painter.dart';
 import '../services/purchase_manager.dart';
 import '../theme/colors.dart';
@@ -53,7 +52,7 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
   // === コスチュームオーバーレイ ===
   final List<CostumeOverlay> _costumeOverlays = [];
   final Map<String, ui.Image> _costumeImages = {};
-  String? _selectedOverlayUid;
+
 
   // === 顔ハメ ===
   String? _selectedOutfitId;
@@ -75,8 +74,7 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
   // === 背景削除の元画像パス（エディタ間で受け渡し） ===
   String? _originalPhotoPath;
 
-  // === ドラッグ操作用 ===
-  double _dragStartScale = 1.0;
+
 
   // === 写真画像（非同期ロード） ===
   ui.Image? _photoImage;
@@ -111,6 +109,11 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
   void dispose() {
     _flipController.dispose();
     _outfitImage?.dispose();
+    _photoImage?.dispose();
+    for (final img in _costumeImages.values) {
+      img.dispose();
+    }
+    _costumeImages.clear();
     super.dispose();
   }
 
@@ -136,9 +139,9 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
               onPressed: purchasing || package == null
                   ? null
                   : () async {
-                      final success = await pm.purchasePackage(package);
+                      final result = await pm.purchasePackage(package);
                       if (ctx.mounted) Navigator.pop(ctx);
-                      if (success && mounted) setState(() {});
+                      if (result == true && mounted) setState(() {});
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
@@ -167,7 +170,6 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
 
   /// 写真・デコ統合エディタを開く
   Future<void> _openEditor() async {
-    final template = LicenseTemplate.fromId(_selectedTemplateType.id);
     final licenseType = LicenseType.findById(_licenseType);
     final validityOption = ValidityOption.findById(_selectedValidityId);
     final validityText = validityOption.textForTemplate(_selectedTemplateType);
@@ -336,7 +338,6 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
 
     // コスチュームオーバーレイ復元
     _costumeOverlays.clear();
-    _selectedOverlayUid = null;
     final overlayMaps = extra['costumeOverlays'] as List<dynamic>?;
     if (overlayMaps != null) {
       for (final map in overlayMaps) {
@@ -428,60 +429,6 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
   // ---------------------------------------------------------------------------
   // コスチューム操作
   // ---------------------------------------------------------------------------
-
-  /// 指定UIDのオーバーレイを削除
-  void _removeOverlay(String uid) {
-    setState(() {
-      _costumeOverlays.removeWhere((o) => o.uid == uid);
-      if (_selectedOverlayUid == uid) {
-        _selectedOverlayUid = null;
-      }
-    });
-  }
-
-  /// コスチュームタイプ別の色
-  Color _costumeTypeColor(CostumeType type) {
-    switch (type) {
-      case CostumeType.accessory:
-        return const Color(0xFF2196F3);
-      case CostumeType.stamp:
-        return const Color(0xFFE91E63);
-      case CostumeType.outfit:
-        return const Color(0xFF4CAF50);
-    }
-  }
-
-  /// コスチューム別のプレースホルダアイコン
-  IconData _costumeIcon(String costumeId) {
-    switch (costumeId) {
-      case 'cap':
-        return Icons.sports_baseball;
-      case 'sunglasses':
-        return Icons.visibility;
-      case 'bowtie':
-        return Icons.dry_cleaning;
-      case 'heart':
-        return Icons.favorite;
-      case 'star':
-        return Icons.star;
-      case 'speech':
-        return Icons.chat_bubble;
-      case 'pawprint':
-        return Icons.pets;
-      case 'gakuran':
-        return Icons.school;
-      case 'sailor':
-        return Icons.anchor;
-      case 'kimono':
-        return Icons.checkroom;
-      case 'tuxedo':
-        return Icons.business_center;
-      case 'pirate':
-        return Icons.sailing;
-      default:
-        return Icons.image;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -684,175 +631,6 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
                     .textForTemplate(_selectedTemplateType),
           ),
           size: Size.infinite,
-        ),
-      ),
-    );
-  }
-
-  /// ドラッグ可能なコスチュームオーバーレイWidget
-  Widget _buildDraggableOverlay(CostumeOverlay overlay, Size previewSize) {
-    final costume = Costume.findById(overlay.costumeId);
-    // 写真エリアの比率を取得（座標変換用）
-    final pr = _currentTemplate.photoRectRatio;
-    final photoPreviewW = previewSize.width * pr.width;
-    // サイズ: 写真エリア基準
-    final baseW = photoPreviewW * costume.defaultScale * overlay.scale;
-    final baseH = baseW;
-    // 位置: 写真ローカル座標(0〜1) → カード座標に変換
-    final cardCx = pr.left + overlay.cx * pr.width;
-    final cardCy = pr.top + overlay.cy * pr.height;
-    final left = cardCx * previewSize.width - baseW / 2;
-    final top = cardCy * previewSize.height - baseH / 2;
-    final isSelected = _selectedOverlayUid == overlay.uid;
-    final typeColor = _costumeTypeColor(costume.type);
-
-    return Positioned(
-      left: left,
-      top: top,
-      width: baseW,
-      height: baseH,
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _selectedOverlayUid = isSelected ? null : overlay.uid;
-          });
-        },
-        onScaleStart: (details) {
-          _selectedOverlayUid = overlay.uid;
-          _dragStartScale = overlay.scale;
-        },
-        onScaleUpdate: (details) {
-          setState(() {
-            // ドラッグ（位置移動）— 写真エリア基準で delta を計算
-            overlay.cx += details.focalPointDelta.dx / (previewSize.width * pr.width);
-            overlay.cy += details.focalPointDelta.dy / (previewSize.height * pr.height);
-            // ピンチ（スケール変更）
-            if (details.scale != 1.0) {
-              overlay.scale =
-                  (_dragStartScale * details.scale).clamp(0.3, 4.0);
-            }
-          });
-        },
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // コスチューム画像（アセットがあれば表示、なければプレースホルダ）
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Image.asset(
-                costume.assetPath,
-                width: baseW,
-                height: baseH,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  decoration: BoxDecoration(
-                    color: typeColor.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: isSelected ? AppColors.primary : typeColor,
-                      width: isSelected ? 2.5 : 1.5,
-                    ),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _costumeIcon(overlay.costumeId),
-                          size: baseW * 0.35,
-                          color: typeColor.withValues(alpha: 0.8),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          costume.name,
-                          style: TextStyle(
-                            fontSize: (baseW * 0.12).clamp(8.0, 14.0),
-                            color: typeColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // 選択時の枠線
-            if (isSelected)
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: AppColors.primary,
-                      width: 2.5,
-                    ),
-                  ),
-                ),
-              ),
-            // リサイズハンドル（選択時のみ、左上）
-            if (isSelected)
-              Positioned(
-                left: -12,
-                top: -12,
-                child: GestureDetector(
-                  onPanStart: (_) {
-                    _dragStartScale = overlay.scale;
-                  },
-                  onPanUpdate: (details) {
-                    setState(() {
-                      // 右下方向にドラッグ→拡大、左上方向→縮小
-                      final delta = (details.delta.dx + details.delta.dy) / 2;
-                      final scaleDelta = delta / (previewSize.width * 0.3);
-                      overlay.scale =
-                          (overlay.scale + scaleDelta).clamp(0.3, 4.0);
-                    });
-                  },
-                  child: Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      color: AppColors.secondary,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 3,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.open_in_full,
-                      size: 14,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            // 削除ボタン（選択時のみ、右上）
-            if (isSelected)
-              Positioned(
-                right: -6,
-                top: -6,
-                child: GestureDetector(
-                  onTap: () => _removeOverlay(overlay.uid),
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.close,
-                      size: 14,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-          ],
         ),
       ),
     );

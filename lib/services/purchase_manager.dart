@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 import '../config/dev_config.dart';
@@ -91,16 +92,23 @@ class PurchaseManager {
   // ─────────────────────────────────────────────
 
   /// Packageを購入する（Paywall から呼ぶ）
-  Future<bool> purchasePackage(Package package) async {
+  ///
+  /// 戻り値: true=購入成功, false=購入失敗, null=ユーザーキャンセル
+  Future<bool?> purchasePackage(Package package) async {
     isPurchasing.value = true;
     try {
       final info = await Purchases.purchasePackage(package);
       _updatePremiumStatus(info);
       isPurchasing.value = false;
       return isPremium;
-    } on PurchasesErrorCode catch (e) {
+    } on PlatformException catch (e) {
       debugPrint('RevenueCat: Purchase error: $e');
       isPurchasing.value = false;
+      // ユーザーが自分でキャンセルした場合は null を返す
+      final errorCode = PurchasesErrorHelper.getErrorCode(e);
+      if (errorCode == PurchasesErrorCode.purchaseCancelledError) {
+        return null;
+      }
       return false;
     } catch (e) {
       debugPrint('RevenueCat: Purchase error: $e');
@@ -181,6 +189,16 @@ class PurchaseManager {
   bool get isPremium {
     if (kDevMode) return true;
     return premiumActive.value;
+  }
+
+  /// サポート用のApp User IDを取得
+  Future<String> getAppUserId() async {
+    try {
+      return await Purchases.appUserID;
+    } catch (e) {
+      debugPrint('RevenueCat: AppUserID error: $e');
+      return '取得できませんでした';
+    }
   }
 
   /// リソース解放

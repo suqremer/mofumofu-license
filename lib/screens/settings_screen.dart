@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -167,6 +168,35 @@ class SettingsScreen extends ConsumerWidget {
               _sectionHeader('サポート'),
               _sectionCard(
                 children: [
+                  ListTile(
+                    leading: const Icon(Icons.badge_outlined),
+                    title: const Text('サポートID'),
+                    subtitle: FutureBuilder<String>(
+                      future:
+                          PurchaseManager.instance.getAppUserId(),
+                      builder: (context, snapshot) {
+                        final id = snapshot.data ?? '読み込み中...';
+                        return Text(
+                          id,
+                          style: const TextStyle(
+                              fontSize: 11, color: AppColors.textMedium),
+                          overflow: TextOverflow.ellipsis,
+                        );
+                      },
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.copy, size: 20),
+                      onPressed: () async {
+                        final id = await PurchaseManager.instance
+                            .getAppUserId();
+                        await Clipboard.setData(ClipboardData(text: id));
+                        if (context.mounted) {
+                          _showSnack(context, 'サポートIDをコピーしました');
+                        }
+                      },
+                    ),
+                  ),
+                  _thinDivider(),
                   ListTile(
                     leading: const Icon(Icons.mail_outline),
                     title: const Text('お問い合わせ'),

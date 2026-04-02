@@ -425,6 +425,14 @@ class _NfcWriteScreenState extends State<NfcWriteScreen>
               color: AppColors.textMedium,
             ),
           ),
+          const SizedBox(height: 40),
+          TextButton(
+            onPressed: () {
+              NfcService.instance.stopSession();
+              _retry();
+            },
+            child: const Text('キャンセル'),
+          ),
         ],
       ),
     );

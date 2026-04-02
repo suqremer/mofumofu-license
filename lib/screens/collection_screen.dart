@@ -15,7 +15,9 @@ import '../services/database_service.dart';
 import '../services/license_composer.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
+import '../services/app_preferences.dart';
 import '../widgets/banner_ad_widget.dart';
+import '../widgets/paywall_bottom_sheet.dart';
 import '../widgets/photo_crop_preview.dart';
 
 /// 並び替えオプション
@@ -776,7 +778,13 @@ class _EmptyView extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xl),
             ElevatedButton.icon(
-              onPressed: () => context.push('/create/photo'),
+              onPressed: () {
+                if (!AppPreferences.canCreateLicense) {
+                  PaywallBottomSheet.show(context);
+                  return;
+                }
+                context.push('/create/photo');
+              },
               icon: const Icon(Icons.add_a_photo),
               label: const Text('免許証をつくる'),
               style: ElevatedButton.styleFrom(

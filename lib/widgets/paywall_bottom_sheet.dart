@@ -35,8 +35,9 @@ class _PaywallBottomSheetState extends State<PaywallBottomSheet> {
 
   void _onPurchaseChanged() {
     if (PurchaseManager.instance.isPremium && mounted) {
+      final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: const Text('プレミアムにアップグレードしました!'),
           behavior: SnackBarBehavior.floating,
@@ -49,8 +50,9 @@ class _PaywallBottomSheetState extends State<PaywallBottomSheet> {
   }
 
   Future<void> _purchase(Package package) async {
-    final success = await PurchaseManager.instance.purchasePackage(package);
-    if (!success && mounted) {
+    final result = await PurchaseManager.instance.purchasePackage(package);
+    // null = ユーザーキャンセル（何も表示しない）
+    if (result == false && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('購入できませんでした。もう一度試してね'),

@@ -118,16 +118,22 @@ class NfcService {
           onTagDiscovered?.call();
 
           try {
+            if (completer.isCompleted) return;
+
             final ndef = Ndef.from(tag);
             if (ndef == null || !ndef.isWritable) {
-              completer.complete(const NfcWriteResponse(
-                NfcWriteResult.writeFailed, 'Ndef.from returned null or not writable'));
+              if (!completer.isCompleted) {
+                completer.complete(const NfcWriteResponse(
+                  NfcWriteResult.writeFailed, 'Ndef.from returned null or not writable'));
+              }
               NfcManager.instance.stopSession(errorMessage: 'このタグは書き込みに対応していません');
               return;
             }
 
             if (ndef.maxSize < bytes) {
-              completer.complete(const NfcWriteResponse(NfcWriteResult.capacityExceeded));
+              if (!completer.isCompleted) {
+                completer.complete(const NfcWriteResponse(NfcWriteResult.capacityExceeded));
+              }
               NfcManager.instance.stopSession(errorMessage: 'タグの容量が不足しています');
               return;
             }
@@ -137,7 +143,9 @@ class NfcService {
             ]);
 
             await ndef.write(message);
-            completer.complete(const NfcWriteResponse(NfcWriteResult.success));
+            if (!completer.isCompleted) {
+              completer.complete(const NfcWriteResponse(NfcWriteResult.success));
+            }
             NfcManager.instance.stopSession();
           } catch (e) {
             debugPrint('NFC write error: $e');
@@ -210,9 +218,13 @@ class NfcService {
         alertMessage: 'ペットタグをかざしてください',
         onDiscovered: (NfcTag tag) async {
           try {
+            if (completer.isCompleted) return;
+
             final ndef = Ndef.from(tag);
             if (ndef == null) {
-              completer.complete(const NfcReadResponse(NfcReadResult.noNdef));
+              if (!completer.isCompleted) {
+                completer.complete(const NfcReadResponse(NfcReadResult.noNdef));
+              }
               NfcManager.instance.stopSession(
                   errorMessage: 'このタグにはデータがありません');
               return;
@@ -223,7 +235,9 @@ class NfcService {
             message ??= await ndef.read();
 
             if (message.records.isEmpty) {
-              completer.complete(const NfcReadResponse(NfcReadResult.noNdef));
+              if (!completer.isCompleted) {
+                completer.complete(const NfcReadResponse(NfcReadResult.noNdef));
+              }
               NfcManager.instance.stopSession(
                   errorMessage: 'このタグにはデータがありません');
               return;
@@ -241,29 +255,35 @@ class NfcService {
             }
 
             if (text == null) {
-              completer.complete(const NfcReadResponse(
-                NfcReadResult.noNdef,
-                errorDetail: 'テキストレコードが見つかりません',
-              ));
+              if (!completer.isCompleted) {
+                completer.complete(const NfcReadResponse(
+                  NfcReadResult.noNdef,
+                  errorDetail: 'テキストレコードが見つかりません',
+                ));
+              }
               NfcManager.instance.stopSession(
                   errorMessage: 'テキストデータが見つかりません');
               return;
             }
 
             if (!isUchinokoData(text)) {
-              completer.complete(NfcReadResponse(
-                NfcReadResult.notUchinokoData,
-                text: text,
-              ));
+              if (!completer.isCompleted) {
+                completer.complete(NfcReadResponse(
+                  NfcReadResult.notUchinokoData,
+                  text: text,
+                ));
+              }
               NfcManager.instance.stopSession(
                   alertMessage: '読み取り完了');
               return;
             }
 
-            completer.complete(NfcReadResponse(
-              NfcReadResult.success,
-              text: text,
-            ));
+            if (!completer.isCompleted) {
+              completer.complete(NfcReadResponse(
+                NfcReadResult.success,
+                text: text,
+              ));
+            }
             NfcManager.instance.stopSession(alertMessage: '読み取り完了！');
           } catch (e) {
             debugPrint('NFC read error: $e');
@@ -326,10 +346,14 @@ class NfcService {
         alertMessage: '消去するタグをかざしてください',
         onDiscovered: (NfcTag tag) async {
           try {
+            if (completer.isCompleted) return;
+
             final ndef = Ndef.from(tag);
             if (ndef == null || !ndef.isWritable) {
-              completer.complete(const NfcWriteResponse(
-                NfcWriteResult.writeFailed, 'タグが書き込みに対応していません'));
+              if (!completer.isCompleted) {
+                completer.complete(const NfcWriteResponse(
+                  NfcWriteResult.writeFailed, 'タグが書き込みに対応していません'));
+              }
               NfcManager.instance.stopSession(errorMessage: 'このタグは書き込みに対応していません');
               return;
             }
@@ -340,7 +364,9 @@ class NfcService {
             ]);
 
             await ndef.write(emptyMessage);
-            completer.complete(const NfcWriteResponse(NfcWriteResult.success));
+            if (!completer.isCompleted) {
+              completer.complete(const NfcWriteResponse(NfcWriteResult.success));
+            }
             NfcManager.instance.stopSession(alertMessage: '消去しました！');
           } catch (e) {
             debugPrint('NFC erase error: $e');

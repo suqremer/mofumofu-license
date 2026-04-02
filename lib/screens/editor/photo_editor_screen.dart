@@ -274,9 +274,9 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
               onPressed: purchasing || package == null
                   ? null
                   : () async {
-                      final success = await pm.purchasePackage(package);
+                      final result = await pm.purchasePackage(package);
                       if (ctx.mounted) Navigator.pop(ctx);
-                      if (success && mounted) setState(() {});
+                      if (result == true && mounted) setState(() {});
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
@@ -739,20 +739,52 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
     EditorMode.color => '色調整',
   };
 
-  @override
+  Future<bool> _confirmDiscard() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('編集を破棄しますか？'),
+        content: const Text('変更内容は保存されません。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              '破棄する',
+              style: TextStyle(color: Colors.red.shade400),
+            ),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // カスタムAppBar
-            _buildAppBar(),
-            // プレビューエリア
-            Expanded(child: _buildPreview()),
-            // ボトムセクション（モードタブ + パネル）
-            _buildBottomSection(),
-          ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _confirmDiscard()) {
+          if (context.mounted) context.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF1A1A1A),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // カスタムAppBar
+              _buildAppBar(),
+              // プレビューエリア
+              Expanded(child: _buildPreview()),
+              // ボトムセクション（モードタブ + パネル）
+              _buildBottomSection(),
+            ],
+          ),
         ),
       ),
     );
@@ -767,7 +799,11 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
         children: [
           IconButton(
             icon: const Icon(Icons.close, color: Colors.white, size: 22),
-            onPressed: () => context.pop(),
+            onPressed: () async {
+              if (await _confirmDiscard()) {
+                if (context.mounted) context.pop();
+              }
+            },
           ),
           const Spacer(),
           AnimatedSwitcher(

@@ -50,7 +50,6 @@ class _InfoInputScreenState extends State<InfoInputScreen>
   /// 編集モード: 既存免許証のID（null なら新規作成）
   int? _editId;
   DateTime? _editCreatedAt;
-  bool _editLoaded = false;
 
   /// 編集時のテンプレート情報（中継用）
   String? _templateType;
@@ -93,7 +92,7 @@ class _InfoInputScreenState extends State<InfoInputScreen>
 
     // 編集モード: extraがMapで editId を含む
     if (extra is Map<String, dynamic> && extra.containsKey('editId')) {
-      _editLoaded = true;
+
       _editId = extra['editId'] as int;
       _editCreatedAt = extra['createdAt'] as DateTime?;
       _photoPath = extra['photoPath'] as String?;
@@ -103,7 +102,7 @@ class _InfoInputScreenState extends State<InfoInputScreen>
 
     // 複製モード: extraがMapだが editId を含まない
     if (extra is Map<String, dynamic>) {
-      _editLoaded = true;
+
       _photoPath = extra['photoPath'] as String?;
       _loadEditData(extra);
       return;
