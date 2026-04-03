@@ -1,7 +1,7 @@
 name: mofumofu_license
 description: "うちの子免許証 - ペット免許証メーカー"
 publish_to: 'none'
-version: 1.0.2+551
+version: 1.0.3+551
 
 environment:
   sdk: ^3.11.1

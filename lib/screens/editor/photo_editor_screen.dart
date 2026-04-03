@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart' show HapticFeedback, rootBundle;
 import 'package:go_router/go_router.dart';
 import 'package:image_background_remover/image_background_remover.dart';
 import 'package:path_provider/path_provider.dart';
@@ -86,6 +86,8 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   // === ジェスチャー用 ===
   double _gestureStartScale = 1.0;
   double _gestureStartPhotoRotation = 0.0;
+  bool _photoRotationStarted = false; // 回転が開始されたか（デッドゾーン突破後true）
+  bool _showRotationAngle = false; // 角度表示中か
 
   // === ブラシ関連 ===
   BrushTool? _brushTool;
@@ -921,6 +923,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 onScaleStart: (details) {
                         _gestureStartScale = _photoScale;
                         _gestureStartPhotoRotation = _photoRotation;
+                        _photoRotationStarted = false;
                         _gestureStartViewScale = _viewScale;
                         _gestureStartViewOffset = Offset(_viewOffsetX, _viewOffsetY);
                         _gestureFocalPoint = details.localFocalPoint;
@@ -986,20 +989,29 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                                 .clamp(-1.5, 1.5);
                             if (details.pointerCount >= 2) {
                               final rawRotation = _gestureStartPhotoRotation + details.rotation;
-                              // デッドゾーン: 回転量が0.15rad(≈8.6°)未満なら回転しない
-                              if ((details.rotation).abs() > 0.15) {
-                                // 水平・垂直スナップアシスト(0°, 90°, 180°, 270°)
-                                const snapAngles = [0.0, 1.5708, -1.5708, 3.1416, -3.1416];
-                                const snapThreshold = 0.05; // ≈2.9°
-                                double snapped = rawRotation;
-                                for (final angle in snapAngles) {
-                                  if ((rawRotation - angle).abs() < snapThreshold) {
-                                    snapped = angle;
-                                    break;
-                                  }
+                              // デッドゾーン: 最初の回転開始時のみ適用
+                              if (!_photoRotationStarted) {
+                                if ((details.rotation).abs() > 0.08) {
+                                  _photoRotationStarted = true;
+                                } else {
+                                  return;
                                 }
-                                _photoRotation = snapped;
                               }
+                              // 水平・垂直スナップアシスト(0°, 90°, 180°, 270°)
+                              const snapAngles = [0.0, 1.5708, -1.5708, 3.1416, -3.1416];
+                              const snapThreshold = 0.026; // ≈1.5°
+                              double snapped = rawRotation;
+                              for (final angle in snapAngles) {
+                                if ((rawRotation - angle).abs() < snapThreshold) {
+                                  snapped = angle;
+                                  break;
+                                }
+                              }
+                              if (snapped != rawRotation && snapped != _photoRotation) {
+                                HapticFeedback.lightImpact();
+                              }
+                              _photoRotation = snapped;
+                              _showRotationAngle = true;
                             }
                           });
                         } else if (_mode == EditorMode.brush) {
@@ -1025,6 +1037,11 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                         // 写真移動 or 色調整は何もしない
                         if (_gestureIsPhotoMove || _mode == EditorMode.outfit || _mode == EditorMode.color) {
                           _gestureIsPhotoMove = false;
+                          if (_showRotationAngle) {
+                            Future.delayed(const Duration(seconds: 1), () {
+                              if (mounted) setState(() => _showRotationAngle = false);
+                            });
+                          }
                           return;
                         }
                         _gestureIsPhotoMove = false;
@@ -1312,6 +1329,34 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                     ),
                   ),
                 ),
+              // 回転角度表示（操作中のみ）
+              if (_showRotationAngle)
+                Positioned(
+                  top: 8,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 300),
+                      opacity: _showRotationAngle ? 1.0 : 0.0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${(_photoRotation * 180 / 3.14159).toStringAsFixed(1)}°',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
               );
             },
@@ -1431,9 +1476,12 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 var newRotation =
                     _dragStartRotation + details.rotation;
                 const snapAngles = [0.0, 1.5708, 3.1416, 4.7124, 6.2832, -1.5708, -3.1416];
-                const snapThreshold = 0.087;
+                const snapThreshold = 0.052; // ≈3°
                 for (final snap in snapAngles) {
                   if ((newRotation - snap).abs() < snapThreshold) {
+                    if (newRotation != snap && overlay.rotation != snap) {
+                      HapticFeedback.lightImpact();
+                    }
                     newRotation = snap;
                     break;
                   }
