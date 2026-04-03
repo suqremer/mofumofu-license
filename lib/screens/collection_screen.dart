@@ -260,8 +260,8 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                     width: 64,
                     height: 64,
                     color: AppColors.primary.withValues(alpha: 0.1),
-                    child: latestCard.savedImagePath != null &&
-                            File(latestCard.savedImagePath!).existsSync()
+                    child: latestCard.resolvedSavedImagePath != null &&
+                            File(latestCard.resolvedSavedImagePath!).existsSync()
                         ? PhotoCropPreview(
                             card: latestCard,
                             circular: true,
@@ -429,7 +429,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
 
   /// 詳細シートの画像表示
   Widget _buildDetailImage(LicenseCard card) {
-    final imagePath = card.savedImagePath ?? card.photoPath;
+    final imagePath = card.resolvedSavedImagePath ?? card.resolvedPhotoPath;
     final file = File(imagePath);
 
     return Container(
@@ -554,7 +554,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
 
   /// 既存免許証を再シェア
   Future<void> _shareExistingLicense(LicenseCard card) async {
-    final imagePath = card.savedImagePath;
+    final imagePath = card.resolvedSavedImagePath;
     if (imagePath == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -606,7 +606,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
 
   /// カメラロールに保存
   Future<void> _saveToGallery(LicenseCard card) async {
-    final imagePath = card.savedImagePath;
+    final imagePath = card.resolvedSavedImagePath;
     if (imagePath == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -661,7 +661,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
     final extra = card.extraData;
     context.push('/create/info', extra: {
       'editId': card.id,
-      'photoPath': card.photoPath,
+      'photoPath': card.resolvedPhotoPath,
       'petName': card.petName,
       'species': card.species,
       'breed': card.breed ?? '',
@@ -1047,7 +1047,7 @@ class _LicenseCardTileState extends State<_LicenseCardTile>
   }
 
   Widget _buildImage() {
-    final imagePath = widget.card.savedImagePath ?? widget.card.photoPath;
+    final imagePath = widget.card.resolvedSavedImagePath ?? widget.card.resolvedPhotoPath;
     final file = File(imagePath);
 
     return Container(
@@ -1185,7 +1185,7 @@ class _PetLicenseListScreenState extends ConsumerState<_PetLicenseListScreen> {
 
     int saved = 0;
     for (final card in selected) {
-      final path = card.savedImagePath;
+      final path = card.resolvedSavedImagePath;
       if (path == null) continue;
       final file = File(path);
       if (!await file.exists()) continue;

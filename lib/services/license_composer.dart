@@ -487,9 +487,10 @@ class LicenseComposer {
     return byteData!.buffer.asUint8List();
   }
 
-  /// 完成画像をアプリのローカルストレージに保存し、ファイルパスを返す
+  /// 完成画像をアプリのローカルストレージに保存し、相対パスを返す
   ///
   /// 保存先: アプリドキュメントディレクトリ/licenses/license_(timestamp).png
+  /// 戻り値: 相対パス（例: licenses/license_123.png）
   Future<String> saveToFile(Uint8List imageBytes) async {
     final directory = await getApplicationDocumentsDirectory();
     final licensesDir = Directory(p.join(directory.path, 'licenses'));
@@ -498,11 +499,12 @@ class LicenseComposer {
     }
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final filePath = p.join(licensesDir.path, 'license_$timestamp.png');
+    final relativePath = 'licenses/license_$timestamp.png';
+    final filePath = p.join(directory.path, relativePath);
     final file = File(filePath);
     await file.writeAsBytes(imageBytes);
 
-    return filePath;
+    return relativePath;
   }
 
   /// SNSシェア用の正方形画像を生成

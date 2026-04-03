@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/colors.dart';
@@ -36,10 +39,21 @@ class _PhotoSelectScreenState extends State<PhotoSelectScreen> {
         return;
       }
 
+      // tmp/からDocuments/photos/にコピー（アプデで消えないように）
+      final docDir = await getApplicationDocumentsDirectory();
+      final photosDir = Directory('${docDir.path}/photos');
+      if (!await photosDir.exists()) {
+        await photosDir.create(recursive: true);
+      }
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final ext = pickedFile.path.split('.').last;
+      final savedPath = '${docDir.path}/photos/picked_$timestamp.$ext';
+      await File(pickedFile.path).copy(savedPath);
+
       setState(() => _isProcessing = false);
 
       if (mounted) {
-        await context.push('/create/info', extra: pickedFile.path);
+        await context.push('/create/info', extra: savedPath);
       }
     } on PlatformException catch (e) {
       setState(() => _isProcessing = false);

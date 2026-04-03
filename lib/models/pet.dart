@@ -1,3 +1,5 @@
+import '../services/path_resolver.dart';
+
 /// ペット手帳データモデル
 class Pet {
   final int? id;
@@ -29,6 +31,9 @@ class Pet {
     required this.createdAt,
     required this.updatedAt,
   });
+
+  /// フルパスに解決されたペット写真パス（File操作用）
+  String? get resolvedPhotoPath => PathResolver.resolve(photoPath);
 
   factory Pet.fromMap(Map<String, dynamic> map) {
     return Pet(

@@ -51,7 +51,7 @@ class _PhotoCropPreviewState extends State<PhotoCropPreview> {
   }
 
   Future<void> _loadImage() async {
-    final savedPath = widget.card.savedImagePath;
+    final savedPath = widget.card.resolvedSavedImagePath;
     if (savedPath != null && File(savedPath).existsSync()) {
       final bytes = await File(savedPath).readAsBytes();
       final codec = await ui.instantiateImageCodec(bytes);
@@ -145,7 +145,7 @@ class _PhotoCropPreviewState extends State<PhotoCropPreview> {
 
   /// savedImagePath がない場合のフォールバック
   Widget _buildFallbackImage() {
-    final photoFile = File(widget.card.photoPath);
+    final photoFile = File(widget.card.resolvedPhotoPath);
     if (photoFile.existsSync()) {
       return SizedBox(
         width: widget.size,

@@ -20,6 +20,7 @@ import '../services/app_preferences.dart';
 import '../services/database_service.dart';
 import '../services/purchase_manager.dart';
 import '../services/license_composer.dart';
+import '../services/path_resolver.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../widgets/paywall_bottom_sheet.dart';
@@ -165,10 +166,11 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
 
     try {
       final data = _data!;
-      final photoPath = data['photoPath'] as String?;
-      if (photoPath == null || photoPath.isEmpty) {
+      final rawPhotoPath = data['photoPath'] as String?;
+      if (rawPhotoPath == null || rawPhotoPath.isEmpty) {
         throw Exception('写真データがありません');
       }
+      final photoPath = PathResolver.resolve(rawPhotoPath) ?? rawPhotoPath;
 
       final photoBytes = await File(photoPath).readAsBytes();
 

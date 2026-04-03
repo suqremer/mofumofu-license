@@ -1,7 +1,7 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-03-31（セッション2回目：App Review対応・タスク整理）
+2026-04-03（セッション3回目：バグ修正9件 + サポートID機能追加 + v1.0.2リリース + AdMob対応）
 
 ## 現在のPhase
 
@@ -10,30 +10,56 @@
 | 1 基盤構築 | ✅ 完了 | App Store Connect、Codemagic、Firebase等 |
 | 2 コア機能実装 | ✅ 完了 | RevenueCat課金、コスチューム47種、NFC、注文画面等 |
 | 3 法務・QA | ✅ 完了 | プライバシーポリシー、利用規約、特商法、景品表示法等 |
-| 4 申請提出 | 🔧 審査中 | App Review対応済み、再審査待ち |
+| 4 申請提出 | ✅ 完了 | v1.0.0 App Store公開済み |
+| 5 v1.0.2アップデート | ✅ 完了 | バグ修正9件 + サポートID機能追加。リリース済み |
 | PVC販売準備 | ⬜ リリース後 | 注文画面実装済み、物理製造ラインは未構築 |
 
 ## Next Action
 
 | # | タスク | 担当 | 備考 |
 |---|--------|------|------|
-| 1 | App Review再審査結果を待つ | しゅーと | Guideline 2.1対応済み（NFCデモ動画提出） |
-| 2 | 審査通過後、新ビルド(+481)をアップデートとして提出 | しゅーと+Claude | |
+| 1 | AdMob app-ads.txt認証待ち | しゅーと | `docs/app-ads.txt` 設置済み、GitHub Pages公開済み。AdMobダッシュボードで認証通るまで待つ（最大24時間） |
+| 2 | 友達にプレミアムを付与する | しゅーと | RevenueCatダッシュボード → Customers → Grant Promotional Entitlement (Lifetime) |
 
-## リリース前の残タスク（ブロッカーではない）
+## v1.0.2 で実施した修正内容
 
-- [ ] 設定画面: プレミアム購入後の即時反映確認（別Sandboxアカウントで確認必要）
-- [ ] SNS投稿案を考える
+- 課金キャンセル時にエラーSnackBarが出る問題を修正
+- ON DELETE CASCADE有効化（ペット削除時に関連データも自動削除）
+- NFC Completer二重complete防止（クラッシュ防止）
+- PhotoEditor Xボタンに確認ダイアログ追加（編集内容の誤消失防止）
+- Paywall pop後のcontext使用を修正（クラッシュ防止）
+- ui.Imageのdispose漏れを修正（メモリリーク防止）
+- カメラコントローラ二重dispose修正（バックグラウンド復帰時の問題防止）
+- CollectionScreen空状態ボタンに無料枠チェック追加
+- NFC書き込み中にキャンセルボタン追加（フリーズ防止）
+- 設定画面にサポートID表示機能を追加（RevenueCat Promotional付与用）
+- 未使用import/変数/メソッドを削除してwarning 0件に
+
+## 友達へのプレミアム付与手順
+
+1. 友達がアプリをインストール＆起動
+2. 設定画面 → サポートID → コピーボタン → IDをLINE等で送ってもらう
+3. RevenueCatダッシュボード → Customers → IDで検索
+4. Grant Promotional Entitlement → 「Uchino Ko License Pro」→ Lifetime
+5. 友達にアプリ再起動を依頼
+
+## 今後の未修正事項（次バージョン以降の候補）
+
+- router.dartのextraキャスト（プロセスキル後クラッシュ、発生頻度低）
+- NFC待機アニメーションが1回で止まる（UX改善レベル）
+- AppPreferencesのinit前アクセス（現状問題なし）
+- DB初期化のレースコンディション（現実的に発生しない）
 
 ## リリース後タスク
 
 ### アプリ関連
-- [ ] Android版リリース時: RevenueCat Google Play APIキーの差し替え（`lib/config/iap_config.dart` の `_googleApiKey` がダミー値 `goog_XXXXXXXXXXXXXXXXXX` のまま。Google Play Consoleで発行したキーに置き換え必須）
+- [ ] Android版リリース時: RevenueCat Google Play APIキーの差し替え（`lib/config/iap_config.dart` の `_googleApiKey` がダミー値のまま）
 - [ ] オファーコード作成（SNS紹介者にプレミアム無料プレゼント）
 - [ ] プロモ戦略検討（ASO改善・SNS施策）
 - [ ] AdMob × Firebase リンク
-- [ ] AdMob ストアURL追加（広告配信開始に必須）
+- [x] ~~AdMob app-ads.txt設置（`docs/app-ads.txt`、GitHub Pages経由で公開）~~ → 認証待ち
 - [ ] Stripe本番URL差し替え（Stripe審査通過後）
+- [ ] 設定画面: プレミアム購入後の即時反映確認（別Sandboxアカウントで確認必要）
 
 ### 物理カード製造ライン
 - [ ] カード裏面デザイン作成（NFC表示+QRコード配置）
@@ -43,35 +69,7 @@
 - [ ] 梱包資材調達・テスト
 - [ ] クリックポスト テスト発送
 
-### 注文フロー確立
-- [x] ~~完了済み（Stripe通知設定、運用確立、管理シート作成等）~~
-
-## 未解決の課題
-
-- **App Review再審査待ち**: 2026-03-31にNFCデモ動画を提出。Resolution Centerで返信済み。ビルドは1.0.0+480で申請中
-- **プレミアム購入後の即時反映**: 既にプレミアム購入済みのSandboxアカウントしかないため確認不可。別アカウントで確認が必要
-- **Stripe本番審査**: ✅ 通過済み。本番URL差し替え完了
-
-## しゅーとの並行作業
-
-- [ ] SNS投稿案の検討
-
 ## 注意事項
 - このファイルは毎セッション終了時に上書き更新される
 - TODO.mdは廃止。タスク管理はこのファイルに統合済み
-- 設計書（docs/design_document.md）のセクション15に残っている進捗情報は、次回整理時に削除する
-
-## ドキュメント整理の経緯（2026-03-31実施）
-
-### 変更内容
-ポモンスプロジェクトで導入した「CLAUDE.md + HANDOFF.md」方式をこのプロジェクトにも適用。
-
-| ファイル | 役割 |
-|---------|------|
-| `docs/design_document.md` | 設計記録（何を作るか・なぜそう作るか）。進捗は書かない |
-| `HANDOFF.md`（このファイル） | セッション間引き継ぎ。毎回上書き |
-| `CLAUDE.md` | Claude Codeへのルール・指示 |
-
-### 変更したもの
-- **TODO.md**: 廃止（削除）。未完了タスクはHANDOFF.mdに統合、完了済みはgit logに任せる
-- **設計書セクション15**: 進捗情報のため次回整理時に削除予定
+- バージョニングルールはCLAUDE.mdに記載済み（自動インクリメント + 確認フロー）

@@ -112,10 +112,15 @@ class _CameraGuideScreenState extends State<CameraGuideScreen>
     try {
       final xFile = await _controller!.takePicture();
 
-      // 一時ディレクトリにコピー（image_pickerと同じパス体系）
-      final tempDir = await getTemporaryDirectory();
+      // Documentsディレクトリにコピー（アプデでも消えないように）
+      final docDir = await getApplicationDocumentsDirectory();
+      final photosDir = Directory('${docDir.path}/photos');
+      if (!await photosDir.exists()) {
+        await photosDir.create(recursive: true);
+      }
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final savedPath = '${tempDir.path}/camera_guide_$timestamp.jpg';
+      final relativePath = 'photos/camera_guide_$timestamp.jpg';
+      final savedPath = '${docDir.path}/$relativePath';
       await File(xFile.path).copy(savedPath);
 
       if (!mounted) return;

@@ -7,7 +7,7 @@ import '../models/pet.dart';
 class DatabaseService {
   static Database? _database;
   static const _dbName = 'mofumofu.db';
-  static const _dbVersion = 2;
+  static const _dbVersion = 3;
 
   /// DBインスタンスを取得（初回は自動作成）
   Future<Database> get database async {
@@ -36,6 +36,51 @@ class DatabaseService {
     if (oldVersion < 2) {
       await db.execute(
           'ALTER TABLE licenses ADD COLUMN extra_data TEXT');
+    }
+    if (oldVersion < 3) {
+      // フルパス→相対パスに変換（iOSアプデでUUIDが変わる問題の対応）
+      await _migratePathsToRelative(db);
+    }
+  }
+
+  /// DBに保存されたフルパスを相対パス（Documents/以降）に変換する
+  Future<void> _migratePathsToRelative(Database db) async {
+    const marker = '/Documents/';
+
+    // licenses.saved_image_path
+    final licenses = await db.query('licenses',
+        columns: ['id', 'saved_image_path', 'photo_path']);
+    for (final row in licenses) {
+      final updates = <String, dynamic>{};
+
+      final savedPath = row['saved_image_path'] as String?;
+      if (savedPath != null && savedPath.contains(marker)) {
+        updates['saved_image_path'] =
+            savedPath.substring(savedPath.indexOf(marker) + marker.length);
+      }
+
+      final photoPath = row['photo_path'] as String?;
+      if (photoPath != null && photoPath.contains(marker)) {
+        updates['photo_path'] =
+            photoPath.substring(photoPath.indexOf(marker) + marker.length);
+      }
+
+      if (updates.isNotEmpty) {
+        await db.update('licenses', updates,
+            where: 'id = ?', whereArgs: [row['id']]);
+      }
+    }
+
+    // pets.photo_path
+    final pets = await db.query('pets', columns: ['id', 'photo_path']);
+    for (final row in pets) {
+      final photoPath = row['photo_path'] as String?;
+      if (photoPath != null && photoPath.contains(marker)) {
+        final relative =
+            photoPath.substring(photoPath.indexOf(marker) + marker.length);
+        await db.update('pets', {'photo_path': relative},
+            where: 'id = ?', whereArgs: [row['id']]);
+      }
     }
   }
 

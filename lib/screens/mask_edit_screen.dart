@@ -422,10 +422,14 @@ class _MaskEditScreenState extends State<MaskEditScreen> {
       resultImage.dispose();
       if (pngByteData == null) throw Exception('PNG変換に失敗');
 
-      // 一時ファイルに保存（元画像名ベースで固定 → 同じ写真なら同じパス）
-      final tempDir = await getTemporaryDirectory();
+      // Documentsに保存（アプデで消えないように）
+      final docDir = await getApplicationDocumentsDirectory();
+      final photosDir = Directory('${docDir.path}/photos');
+      if (!await photosDir.exists()) {
+        await photosDir.create(recursive: true);
+      }
       final srcName = _imagePath!.split('/').last.split('.').first;
-      final outFile = File('${tempDir.path}/masked_$srcName.png');
+      final outFile = File('${docDir.path}/photos/masked_$srcName.png');
       await outFile.writeAsBytes(Uint8List.view(pngByteData.buffer));
 
       if (!mounted) return;

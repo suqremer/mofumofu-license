@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../services/path_resolver.dart';
+
 /// 免許証データモデル
 class LicenseCard {
   final int? id;
@@ -85,6 +87,12 @@ class LicenseCard {
       'updated_at': updatedAt.toIso8601String(),
     };
   }
+
+  /// フルパスに解決された写真パス（File操作用）
+  String get resolvedPhotoPath => PathResolver.resolve(photoPath) ?? photoPath;
+
+  /// フルパスに解決された完成画像パス（File操作用）
+  String? get resolvedSavedImagePath => PathResolver.resolve(savedImagePath);
 
   /// コピーして一部を変更した新しいインスタンスを返す
   LicenseCard copyWith({

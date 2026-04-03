@@ -9,6 +9,7 @@ import '../models/license_card.dart';
 import '../models/pet.dart';
 import '../providers/database_provider.dart';
 import '../services/database_service.dart';
+import '../services/path_resolver.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../widgets/photo_crop_preview.dart';
@@ -191,8 +192,8 @@ class _PetCard extends StatelessWidget {
   Widget _buildAvatar() {
     // 免許証があればコスチューム付き証明写真をクロップ表示（最優先）
     if (licenseCard != null &&
-        licenseCard!.savedImagePath != null &&
-        File(licenseCard!.savedImagePath!).existsSync()) {
+        licenseCard!.resolvedSavedImagePath != null &&
+        File(licenseCard!.resolvedSavedImagePath!).existsSync()) {
       return ClipOval(
         child: Container(
           width: 56,
@@ -208,11 +209,11 @@ class _PetCard extends StatelessWidget {
     }
 
     // 免許証なし: 生写真 or 種別アイコン
-    if (pet.photoPath != null && File(pet.photoPath!).existsSync()) {
+    if (pet.resolvedPhotoPath != null && File(pet.resolvedPhotoPath!).existsSync()) {
       return CircleAvatar(
         radius: 28,
         backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-        backgroundImage: FileImage(File(pet.photoPath!)),
+        backgroundImage: FileImage(File(pet.resolvedPhotoPath!)),
       );
     }
 
@@ -495,7 +496,7 @@ class _PetFormSheetState extends State<_PetFormSheet> {
     // _photoPathが変更されていなくて免許証がある場合はPhotoCropPreview
     final lc = widget.licenseCard;
     if (_photoPath == widget.pet?.photoPath && lc != null &&
-        lc.savedImagePath != null && File(lc.savedImagePath!).existsSync()) {
+        lc.resolvedSavedImagePath != null && File(lc.resolvedSavedImagePath!).existsSync()) {
       return ClipOval(
         child: Container(
           width: 80,
@@ -510,11 +511,12 @@ class _PetFormSheetState extends State<_PetFormSheet> {
       );
     }
     // 写真がある場合
-    if (_photoPath != null && File(_photoPath!).existsSync()) {
+    final resolvedPhoto = PathResolver.resolve(_photoPath);
+    if (resolvedPhoto != null && File(resolvedPhoto).existsSync()) {
       return CircleAvatar(
         radius: 40,
         backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-        backgroundImage: FileImage(File(_photoPath!)),
+        backgroundImage: FileImage(File(resolvedPhoto)),
       );
     }
     // フォールバック
@@ -617,10 +619,10 @@ class _PetDetailSheet extends StatelessWidget {
                     CircleAvatar(
                       radius: 22,
                       backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                      backgroundImage: pet.photoPath != null && File(pet.photoPath!).existsSync()
-                          ? FileImage(File(pet.photoPath!))
+                      backgroundImage: pet.resolvedPhotoPath != null && File(pet.resolvedPhotoPath!).existsSync()
+                          ? FileImage(File(pet.resolvedPhotoPath!))
                           : null,
-                      child: pet.photoPath != null && File(pet.photoPath!).existsSync()
+                      child: pet.resolvedPhotoPath != null && File(pet.resolvedPhotoPath!).existsSync()
                           ? null
                           : Icon(_speciesIcon(pet.species), color: AppColors.primary),
                     ),

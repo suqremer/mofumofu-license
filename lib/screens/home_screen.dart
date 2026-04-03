@@ -565,8 +565,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     species: card.species,
                     licenseType:
                         LicenseType.findById(card.licenseType).label,
-                    photoPath: card.photoPath,
-                    savedImagePath: card.savedImagePath,
+                    photoPath: card.resolvedPhotoPath,
+                    savedImagePath: card.resolvedSavedImagePath,
                     onTap: () => context.push('/collection'),
                   );
                 },

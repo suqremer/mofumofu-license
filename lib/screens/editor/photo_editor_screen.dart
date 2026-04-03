@@ -14,6 +14,7 @@ import '../../models/costume.dart';
 import '../../models/costume_overlay.dart';
 import '../../models/license_template.dart';
 import '../../services/license_painter.dart';
+import '../../services/path_resolver.dart';
 import '../../services/purchase_manager.dart';
 import '../../theme/colors.dart';
 
@@ -419,9 +420,13 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
       try {
         final pngData = await _photoImage!.toByteData(format: ui.ImageByteFormat.png);
         if (pngData != null) {
-          final tempDir = await getTemporaryDirectory();
+          final docDir = await getApplicationDocumentsDirectory();
+          final photosDir = Directory('${docDir.path}/photos');
+          if (!await photosDir.exists()) {
+            await photosDir.create(recursive: true);
+          }
           final ts = DateTime.now().millisecondsSinceEpoch;
-          final outFile = File('${tempDir.path}/editor_final_$ts.png');
+          final outFile = File('${docDir.path}/photos/editor_final_$ts.png');
           await outFile.writeAsBytes(Uint8List.view(pngData.buffer));
           finalPath = outFile.path;
         }
@@ -590,10 +595,14 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
       resultImage.dispose();
       if (pngByteData == null) throw Exception('PNG変換に失敗');
 
-      // 一時ファイルに保存
-      final tempDir = await getTemporaryDirectory();
+      // Documentsに保存（アプデで消えないように）
+      final docDir = await getApplicationDocumentsDirectory();
+      final photosDir = Directory('${docDir.path}/photos');
+      if (!await photosDir.exists()) {
+        await photosDir.create(recursive: true);
+      }
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final outFile = File('${tempDir.path}/editor_masked_$timestamp.png');
+      final outFile = File('${docDir.path}/photos/editor_masked_$timestamp.png');
       await outFile.writeAsBytes(Uint8List.view(pngByteData.buffer));
 
       // 写真パスを更新＆画像リロード
@@ -2232,7 +2241,8 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
     _redoImageStack.clear(); // 新操作が入ったのでredoは無効化
 
     try {
-      final inputBytes = await File(_photoPath!).readAsBytes();
+      final resolvedPath = PathResolver.resolve(_photoPath!) ?? _photoPath!;
+      final inputBytes = await File(resolvedPath).readAsBytes();
 
       // ML モデルで背景削除（PNG バイト列で返る）
       // エミュレータでは非常に遅いため60秒タイムアウト
@@ -2241,10 +2251,14 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
           .timeout(const Duration(seconds: 60),
               onTimeout: () => throw TimeoutException('背景削除がタイムアウトしました'));
 
-      // 結果を新ファイルに保存
-      final dir = await getTemporaryDirectory();
+      // Documentsに保存（アプデで消えないように）
+      final docDir = await getApplicationDocumentsDirectory();
+      final photosDir = Directory('${docDir.path}/photos');
+      if (!await photosDir.exists()) {
+        await photosDir.create(recursive: true);
+      }
       final outFile = File(
-        '${dir.path}/auto_bg_removed_${DateTime.now().millisecondsSinceEpoch}.png',
+        '${docDir.path}/photos/auto_bg_removed_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await outFile.writeAsBytes(resultBytes);
 

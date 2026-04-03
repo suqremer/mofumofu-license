@@ -12,6 +12,7 @@ import 'config/dev_config.dart';
 import 'router.dart';
 import 'services/ad_manager.dart';
 import 'services/app_preferences.dart';
+import 'services/path_resolver.dart';
 import 'services/purchase_manager.dart';
 import 'theme/app_theme.dart';
 
@@ -53,6 +54,7 @@ void main() async {
     debugPrint('Firebase init failed: $e');
   }
 
+  await PathResolver.init();
   await AppPreferences.init();
   await PurchaseManager.instance.initialize();
   await AdManager.instance.initialize();

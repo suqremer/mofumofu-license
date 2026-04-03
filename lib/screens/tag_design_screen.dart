@@ -58,7 +58,7 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
   Future<void> _loadSourceImage() async {
     try {
       final card = widget.card;
-      final photoFile = File(card.photoPath);
+      final photoFile = File(card.resolvedPhotoPath);
       if (!photoFile.existsSync()) {
         if (mounted) setState(() => _isLoading = false);
         return;
