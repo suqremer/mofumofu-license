@@ -256,7 +256,7 @@ class SettingsScreen extends ConsumerWidget {
                     onTap: () => showLicensePage(
                       context: context,
                       applicationName: 'うちの子免許証',
-                      applicationVersion: '1.0.0',
+                      applicationVersion: '1.0.3',
                     ),
                   ),
                 ],

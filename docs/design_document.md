@@ -1,6 +1,6 @@
 # うちの子免許証 — 実施設計書
 
-> 最終更新: 2026-03-30
+> 最終更新: 2026-04-04
 
 ---
 
@@ -24,7 +24,7 @@
 
 | レイヤー | 技術 | バージョン |
 |---------|------|-----------|
-| フレームワーク | Flutter | 3.41.3 |
+| フレームワーク | Flutter | 3.41.6 |
 | 言語 | Dart | ^3.11.1 |
 | 状態管理 | flutter_riverpod | ^2.6.1 |
 | ルーティング | go_router | ^14.8.1 |
@@ -98,7 +98,7 @@ lib/
 │   ├── costume.dart             # コスチューム定義（47種）
 │   ├── costume_overlay.dart     # コスチューム配置状態
 │   └── license_template.dart    # テンプレート・フレーム・免許種別定義
-├── screens/                     # 画面（16画面 + editor/サブ）
+├── screens/                     # 画面（17画面 + editor/サブ）
 │   ├── editor/                  # 写真・デコ編集画面（分割構成）
 │   │   ├── photo_editor_screen.dart    # メインエディタ
 │   │   ├── models/
@@ -122,15 +122,18 @@ lib/
 │   ├── order_screen.dart
 │   ├── order_card_screen.dart    # カード注文 + セット注文（isSet）
 │   ├── order_tag_screen.dart
-│   └── tag_design_screen.dart
+│   ├── tag_design_screen.dart
+│   ├── nfc_write_screen.dart    # NFC書き込み
+│   └── nfc_read_screen.dart     # NFC読み取り
 ├── services/                    # ビジネスロジック
 │   ├── database_service.dart    # SQLite CRUD
 │   ├── license_painter.dart     # Canvas描画エンジン
 │   ├── license_composer.dart    # 画像合成（2048×1292 PNG出力）
 │   ├── app_preferences.dart     # SharedPreferences + Keychain
 │   ├── purchase_manager.dart    # RevenueCat課金管理
-│   ├── nfc_service.dart         # NFC書き込み
-│   └── ad_manager.dart          # AdMob管理
+│   ├── nfc_service.dart         # NFC書き込み・読み取り・消去
+│   ├── ad_manager.dart          # AdMob管理（バナー + インタースティシャル）
+│   └── path_resolver.dart       # ファイルパス解決（相対パス↔フルパス変換）
 ├── providers/                   # Riverpod プロバイダー
 │   └── database_provider.dart   # DB関連プロバイダー群
 ├── widgets/                     # 共通ウィジェット
@@ -189,8 +192,21 @@ LicenseComposer.compose()
 
 - **スライダー**: -180°〜180°（-π〜π ラジアン）、リセットボタン付き
 - **2本指ジェスチャー**: ピンチ操作で拡縮と同時に回転可能
-- **デッドゾーン**: 回転量が8.6°（0.15rad）未満の場合は回転しない（拡縮だけしたい時の誤操作防止）
-- **スナップアシスト**: 0°/±90°/±180° 付近（2.9°以内）で自動吸着
+- **デッドゾーン**: 回転量が4.6°（0.08rad）未満の場合は回転しない。ただし回転開始後はデッドゾーンを無効化し、微調整を妨げない
+- **スナップアシスト**: 写真回転は±1.5°、コスチューム回転は±3°で自動吸着（0°/±90°/±180°）
+- **角度表示**: 回転操作中にリアルタイムで角度を数値表示。操作終了後1秒でフェードアウト
+- **hapticフィードバック**: スナップ時に軽い振動で吸着を通知
+
+### 3.5 画像パス管理
+
+iOSではアプリアップデート時にサンドボックスのUUIDが変わるため、DBにフルパスを保存すると無効になる。
+この問題に対応するため、`PathResolver` で相対パス↔フルパスの変換を一元管理する。
+
+- **DB保存**: 相対パスで保存（例: `licenses/license_123.png`）
+- **File操作**: `PathResolver.resolve()` でDocumentsパスと結合してフルパスに復元
+- **Documentsパスキャッシュ**: アプリ起動時に `PathResolver.init()` で1回取得してstaticに保持
+- **マイグレーション**: DBバージョン3でフルパスを相対パスに一括変換済み
+- **写真保存先**: `Documents/photos/`（tmp/はOSに随時削除される可能性があるため使用しない）
 
 ---
 
@@ -202,7 +218,7 @@ LicenseComposer.compose()
 |------|------|------|------|
 | ホーム | `/` | HomeScreen | 看板ヘッダー、受付番号札CTA、発行済みリスト |
 | コレクション | `/collection` | CollectionScreen | グリッド一覧、並べ替え、削除、詳細シート |
-| 設定 | `/settings` | SettingsScreen | プラン情報、サポート、法務リンク |
+| 設定 | `/settings` | SettingsScreen | プラン情報、サポートID、お問い合わせ、レビュー、不具合報告、法務リンク、データ削除 |
 
 ### 4.2 免許証作成フロー（右スライドイン）
 
@@ -220,6 +236,8 @@ LicenseComposer.compose()
 
 > **注**: `mask_edit_screen.dart` は router.dart に `/create/mask` ルートが残っているが、
 > どの画面からも遷移しておらず実質未使用。マスク編集機能は `/create/editor` に統合済み。
+
+> **エディタの離脱保護**: PhotoEditorScreenでは、Xボタン・スワイプバック（PopScope）で「編集を破棄しますか？」確認ダイアログを表示。誤操作による編集内容の消失を防止。
 
 ### 4.3 その他の画面（フェードイン）
 
@@ -239,7 +257,7 @@ LicenseComposer.compose()
 
 ## 5. データベース設計
 
-### 5.1 SQLite（mofumofu.db v2）
+### 5.1 SQLite（mofumofu.db v3）
 
 #### licenses テーブル
 | カラム | 型 | 説明 |
@@ -252,11 +270,11 @@ LicenseComposer.compose()
 | gender | TEXT? | ♂/♀/不明 |
 | specialty | TEXT? | 特技 |
 | license_type | TEXT | にゃん転/わん転/もふもふ/国際/ゴールド |
-| photo_path | TEXT | トリミング済み写真パス |
+| photo_path | TEXT NOT NULL | トリミング済み写真の相対パス（Documents/以下） |
 | costume_id | TEXT | コスチュームID（デフォルト: gakuran） |
 | frame_color | TEXT | フレーム色（デフォルト: gold） |
 | template_type | TEXT | japan / usa |
-| saved_image_path | TEXT? | 合成済み画像パス |
+| saved_image_path | TEXT? | 合成済み画像の相対パス（Documents/以下） |
 | extra_data | TEXT? | JSON拡張データ。costumeOverlays、photoScale/OffsetX/OffsetY/Rotation、photoBrightness/Contrast/Saturation、outfitId、validityId、photoBgColor、originalPhotoPath を格納 |
 | created_at | TEXT | ISO8601 |
 | updated_at | TEXT | ISO8601 |
@@ -266,12 +284,15 @@ LicenseComposer.compose()
 |--------|-----|------|
 | id | INTEGER PK | 自動採番 |
 | name | TEXT | ペット名 |
-| species, breed, birth_date, gender | TEXT? | 基本情報 |
-| photo_path | TEXT? | 写真パス（免許証作成時に自動設定、手帳画面での手動変更不可） |
+| species | TEXT NOT NULL | 種類 |
+| breed, birth_date, gender | TEXT? | 基本情報 |
+| photo_path | TEXT? | 写真の相対パス（免許証作成時に自動設定、手帳画面での手動変更不可） |
 | hospital_name | TEXT? | かかりつけ病院 |
 | microchip_number | TEXT? | マイクロチップ番号 |
 | insurance_info | TEXT? | 保険情報 |
 | memo | TEXT? | メモ |
+| created_at | TEXT NOT NULL | 作成日時 |
+| updated_at | TEXT NOT NULL | 更新日時 |
 
 #### vaccinations テーブル
 | カラム | 型 | 説明 |
@@ -293,14 +314,25 @@ LicenseComposer.compose()
 
 > **注**: ペット手帳でペット名変更時、同名の免許証（licenses.pet_name）も `updateLicensePetName()` で自動更新される。
 
+> **外部キー制約**: `PRAGMA foreign_keys = ON` を設定済み。vaccinations/weight_logsはpets削除時にON DELETE CASCADEで連鎖削除される。
+
+#### マイグレーション履歴
+| バージョン | 変更内容 |
+|-----------|---------|
+| v1→v2 | licenses テーブルに `extra_data TEXT` カラムを追加 |
+| v2→v3 | licenses.photo_path / saved_image_path、pets.photo_path をフルパスから相対パスに一括変換 |
+
 ### 5.2 SharedPreferences + Keychain
 
 | キー | 保存先 | 用途 |
 |------|--------|------|
 | ftue_completed | SharedPreferences | 初回チュートリアル完了フラグ |
-| total_created_count | 両方 | 累計作成枚数（Keychain=再インストール復元用） |
-| draft_* | SharedPreferences | 作成途中のドラフトデータ |
-| is_premium | SharedPreferences | プレミアムフラグ（RevenueCatと同期） |
+| total_creation_count | SharedPreferences | 累計作成枚数 |
+| kc_total_creation_count | Keychain | 累計作成枚数バックアップ（再インストール復元用） |
+| draft_data | SharedPreferences | 作成途中のドラフトデータ（JSON） |
+| has_ordered | SharedPreferences | 物理商品の注文ボタン押下フラグ |
+
+> **注**: プレミアム状態はSharedPreferencesに保存せず、`PurchaseManager`（RevenueCat SDK）に一元管理。
 
 ---
 
@@ -331,7 +363,7 @@ LicenseComposer.compose()
 | 免許証テンプレート | モノスペース | 大文字スペーシング |
 
 ### 6.3 コンポーネント規約
-- **ElevatedButton**: primary色、28px角丸、白文字
+- **ElevatedButton**: primary色、12px角丸、白文字（一部画面では28px角丸）
 - **OutlinedButton**: primary枠線、16px角丸
 - **カード**: 白背景、12-16px角丸、影 blur:12 offset:(0,4)
 - **ボトムシート**: 24px角丸（上部のみ）、ドラッグハンドル付き
@@ -352,7 +384,12 @@ LicenseComposer.compose()
 - **Entitlement**: `Uchino Ko License Pro`
 - **APIキー**: `appl_devqORajcICbBWJDTuWHZFRfxZW`（本番用。差し替え完了）
 
-### 7.3 コスチューム区分（確定: 無料12種 / プレミアム35種、計47種）
+### 7.3 購入処理の仕様
+- `purchasePackage()` の戻り値: `bool?`（`true`=成功、`false`=失敗、`null`=ユーザーキャンセル）
+- ユーザーキャンセル時はエラーメッセージを表示しない
+- 購入成功時はpop前にScaffoldMessengerの参照を保持してからSnackBar表示（pop後context無効化対策）
+
+### 7.4 コスチューム区分（確定: 無料12種 / プレミアム35種、計47種）
 
 **無料コスチューム（12種）**:
 - 顔ハメ(3): 学ラン、セーラー服、警察官
@@ -436,12 +473,12 @@ Step 5: Stripe Payment Links で決済（url_launcher）
 ### 9.1 書き込み内容
 NDEF Text Record 形式でペット迷子情報を書き込み:
 ```
-[ペット名]
-種類: [犬/猫等]
-品種: [品種]
-飼い主: [飼い主名]
-電話: [電話番号]
-備考: [任意テキスト]
+🐾 うちの子免許証
+ペット名: [petName]
+品種: [breed]
+飼い主: [ownerName]
+TEL: [phoneNumber]
+特記: [note]（任意）
 ```
 
 ### 9.2 制約
@@ -454,7 +491,11 @@ NDEF Text Record 形式でペット迷子情報を書き込み:
 - 確認ダイアログ → 空NDEFメッセージを書き込みで実質消去
 - 消去完了画面を表示
 
-### 9.4 対応状況
+### 9.4 安全装置
+- **Completerガードチェック**: タイムアウトとタグ検出が同時に起きてもクラッシュしないよう、全分岐に `completer.isCompleted` チェックを実装
+- **キャンセル機能**: NFC待機中・書き込み中の両方でキャンセルボタンを表示。ユーザーがいつでも操作を中断可能
+
+### 9.5 対応状況
 - **Android**: 実装済み（nfc_manager + Kotlin 2.x パッチ適用）
 - **iOS**: 実装済み（Info.plist + Capabilities設定完了、TAG entitlement + iso14443 polling、実機テストOK）
 - **機能**: 書き込み・読み取り・消去の3機能
@@ -466,8 +507,10 @@ NDEF Text Record 形式でペット迷子情報を書き込み:
 ### 10.1 AdMob設定
 - **iOS App ID**: `ca-app-pub-3721612777407461~2563691647`
 - **Android App ID**: `ca-app-pub-3721612777407461~6065078681`
-- **表示形式**: バナー広告（コレクション画面下部）
-- **プレミアムユーザー**: 広告非表示
+- **バナー広告**: ホーム画面・コレクション画面の下部に表示
+- **インタースティシャル広告**: 免許証の交付完了時（プレビュー画面）に全画面表示
+- **プレミアムユーザー**: 全広告を非表示
+- **app-ads.txt**: `docs/app-ads.txt` に配置（GitHub Pages公開、AdMob認証用）
 
 ### 10.2 UMP同意フロー
 - GDPR / ATT対応の同意フロー
@@ -486,6 +529,8 @@ NDEF Text Record 形式でペット迷子情報を書き込み:
 | 特商法表記 | docs/tokushoho/ | 個人事業主特例（住所は請求時開示） |
 | 返品ポリシー | docs/refund-policy/ | Apple返金手順案内 |
 | サポートページ | docs/index.html | 4ページリンク集約 |
+| app-ads.txt | docs/app-ads.txt | AdMob広告認証ファイル |
+| CNAME | docs/CNAME | GitHub Pagesカスタムドメイン設定（uchinoko-license.com） |
 
 ### 11.2 App Store申請情報
 - **年齢レーティング**: 4+
@@ -516,7 +561,7 @@ NDEF Text Record 形式でペット迷子情報を書き込み:
 | 7 | TestFlight実機テスト（IAP Sandbox含む） | Done |
 | 8 | スクリーンショット撮影（8枚） | Done（App Store Connectアップロード済み） |
 | 9 | 最終TestFlight + チーム最終レビュー | Done（法務/ASO/技術の3チームレビュー完了） |
-| 10 | App Store審査提出 | Done（審査中） |
+| 10 | App Store審査提出 | Done（v1.0.0リリース済み） |
 
 ---
 
@@ -668,9 +713,9 @@ enum AnchorPosition {
 | 1 | AdMob バナー広告 | eCPM ¥50-100 | 実装済み |
 | 2 | プレミアム買い切り | ¥300 | 実装済み |
 | 3 | コスチュームパック | ¥120-200/パック | 将来 |
-| 4 | PVCカード販売 | ¥1,980/枚 | 注文画面実装済み（Stripe未連携） |
-| 5 | レジンタグ販売 | ¥1,980/個 | 注文画面実装済み（Stripe未連携） |
-| 6 | セット販売 | ¥2,980 | 注文画面実装済み（Stripe未連携） |
+| 4 | PVCカード販売 | ¥1,980/枚 | 注文画面実装済み（Stripe本番URL差し替え済み） |
+| 5 | レジンタグ販売 | ¥1,980/個 | 注文画面実装済み（Stripe本番URL差し替え済み） |
+| 6 | セット販売 | ¥2,980 | 注文画面実装済み（Stripe本番URL差し替え済み） |
 | 7 | ペット手帳プレミアム | 未定 | 将来 |
 
 ### 14.2 Year 1 収益予測（中間シナリオ）
@@ -689,14 +734,14 @@ enum AnchorPosition {
 > 詳細なタスク管理は `HANDOFF.md` も参照。
 
 ### 完了済み
-- 全画面UI実装（18画面、NFC読み取り画面追加）
+- 全画面UI実装（17画面 + editor/サブ）
 - 画像合成エンジン（Canvas描画 + 2048px出力、写真回転対応）
 - 背景自動削除（ONNX Runtime）
-- 課金システム（RevenueCat + ¥300 Lifetime、本番キー差し替え済み）
-- 広告（AdMob バナー、UMP同意フロー10秒タイムアウト）
-- NFC書き込み・読み取り・消去機能（iOS + Android両対応）
+- 課金システム（RevenueCat + ¥300 Lifetime、本番キー差し替え済み、キャンセル時エラー非表示対応）
+- 広告（AdMob バナー+インタースティシャル、UMP同意フロー10秒タイムアウト）
+- NFC書き込み・読み取り・消去機能（iOS + Android両対応、Completerガード+キャンセルボタン実装）
 - 注文システムUI（4画面 + タグ用丸形デザイン）
-- 法務ドキュメント（5ページ、NFC機能・物理商品対応済み）
+- 法務ドキュメント（5ページ + app-ads.txt、NFC機能・物理商品対応済み）
 - ASO / 審査メモ / App Privacy
 - デコ素材（コスチューム47種確定）
 - Googleフォーム作成（注文受付用）
@@ -708,9 +753,11 @@ enum AnchorPosition {
 - 申請前チーム最終レビュー（法務/ASO/技術）
 - アプリ内免責表示（交付完了画面＋ASO説明文）
 - **v1.0.0 App Storeリリース完了**
+- v1.0.2: バグ修正9件 + サポートID表示機能追加 + warning全解消
+- v1.0.3: 写真回転UX改善（スナップ縮小/デッドゾーン改善/角度表示/haptic）+ 画像パス相対パス化（アプデ後画像消失バグ修正）
 
 ### 未完了（リリース後）
-- v1.0.1アップデート（回転ブラシ修正・タグ回転・復元ブラシ修正）
+- AdMob app-ads.txt認証待ち
 - オファーコード作成（友人向けプレミアム無料配布）
 - iPad最適化（スクリーンショット・UI対応）
 - 物理商品製造ライン構築
