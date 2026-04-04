@@ -40,7 +40,6 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
     with TickerProviderStateMixin {
   Uint8List? _composedImage;
   Uint8List? _composedImageHiRes;
-  LicenseComposeRequest? _lastRequest; // 写真プレビュー生成用
   bool _isComposing = false;
   bool _isSavingToGallery = false;
   bool _isSharing = false;
@@ -220,7 +219,6 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
         photoSaturation: (data['photoSaturation'] as num?)?.toDouble() ?? 0.0,
       );
 
-      _lastRequest = request; // 写真プレビュー生成用に保存
       // プレビュー表示は1xで合成（USAテンプレのギョーシェ描画が2xだとメモリ不足になるため）
       final imageBytes = await LicenseComposer().compose(request, scale: 1.0);
 
@@ -283,18 +281,6 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
       final imageToSave = _composedImageHiRes ?? _composedImage!;
       final savedPath = await LicenseComposer().saveToFile(imageToSave);
 
-      // 写真プレビュー画像も生成・保存（ホーム画面表示用）
-      if (_lastRequest != null) {
-        try {
-          final photoPreviewBytes =
-              await LicenseComposer().composePhotoPreview(_lastRequest!);
-          final photoPreviewPath =
-              savedPath.replaceAll('.png', '_photo.png');
-          await File(photoPreviewPath).writeAsBytes(photoPreviewBytes);
-        } catch (_) {
-          // 写真プレビュー生成失敗は免許証保存をブロックしない
-        }
-      }
       final data = _data!;
       final now = DateTime.now();
       final editId = data['editId'] as int?;

@@ -1,36 +1,21 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 
+import '../models/license_card.dart';
+import '../models/license_template.dart';
 import '../theme/colors.dart';
+import 'photo_crop_preview.dart';
 
 class LicenseCardPreview extends StatelessWidget {
-  final String petName;
-  final String species;
-  final String licenseType;
-  final String? photoPath;
-  final String? savedImagePath;
+  final LicenseCard card;
   final VoidCallback? onTap;
 
   static const _gold = Color(0xFFFFD54F);
 
   const LicenseCardPreview({
     super.key,
-    required this.petName,
-    required this.species,
-    required this.licenseType,
-    this.photoPath,
-    this.savedImagePath,
+    required this.card,
     this.onTap,
   });
-
-  IconData _speciesIcon() {
-    return switch (species) {
-      '犬' => Icons.pets,
-      '猫' => Icons.pets,
-      '鳥' => Icons.flutter_dash,
-      _ => Icons.emoji_nature,
-    };
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,19 +38,23 @@ class LicenseCardPreview extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 写真プレビュー → 素の写真 → プレースホルダの優先順位で表示
+              // 完成画像から証明写真領域をクロップ表示（コスチューム・デコ反映）
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: SizedBox(
                   width: 100,
                   height: 100,
-                  child: _buildImage(),
+                  child: PhotoCropPreview(
+                    card: card,
+                    circular: false,
+                    size: 100,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
               // ペット名
               Text(
-                petName,
+                card.petName,
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -76,7 +65,7 @@ class LicenseCardPreview extends StatelessWidget {
               const SizedBox(height: 2),
               // 種別
               Text(
-                species,
+                card.species,
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey.shade600,
@@ -94,7 +83,7 @@ class LicenseCardPreview extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    licenseType,
+                    LicenseType.findById(card.licenseType).label,
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -105,42 +94,6 @@ class LicenseCardPreview extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildImage() {
-    // 写真プレビュー画像（_photo.png）があればそれを表示
-    if (savedImagePath != null) {
-      final photoPreviewPath =
-          savedImagePath!.replaceAll('.png', '_photo.png');
-      final photoPreviewFile = File(photoPreviewPath);
-      if (photoPreviewFile.existsSync()) {
-        return Image.file(
-          photoPreviewFile,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => _placeholder(),
-        );
-      }
-    }
-    // フォールバック: 素の写真
-    if (photoPath != null && File(photoPath!).existsSync()) {
-      return Image.file(
-        File(photoPath!),
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _placeholder(),
-      );
-    }
-    return _placeholder();
-  }
-
-  Widget _placeholder() {
-    return Container(
-      color: AppColors.background,
-      child: Icon(
-        _speciesIcon(),
-        size: 48,
-        color: AppColors.primary.withValues(alpha: 0.4),
       ),
     );
   }

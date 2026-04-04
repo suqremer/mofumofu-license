@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/license_card.dart';
-import '../models/license_template.dart';
 import '../providers/database_provider.dart';
 import '../services/app_preferences.dart';
 import '../theme/colors.dart';
@@ -561,12 +560,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 itemBuilder: (context, index) {
                   final card = licenses[index];
                   return LicenseCardPreview(
-                    petName: card.petName,
-                    species: card.species,
-                    licenseType:
-                        LicenseType.findById(card.licenseType).label,
-                    photoPath: card.resolvedPhotoPath,
-                    savedImagePath: card.resolvedSavedImagePath,
+                    card: card,
                     onTap: () => context.push('/collection'),
                   );
                 },
