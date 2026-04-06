@@ -1,7 +1,7 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-04-03（セッション3回目：バグ修正9件 + サポートID機能追加 + v1.0.2リリース + AdMob対応）
+2026-04-06（マーケティング戦略検討会 + ドキュメント整理）
 
 ## 現在のPhase
 
@@ -13,35 +13,27 @@
 | 4 申請提出 | ✅ 完了 | v1.0.0 App Store公開済み |
 | 5 v1.0.2アップデート | ✅ 完了 | バグ修正9件 + サポートID機能追加。リリース済み |
 | PVC販売準備 | ⬜ リリース後 | 注文画面実装済み、物理製造ラインは未構築 |
+| マーケ施策 | 🔄 検討済み→実行フェーズ | 10人チーム検討会実施。詳細は `docs/marketing_plan.md` |
 
-## Next Action
+## Next Action（優先度順）
 
-| # | タスク | 担当 | 備考 |
-|---|--------|------|------|
-| 1 | AdMob app-ads.txt認証待ち | しゅーと | `docs/app-ads.txt` 設置済み、GitHub Pages公開済み。AdMobダッシュボードで認証通るまで待つ（最大24時間） |
-| 2 | 友達にプレミアムを付与する | しゅーと | RevenueCatダッシュボード → Customers → Grant Promotional Entitlement (Lifetime) |
+| # | タスク | 参照ドキュメント | 備考 |
+|---|--------|----------------|------|
+| 1 | ハンドメイドサイト（minne/Creema）にグッズ出品 | `docs/marketing_plan.md` セクション2 | セルフプラン＋おまかせプランの2パターン |
+| 2 | TikTokアカウント開設＋動画投稿 | `docs/marketing_plan.md` セクション3 | 動画案10本あり。特に#2,6,10がおすすめ |
+| 3 | App Storeスクリーンショット改善 | `docs/marketing_plan.md` セクション4.5 | 犬猫の魅力的な作例を追加 |
+| 4 | AdMob app-ads.txt認証待ち | — | `docs/app-ads.txt` 設置済み、GitHub Pages公開済み |
+| 5 | Stripe本番URL差し替え（Stripe審査通過後） | `docs/order_flow.md` | 審査通過後に対応 |
 
-## v1.0.2 で実施した修正内容
+## 関連ドキュメント
 
-- 課金キャンセル時にエラーSnackBarが出る問題を修正
-- ON DELETE CASCADE有効化（ペット削除時に関連データも自動削除）
-- NFC Completer二重complete防止（クラッシュ防止）
-- PhotoEditor Xボタンに確認ダイアログ追加（編集内容の誤消失防止）
-- Paywall pop後のcontext使用を修正（クラッシュ防止）
-- ui.Imageのdispose漏れを修正（メモリリーク防止）
-- カメラコントローラ二重dispose修正（バックグラウンド復帰時の問題防止）
-- CollectionScreen空状態ボタンに無料枠チェック追加
-- NFC書き込み中にキャンセルボタン追加（フリーズ防止）
-- 設定画面にサポートID表示機能を追加（RevenueCat Promotional付与用）
-- 未使用import/変数/メソッドを削除してwarning 0件に
-
-## 友達へのプレミアム付与手順
-
-1. 友達がアプリをインストール＆起動
-2. 設定画面 → サポートID → コピーボタン → IDをLINE等で送ってもらう
-3. RevenueCatダッシュボード → Customers → IDで検索
-4. Grant Promotional Entitlement → 「Uchino Ko License Pro」→ Lifetime
-5. 友達にアプリ再起動を依頼
+| ファイル | 内容 |
+|---------|------|
+| `docs/design_document.md` | 技術設計（アーキテクチャ、DB、収益構造、ロードマップ） |
+| `docs/marketing_plan.md` | マーケ戦略・施策（集客、SNS、ASO、課金改善、検討会結果） |
+| `docs/order_flow.md` | 注文〜発送の業務手順 |
+| `docs/aso_text.md` | App Store説明文の確定版 |
+| `CLAUDE.md` | Claude Codeへのルール・指示 |
 
 ## 今後の未修正事項（次バージョン以降の候補）
 
@@ -55,7 +47,6 @@
 ### アプリ関連
 - [ ] Android版リリース時: RevenueCat Google Play APIキーの差し替え（`lib/config/iap_config.dart` の `_googleApiKey` がダミー値のまま）
 - [ ] オファーコード作成（SNS紹介者にプレミアム無料プレゼント）
-- [ ] プロモ戦略検討（ASO改善・SNS施策）
 - [ ] AdMob × Firebase リンク
 - [x] ~~AdMob app-ads.txt設置（`docs/app-ads.txt`、GitHub Pages経由で公開）~~ → 認証待ち
 - [ ] Stripe本番URL差し替え（Stripe審査通過後）
@@ -69,7 +60,21 @@
 - [ ] 梱包資材調達・テスト
 - [ ] クリックポスト テスト発送
 
+### マーケ施策（実行系）
+- [ ] ハンドメイドサイト出品（minne/Creema）
+- [ ] TikTok動画投稿開始
+- [ ] レビュー依頼ダイアログ実装（2枚目作成後）
+- [ ] シェア時ハッシュタグ自動付与の確認・実装
+- [ ] Google Playリリース準備
+
+## 友達へのプレミアム付与手順
+
+1. 友達がアプリをインストール＆起動
+2. 設定画面 → サポートID → コピーボタン → IDをLINE等で送ってもらう
+3. RevenueCatダッシュボード → Customers → IDで検索
+4. Grant Promotional Entitlement → 「Uchino Ko License Pro」→ Lifetime
+5. 友達にアプリ再起動を依頼
+
 ## 注意事項
 - このファイルは毎セッション終了時に上書き更新される
-- TODO.mdは廃止。タスク管理はこのファイルに統合済み
 - バージョニングルールはCLAUDE.mdに記載済み（自動インクリメント + 確認フロー）
