@@ -1,7 +1,7 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-04-06（マーケティング戦略検討会 + ドキュメント整理）
+2026-04-07（minne 3商品登録完了 + marketing_plan.md に出品情報記載）
 
 ## 現在のPhase
 
@@ -13,17 +13,17 @@
 | 4 申請提出 | ✅ 完了 | v1.0.0 App Store公開済み |
 | 5 v1.0.2アップデート | ✅ 完了 | バグ修正9件 + サポートID機能追加。リリース済み |
 | PVC販売準備 | ⬜ リリース後 | 注文画面実装済み、物理製造ラインは未構築 |
-| マーケ施策 | 🔄 検討済み→実行フェーズ | 10人チーム検討会実施。詳細は `docs/marketing_plan.md` |
+| マーケ施策 | 🔄 実行中 | minne 3商品登録済み（非公開）。Creema未着手。詳細は `docs/marketing_plan.md` |
 
 ## Next Action（優先度順）
 
 | # | タスク | 参照ドキュメント | 備考 |
 |---|--------|----------------|------|
-| 1 | ハンドメイドサイト（minne/Creema）にグッズ出品 | `docs/marketing_plan.md` セクション2 | セルフプラン＋おまかせプランの2パターン |
-| 2 | TikTokアカウント開設＋動画投稿 | `docs/marketing_plan.md` セクション3 | 動画案10本あり。特に#2,6,10がおすすめ |
-| 3 | App Storeスクリーンショット改善 | `docs/marketing_plan.md` セクション4.5 | 犬猫の魅力的な作例を追加 |
-| 4 | AdMob app-ads.txt認証待ち | — | `docs/app-ads.txt` 設置済み、GitHub Pages公開済み |
-| 5 | Stripe本番URL差し替え（Stripe審査通過後） | `docs/order_flow.md` | 審査通過後に対応 |
+| 1 | minne 3商品の作品画像を撮影・設定→公開 | `docs/marketing_plan.md` セクション2 | PVCカード/レジンタグ/セット、非公開で登録済み |
+| 2 | Creemaに出品（minne内容を転用） | `docs/marketing_plan.md` セクション2 | 作品名・説明文・価格はmarketing_plan.mdに全文記載済み |
+| 3 | TikTokアカウント開設＋動画投稿 | `docs/marketing_plan.md` セクション3 | 動画案10本あり。特に#2,6,10がおすすめ |
+| 4 | App Storeスクリーンショット改善 | `docs/marketing_plan.md` セクション4.5 | 犬猫の魅力的な作例を追加 |
+| 5 | AdMob app-ads.txt認証待ち | — | `docs/app-ads.txt` 設置済み、GitHub Pages公開済み |
 
 ## 関連ドキュメント
 

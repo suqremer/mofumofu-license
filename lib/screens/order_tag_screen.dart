@@ -27,7 +27,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
 
   static const _paymentUrl = 'https://buy.stripe.com/7sY7sK8gm3MaeMS7Al5os00';
   static const _formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfSkYTQgcdnhExlgoIGxQLj_dvnTSgTbDGlpIK3Xarx6QHk-g/viewform';
-  static const _unitPrice = 1980;
+  static const _unitPrice = 2480;
 
   String _formatPrice(int yen) => '¥${yen.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}';
 

@@ -45,7 +45,7 @@ class OrderScreen extends StatelessWidget {
             _ProductCard(
               title: 'うちの子免許証',
               subtitle: '本格的なクレジットカードサイズ',
-              price: '¥1,980',
+              price: '¥2,280',
               icon: Icons.credit_card,
               iconColor: AppColors.secondary,
               features: const [
@@ -61,7 +61,7 @@ class OrderScreen extends StatelessWidget {
             _ProductCard(
               title: 'うちの子タグ',
               subtitle: '首輪に付ける丸型タグ',
-              price: '¥1,980',
+              price: '¥2,480',
               icon: Icons.pets,
               iconColor: AppColors.primary,
               features: const [
@@ -77,13 +77,13 @@ class OrderScreen extends StatelessWidget {
             _ProductCard(
               title: 'カード＋タグ セット',
               subtitle: 'お得なセット価格！',
-              price: '¥2,980',
+              price: '¥3,980',
               icon: Icons.card_giftcard,
               iconColor: AppColors.accent,
-              badge: '¥980お得！',
+              badge: '¥780お得！',
               features: const [
                 'カード＋タグセット',
-                '単品合計¥3,960 → ¥2,980',
+                '単品合計¥4,760 → ¥3,980',
                 '同じ写真でまとめて注文',
               ],
               onTap: () => context.push('/order/set'),

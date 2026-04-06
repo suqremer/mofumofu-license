@@ -41,7 +41,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
   static const _formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfSkYTQgcdnhExlgoIGxQLj_dvnTSgTbDGlpIK3Xarx6QHk-g/viewform';
 
   String get _title => widget.isSet ? 'セット注文' : 'カード注文';
-  int get _unitPrice => widget.isSet ? 2980 : 1980;
+  int get _unitPrice => widget.isSet ? 3980 : 2280;
   String get _description => widget.isSet
       ? 'カード＋タグのセット'
       : 'クレジットカードサイズの本格カード';
