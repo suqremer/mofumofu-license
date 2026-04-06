@@ -1,7 +1,7 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-04-07（minne 3商品登録完了 + marketing_plan.md に出品情報記載）
+2026-04-07（minne 3商品登録 + グッズ価格改定 + v1.0.4リリース + 設計書同期）
 
 ## 現在のPhase
 
@@ -19,8 +19,8 @@
 
 | # | タスク | 参照ドキュメント | 備考 |
 |---|--------|----------------|------|
-| 1 | minne 3商品の作品画像を撮影・設定→公開 | `docs/marketing_plan.md` セクション2 | PVCカード/レジンタグ/セット、非公開で登録済み |
-| 2 | Creemaに出品（minne内容を転用） | `docs/marketing_plan.md` セクション2 | 作品名・説明文・価格はmarketing_plan.mdに全文記載済み |
+| 1 | **Creemaに出品**（minne内容を転用） | `docs/marketing_plan.md` セクション2 | 作品名・説明文・価格はmarketing_plan.mdに全文記載済み。コピペで転用可 |
+| 2 | minne 3商品の作品画像を撮影・設定→公開 | `docs/marketing_plan.md` セクション2 | PVCカード/レジンタグ/セット、非公開で登録済み |
 | 3 | TikTokアカウント開設＋動画投稿 | `docs/marketing_plan.md` セクション3 | 動画案10本あり。特に#2,6,10がおすすめ |
 | 4 | App Storeスクリーンショット改善 | `docs/marketing_plan.md` セクション4.5 | 犬猫の魅力的な作例を追加 |
 | 5 | AdMob app-ads.txt認証待ち | — | `docs/app-ads.txt` 設置済み、GitHub Pages公開済み |
@@ -49,7 +49,7 @@
 - [ ] オファーコード作成（SNS紹介者にプレミアム無料プレゼント）
 - [ ] AdMob × Firebase リンク
 - [x] ~~AdMob app-ads.txt設置（`docs/app-ads.txt`、GitHub Pages経由で公開）~~ → 認証待ち
-- [ ] Stripe本番URL差し替え（Stripe審査通過後）
+- [x] ~~Stripe本番URL差し替え~~ → 完了（価格改定済み）
 - [ ] 設定画面: プレミアム購入後の即時反映確認（別Sandboxアカウントで確認必要）
 
 ### 物理カード製造ライン
