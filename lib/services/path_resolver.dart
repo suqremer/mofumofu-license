@@ -27,12 +27,22 @@ class PathResolver {
   /// 相対パスまたはフルパスからフルパスを返す
   ///
   /// - 相対パス（例: `licenses/license_123.png`）→ Documentsパスと結合
-  /// - フルパス（例: `/var/mobile/.../Documents/licenses/license_123.png`）→ そのまま返す
+  /// - フルパス（例: `/var/mobile/.../Documents/licenses/license_123.png`）→
+  ///   `/Documents/` 以降を取り出して現Documentsに付け替える（セルフヒーリング）
+  ///   これによりアプデでUUIDが変わっても旧絶対パスから読み込めるようになる
   /// - null → null
   static String? resolve(String? path) {
     if (path == null || path.isEmpty) return null;
-    // 既にフルパスならそのまま
-    if (path.startsWith('/')) return path;
+    if (path.startsWith('/')) {
+      // フルパスの場合、/Documents/ 以降を取り出して現Documentsに付け替える
+      const marker = '/Documents/';
+      final idx = path.indexOf(marker);
+      if (idx != -1) {
+        return '$_documentsPath/${path.substring(idx + marker.length)}';
+      }
+      // /Documents/ が含まれないフルパスはそのまま返す
+      return path;
+    }
     // 相対パスならDocumentsパスと結合
     return '$_documentsPath/$path';
   }

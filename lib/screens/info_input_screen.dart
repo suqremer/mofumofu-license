@@ -171,6 +171,7 @@ class _InfoInputScreenState extends State<InfoInputScreen>
     _photoBrightness = (data['photoBrightness'] as num?)?.toDouble();
     _photoContrast = (data['photoContrast'] as num?)?.toDouble();
     _photoSaturation = (data['photoSaturation'] as num?)?.toDouble();
+    _originalPhotoPath = data['originalPhotoPath'] as String?;
 
     setState(() {});
   }

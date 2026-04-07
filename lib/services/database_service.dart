@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import '../models/license_card.dart';
@@ -7,7 +9,7 @@ import '../models/pet.dart';
 class DatabaseService {
   static Database? _database;
   static const _dbName = 'mofumofu.db';
-  static const _dbVersion = 3;
+  static const _dbVersion = 4;
 
   /// DBインスタンスを取得（初回は自動作成）
   Future<Database> get database async {
@@ -40,6 +42,43 @@ class DatabaseService {
     if (oldVersion < 3) {
       // フルパス→相対パスに変換（iOSアプデでUUIDが変わる問題の対応）
       await _migratePathsToRelative(db);
+    }
+    if (oldVersion < 4) {
+      // v1.0.3以降に絶対パスで再保存されたデータの再相対化
+      await _migratePathsToRelative(db);
+      // extra_data 内の originalPhotoPath も相対化
+      await _migrateExtraDataPaths(db);
+    }
+  }
+
+  /// extra_data JSON 内の originalPhotoPath を相対パスに変換
+  Future<void> _migrateExtraDataPaths(Database db) async {
+    const marker = '/Documents/';
+    final licenses = await db.query('licenses', columns: ['id', 'extra_data']);
+
+    for (final row in licenses) {
+      final extraStr = row['extra_data'] as String?;
+      if (extraStr == null || extraStr.isEmpty) continue;
+
+      try {
+        final extra = jsonDecode(extraStr) as Map<String, dynamic>;
+        final origPath = extra['originalPhotoPath'] as String?;
+        if (origPath == null || !origPath.contains(marker)) continue;
+
+        // 相対パスに変換
+        extra['originalPhotoPath'] =
+            origPath.substring(origPath.indexOf(marker) + marker.length);
+
+        await db.update(
+          'licenses',
+          {'extra_data': jsonEncode(extra)},
+          where: 'id = ?',
+          whereArgs: [row['id']],
+        );
+      } catch (e) {
+        // JSON解析失敗時はスキップ（マイグレーション全体を止めない）
+        debugPrint('extra_data migration error for id=${row['id']}: $e');
+      }
     }
   }
 

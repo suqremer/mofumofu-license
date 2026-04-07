@@ -695,6 +695,8 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
           'photoContrast': extra['photoContrast'],
         if (extra['photoSaturation'] != null)
           'photoSaturation': extra['photoSaturation'],
+        if (extra['originalPhotoPath'] != null)
+          'originalPhotoPath': extra['originalPhotoPath'],
       },
     });
   }

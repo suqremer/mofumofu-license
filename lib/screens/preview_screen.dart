@@ -310,7 +310,8 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
         if (data['photoSaturation'] != null && data['photoSaturation'] != 0.0)
           'photoSaturation': data['photoSaturation'],
         if (data['originalPhotoPath'] != null)
-          'originalPhotoPath': data['originalPhotoPath'],
+          'originalPhotoPath':
+              PathResolver.toRelative(data['originalPhotoPath'] as String),
       };
 
       final card = LicenseCard(
@@ -328,7 +329,8 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
             ? data['specialty'] as String
             : null,
         licenseType: data['licenseType'] as String,
-        photoPath: data['photoPath'] as String,
+        photoPath: PathResolver.toRelative(data['photoPath'] as String) ??
+            data['photoPath'] as String,
         costumeId: data['costumeId'] as String,
         frameColor: data['frameColor'] as String,
         templateType: data['templateType'] as String? ?? 'japan',
