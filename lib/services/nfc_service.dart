@@ -219,8 +219,10 @@ class NfcService {
 
   /// NFCタグにうちの子免許証データを書き込む
   ///
-  /// URIレコード（GitHub Pages + Base64データ）+ テキストレコードの2つを書き込む。
-  /// URIレコードを1番目に置くことで、iPhoneのバックグラウンド読み取りで自動通知される。
+  /// URIレコード1本のみ書き込む。
+  /// iPhoneのバックグラウンド読み取りで自動通知され、
+  /// Safariが開いて GitHub Pages のページが表示される。
+  /// アプリ内読み取りは、URIフラグメント内のBase64データから情報を取得する。
   Future<NfcWriteResponse> writeUchinokoTag({
     required String petName,
     required String breed,
@@ -234,7 +236,7 @@ class NfcService {
       return const NfcWriteResponse(NfcWriteResult.notAvailable);
     }
 
-    // URIとテキストの両方を生成
+    // URIを生成
     final uri = buildNfcUri(
       petName: petName,
       breed: breed,
@@ -242,19 +244,10 @@ class NfcService {
       phoneNumber: phoneNumber,
       note: note,
     );
-    final text = buildNfcText(
-      petName: petName,
-      breed: breed,
-      ownerName: ownerName,
-      phoneNumber: phoneNumber,
-      note: note,
-    );
 
-    // 2レコード（URI + テキスト）のNDEFメッセージを構築
-    // URIレコードを1番目に置くこと（iOSバックグラウンド読み取りは1番目しか見ない）
+    // URIレコード1本のNDEFメッセージを構築
     final message = NdefMessage([
       NdefRecord.createUri(Uri.parse(uri)),
-      NdefRecord.createText(text),
     ]);
 
     final estimatedBytes = estimateNdefMessageBytes(message);
@@ -357,6 +350,60 @@ class NfcService {
     return utf8.decode(textBytes, allowMalformed: true);
   }
 
+  /// NDEF URIレコードをデコードしてURI文字列を返す
+  static String? decodeNdefUriRecord(NdefRecord record) {
+    final payload = record.payload;
+    if (payload.isEmpty) return null;
+    // 最初の1バイトはURI識別コード
+    final identifierCode = payload[0];
+    final uriBytes = payload.sublist(1);
+    final uriBody = utf8.decode(uriBytes, allowMalformed: true);
+    // URI Identifier Code に応じたプレフィックスを追加
+    const prefixes = [
+      '', 'http://www.', 'https://www.', 'http://', 'https://',
+      'tel:', 'mailto:', 'ftp://anonymous:anonymous@', 'ftp://ftp.',
+      'ftps://', 'sftp://', 'smb://', 'nfs://', 'ftp://', 'dav://',
+      'news:', 'telnet://', 'imap:', 'rtsp://', 'urn:', 'pop:',
+      'sip:', 'sips:', 'tftp:', 'btspp://', 'btl2cap://', 'btgoep://',
+      'tcpobex://', 'irdaobex://', 'file://', 'urn:epc:id:',
+      'urn:epc:tag:', 'urn:epc:pat:', 'urn:epc:raw:', 'urn:epc:',
+      'urn:nfc:',
+    ];
+    final prefix = identifierCode < prefixes.length ? prefixes[identifierCode] : '';
+    return '$prefix$uriBody';
+  }
+
+  /// URIレコードからペット情報を抽出してテキスト形式（旧フォーマット）に変換
+  /// URIのフラグメント部分（#以降）にBase64エンコードされたJSONが入っている前提
+  static String? decodeUriToText(String uri) {
+    try {
+      final parsed = Uri.parse(uri);
+      final fragment = parsed.fragment;
+      if (fragment.isEmpty) return null;
+
+      final jsonBytes = base64Decode(fragment);
+      final jsonStr = utf8.decode(jsonBytes);
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      final petName = data['n'] as String? ?? '';
+      final breed = data['b'] as String? ?? '';
+      final ownerName = data['o'] as String? ?? '';
+      final phoneNumber = data['t'] as String? ?? '';
+      final note = data['r'] as String?;
+
+      return buildNfcText(
+        petName: petName,
+        breed: breed,
+        ownerName: ownerName,
+        phoneNumber: phoneNumber,
+        note: note,
+      );
+    } catch (e) {
+      debugPrint('decodeUriToText error: $e');
+      return null;
+    }
+  }
+
   /// NFCタグからテキストを読み取る
   Future<NfcReadResponse> readTag({
     int timeoutSeconds = 30,
@@ -405,14 +452,29 @@ class NfcService {
               return;
             }
 
-            // テキストレコードを探す
+            // URIレコードを優先的に探す（v1.0.5以降の新形式）
             String? text;
             for (final record in message.records) {
               if (record.typeNameFormat == NdefTypeNameFormat.nfcWellknown &&
                   record.type.length == 1 &&
-                  record.type[0] == 0x54) {
-                text = decodeNdefTextRecord(record);
-                if (text != null) break;
+                  record.type[0] == 0x55) {
+                final uri = decodeNdefUriRecord(record);
+                if (uri != null && uri.contains('uchinoko-license.com/n/')) {
+                  text = decodeUriToText(uri);
+                  if (text != null) break;
+                }
+              }
+            }
+
+            // URIレコードが見つからない場合、テキストレコードにフォールバック（v1.0.4以前の形式）
+            if (text == null) {
+              for (final record in message.records) {
+                if (record.typeNameFormat == NdefTypeNameFormat.nfcWellknown &&
+                    record.type.length == 1 &&
+                    record.type[0] == 0x54) {
+                  text = decodeNdefTextRecord(record);
+                  if (text != null) break;
+                }
               }
             }
 

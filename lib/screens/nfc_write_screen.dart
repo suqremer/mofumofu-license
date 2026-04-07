@@ -222,6 +222,7 @@ class _NfcWriteScreenState extends State<NfcWriteScreen>
             TextFormField(
               controller: _ownerController,
               decoration: _inputDecoration('飼い主名', '例: 山田太郎'),
+              maxLength: 20,
               validator: (v) =>
                   v == null || v.trim().isEmpty ? '飼い主名を入力してください' : null,
               onChanged: (_) => setState(() {}),
@@ -231,6 +232,7 @@ class _NfcWriteScreenState extends State<NfcWriteScreen>
               controller: _phoneController,
               decoration: _inputDecoration('電話番号', '例: 090-1234-5678'),
               keyboardType: TextInputType.phone,
+              maxLength: 15,
               validator: (v) =>
                   v == null || v.trim().isEmpty ? '電話番号を入力してください' : null,
               onChanged: (_) => setState(() {}),
@@ -240,7 +242,7 @@ class _NfcWriteScreenState extends State<NfcWriteScreen>
               controller: _noteController,
               decoration: _inputDecoration('特記事項（任意）', '例: 卵アレルギーあり'),
               maxLines: 2,
-              maxLength: 60,
+              maxLength: 50,
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 16),
