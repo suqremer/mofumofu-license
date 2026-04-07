@@ -1,7 +1,7 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-04-07（minne 3商品登録 + グッズ価格改定 + v1.0.4リリース + 設計書同期）
+2026-04-07（minne/Creema出品完了 + NFC URI実装 + 写真パスバグ修正 + v1.0.5審査中）
 
 ## 現在のPhase
 
@@ -11,28 +11,54 @@
 | 2 コア機能実装 | ✅ 完了 | RevenueCat課金、コスチューム47種、NFC、注文画面等 |
 | 3 法務・QA | ✅ 完了 | プライバシーポリシー、利用規約、特商法、景品表示法等 |
 | 4 申請提出 | ✅ 完了 | v1.0.0 App Store公開済み |
-| 5 v1.0.2アップデート | ✅ 完了 | バグ修正9件 + サポートID機能追加。リリース済み |
-| PVC販売準備 | ⬜ リリース後 | 注文画面実装済み、物理製造ラインは未構築 |
-| マーケ施策 | 🔄 実行中 | minne 3商品登録済み（非公開）。Creema未着手。詳細は `docs/marketing_plan.md` |
+| 5 v1.0.5アップデート | 🔄 審査中 | NFC URI対応 + 写真パスバグ修正 |
+| マーケ施策 | 🔄 実行中 | minne審査中、Creema公開済み |
+
+## v1.0.5の変更内容（審査中）
+
+1. **NFC URI対応**：iPhoneでアプリ不要で読み取り可能に
+   - URIレコード（`https://uchinoko-license.com/n/#<Base64>`）+ テキストレコードの2レコード書き込み
+   - GitHub Pages（`docs/n/index.html`）でペット情報を表示
+   - フラグメント方式でサーバーに個人情報が残らない設計
+2. **写真パスバグ修正**：アプデ後に編集画面で証明写真が消える問題
+   - PathResolverにセルフヒーリング追加
+   - preview_screenで保存時に相対パス化
+   - DBバージョン3→4: extra_data.originalPhotoPathを相対化するマイグレーション
+   - collection_screen/info_input_screenでoriginalPhotoPathを中継
+3. **グッズ価格改定**：カード¥2,280 / タグ¥2,480 / セット¥3,980（v1.0.4で対応済み）
+
+## ハンドメイド出品状況
+
+| 商品 | minne | Creema |
+|------|-------|--------|
+| PVCカード ¥2,780 | 🔄 審査中 | ✅ 公開中 |
+| レジンタグ ¥2,980 | 🔄 審査中 | ✅ 公開中 |
+| セット ¥4,980 | 🔄 審査中 | ✅ 公開中 |
+
+- ユーザーID: `uchinoko-co`（minne/Creema共通）
+- 出品情報の全文は `docs/marketing_plan.md` セクション2参照
+- アプリへの言及は規約対策で「制作プロセスの説明」として自然に組み込み済み
 
 ## Next Action（優先度順）
 
 | # | タスク | 参照ドキュメント | 備考 |
 |---|--------|----------------|------|
-| 1 | **Creemaに出品**（minne内容を転用） | `docs/marketing_plan.md` セクション2 | 作品名・説明文・価格はmarketing_plan.mdに全文記載済み。コピペで転用可 |
-| 2 | minne 3商品の作品画像を撮影・設定→公開 | `docs/marketing_plan.md` セクション2 | PVCカード/レジンタグ/セット、非公開で登録済み |
+| 1 | minne 3商品の審査通過待ち | — | 通常1〜2日 |
+| 2 | TestFlight v1.0.5の動作確認 | — | NFC書き込み→iPhoneかざして自動通知が出るか、写真パス修正が効くか |
 | 3 | TikTokアカウント開設＋動画投稿 | `docs/marketing_plan.md` セクション3 | 動画案10本あり。特に#2,6,10がおすすめ |
-| 4 | App Storeスクリーンショット改善 | `docs/marketing_plan.md` セクション4.5 | 犬猫の魅力的な作例を追加 |
-| 5 | AdMob app-ads.txt認証待ち | — | `docs/app-ads.txt` 設置済み、GitHub Pages公開済み |
+| 4 | SNSで「Creemaに出品しました」告知 | — | Twitter/Xで開発ストーリーと共に |
+| 5 | App Storeスクリーンショット改善 | `docs/marketing_plan.md` セクション4.5 | 犬猫の魅力的な作例を追加 |
+| 6 | AdMob app-ads.txt認証待ち | — | `docs/app-ads.txt` 設置済み、GitHub Pages公開済み |
 
 ## 関連ドキュメント
 
 | ファイル | 内容 |
 |---------|------|
 | `docs/design_document.md` | 技術設計（アーキテクチャ、DB、収益構造、ロードマップ） |
-| `docs/marketing_plan.md` | マーケ戦略・施策（集客、SNS、ASO、課金改善、検討会結果） |
+| `docs/marketing_plan.md` | マーケ戦略・施策（出品情報全文、SNS、ASO、課金改善） |
 | `docs/order_flow.md` | 注文〜発送の業務手順 |
 | `docs/aso_text.md` | App Store説明文の確定版 |
+| `docs/n/index.html` | NFCタグからのアクセス時に表示するペット情報ページ |
 | `CLAUDE.md` | Claude Codeへのルール・指示 |
 
 ## 今後の未修正事項（次バージョン以降の候補）
@@ -48,7 +74,7 @@
 - [ ] Android版リリース時: RevenueCat Google Play APIキーの差し替え（`lib/config/iap_config.dart` の `_googleApiKey` がダミー値のまま）
 - [ ] オファーコード作成（SNS紹介者にプレミアム無料プレゼント）
 - [ ] AdMob × Firebase リンク
-- [x] ~~AdMob app-ads.txt設置（`docs/app-ads.txt`、GitHub Pages経由で公開）~~ → 認証待ち
+- [x] ~~AdMob app-ads.txt設置~~ → 認証待ち
 - [x] ~~Stripe本番URL差し替え~~ → 完了（価格改定済み）
 - [ ] 設定画面: プレミアム購入後の即時反映確認（別Sandboxアカウントで確認必要）
 
@@ -61,7 +87,7 @@
 - [ ] クリックポスト テスト発送
 
 ### マーケ施策（実行系）
-- [ ] ハンドメイドサイト出品（minne/Creema）
+- [x] ~~ハンドメイドサイト出品（minne/Creema）~~ → minne審査中、Creema公開中
 - [ ] TikTok動画投稿開始
 - [ ] レビュー依頼ダイアログ実装（2枚目作成後）
 - [ ] シェア時ハッシュタグ自動付与の確認・実装
