@@ -56,7 +56,8 @@
 | 3 | TikTokアカウント開設＋動画投稿 | `docs/marketing_plan.md` セクション3 | 動画案10本あり。特に#2,6,10がおすすめ |
 | 4 | SNSで「Creemaに出品しました」告知 | — | Twitter/Xで開発ストーリーと共に |
 | 5 | App Storeスクリーンショット改善 | `docs/marketing_plan.md` セクション4.5 | 犬猫の魅力的な作例を追加 |
-| 6 | AdMob app-ads.txt認証待ち | — | `docs/app-ads.txt` 設置済み、GitHub Pages公開済み |
+| 6 | 実機で広告表示確認 | — | TestFlight or 本番アプリで広告枠に実広告が出るかチェック（数日は在庫不足の可能性あり） |
+| 7 | Firebase Analyticsで`ad_impression`イベント確認 | — | 2026-04-09以降、Firebase Console→Analytics→イベントで確認（リンク反映に24〜48h） |
 
 ## 関連ドキュメント
 
@@ -81,8 +82,10 @@
 ### アプリ関連
 - [ ] Android版リリース時: RevenueCat Google Play APIキーの差し替え（`lib/config/iap_config.dart` の `_googleApiKey` がダミー値のまま）
 - [ ] オファーコード作成（SNS紹介者にプレミアム無料プレゼント）
-- [ ] AdMob × Firebase リンク
-- [x] ~~AdMob app-ads.txt設置~~ → 認証待ち
+- [x] ~~AdMob × Firebase リンク~~ → 完了（2026-04-07、インプレッション単位の広告収益もON）
+- [ ] 実機で広告表示確認（TestFlight or 本番アプリ）
+- [ ] Firebase Analyticsで`ad_impression`イベント確認（2026-04-09以降）
+- [x] ~~AdMob app-ads.txt設置・認証~~ → 完了（2026-04-07 認証済み）
 - [x] ~~Stripe本番URL差し替え~~ → 完了（価格改定済み）
 - [ ] 設定画面: プレミアム購入後の即時反映確認（別Sandboxアカウントで確認必要）
 
