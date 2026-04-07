@@ -90,9 +90,12 @@ class _NfcWriteScreenState extends State<NfcWriteScreen>
 
     setState(() => _state = _NfcWriteState.waiting);
 
-    final text = _buildPreviewText();
-    final response = await NfcService.instance.writeText(
-      text: text,
+    final response = await NfcService.instance.writeUchinokoTag(
+      petName: widget.card.petName,
+      breed: widget.card.breed ?? widget.card.species,
+      ownerName: _ownerController.text,
+      phoneNumber: _phoneController.text,
+      note: _noteController.text.isEmpty ? null : _noteController.text,
       onTagDiscovered: () {
         if (mounted) {
           setState(() => _state = _NfcWriteState.writing);

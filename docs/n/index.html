@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<meta name="robots" content="noindex, nofollow">
+<title>うちの子免許証 - ペット情報</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    background: #fff8e7;
+    color: #333;
+    line-height: 1.6;
+    padding: 20px;
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .header {
+    text-align: center;
+    padding: 24px 16px;
+    background: #ffb84d;
+    color: #fff;
+    border-radius: 16px 16px 0 0;
+    margin-top: 20px;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: bold;
+  }
+  .header p {
+    font-size: 13px;
+    margin-top: 6px;
+    opacity: 0.95;
+  }
+  .card {
+    background: #fff;
+    padding: 24px 20px;
+    border-radius: 0 0 16px 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .field {
+    padding: 14px 0;
+    border-bottom: 1px solid #f0e6d2;
+  }
+  .field:last-child {
+    border-bottom: none;
+  }
+  .label {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 4px;
+  }
+  .value {
+    font-size: 17px;
+    font-weight: 500;
+    color: #333;
+    word-break: break-word;
+  }
+  .tel-link {
+    display: inline-block;
+    color: #1976d2;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 18px;
+  }
+  .tel-link:active {
+    opacity: 0.6;
+  }
+  .call-btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    margin-top: 20px;
+    background: #4caf50;
+    color: #fff;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 12px;
+    font-size: 17px;
+    font-weight: bold;
+    box-shadow: 0 2px 6px rgba(76,175,80,0.3);
+  }
+  .call-btn:active {
+    opacity: 0.8;
+  }
+  .notice {
+    margin-top: 20px;
+    padding: 16px;
+    background: #fff3cd;
+    border-radius: 12px;
+    font-size: 13px;
+    color: #6b5b1f;
+    line-height: 1.7;
+  }
+  .footer {
+    text-align: center;
+    margin-top: 24px;
+    padding: 16px;
+    font-size: 11px;
+    color: #999;
+  }
+  .error {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🐾 ペット情報</h1>
+    <p>このページは、保護されたペットの飼い主情報を表示しています</p>
+  </div>
+  <div class="card" id="card">
+    <div class="error">読み込み中...</div>
+  </div>
+  <div class="footer">
+    <p>うちの子免許証</p>
+  </div>
+</div>
+
+<script>
+(function() {
+  var card = document.getElementById('card');
+
+  function setText(el, text) {
+    el.textContent = text || '（未登録）';
+  }
+
+  function createField(label, value, isTel) {
+    var field = document.createElement('div');
+    field.className = 'field';
+
+    var labelEl = document.createElement('div');
+    labelEl.className = 'label';
+    labelEl.textContent = label;
+
+    var valueEl = document.createElement('div');
+    valueEl.className = 'value';
+
+    if (isTel && value) {
+      var link = document.createElement('a');
+      link.className = 'tel-link';
+      link.href = 'tel:' + value.replace(/[^0-9+]/g, '');
+      link.textContent = value;
+      valueEl.appendChild(link);
+    } else {
+      setText(valueEl, value);
+    }
+
+    field.appendChild(labelEl);
+    field.appendChild(valueEl);
+    return field;
+  }
+
+  function showError(message) {
+    card.innerHTML = '';
+    var err = document.createElement('div');
+    err.className = 'error';
+    err.textContent = message;
+    card.appendChild(err);
+  }
+
+  function decodeData() {
+    var hash = window.location.hash;
+    if (!hash || hash.length < 2) {
+      showError('ペット情報が見つかりません');
+      return;
+    }
+
+    var encoded = hash.substring(1);
+    var jsonStr;
+    try {
+      var binary = atob(encoded);
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      jsonStr = new TextDecoder('utf-8').decode(bytes);
+    } catch (e) {
+      showError('ペット情報の読み込みに失敗しました');
+      return;
+    }
+
+    var data;
+    try {
+      data = JSON.parse(jsonStr);
+    } catch (e) {
+      showError('ペット情報の解析に失敗しました');
+      return;
+    }
+
+    card.innerHTML = '';
+    card.appendChild(createField('ペット名', data.n));
+    card.appendChild(createField('品種', data.b));
+    card.appendChild(createField('飼い主', data.o));
+    card.appendChild(createField('連絡先', data.t, true));
+    if (data.r) {
+      card.appendChild(createField('特記事項', data.r));
+    }
+
+    if (data.t) {
+      var btn = document.createElement('a');
+      btn.className = 'call-btn';
+      btn.href = 'tel:' + data.t.replace(/[^0-9+]/g, '');
+      btn.textContent = '📞 飼い主さんに電話する';
+      card.appendChild(btn);
+    }
+
+    var notice = document.createElement('div');
+    notice.className = 'notice';
+    notice.textContent = '迷子のペットを保護していただきありがとうございます。飼い主さんへのご連絡をお願いいたします。';
+    card.appendChild(notice);
+  }
+
+  decodeData();
+})();
+</script>
+</body>
+</html>

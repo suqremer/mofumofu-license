@@ -57,9 +57,47 @@ class NfcService {
   /// NTAG215の有効容量（バイト）
   static const int maxCapacity = 504;
 
+  /// NFC情報表示ページのベースURL
+  static const String nfcPageBaseUrl = 'https://uchinoko-license.com/n/';
+
   /// テキストのバイト数を計算（UTF-8）
   static int calculateBytes(String text) {
     return utf8.encode(text).length;
+  }
+
+  /// NDEFメッセージ全体のおおよそのバイト数を計算
+  /// （実効ペイロード = 全レコードのpayload + ヘッダーオーバーヘッド）
+  static int estimateNdefMessageBytes(NdefMessage message) {
+    int total = 0;
+    for (final record in message.records) {
+      // 各レコードのオーバーヘッド：ヘッダー(1) + type長(1) + payload長(1〜4) + type
+      total += 4 + record.type.length + record.payload.length;
+    }
+    // TLV等の追加オーバーヘッド
+    total += 6;
+    return total;
+  }
+
+  /// NFCタグに書き込むURI（GitHub Pages + Base64データ）を生成
+  static String buildNfcUri({
+    required String petName,
+    required String breed,
+    required String ownerName,
+    required String phoneNumber,
+    String? note,
+  }) {
+    final data = <String, String>{
+      'n': petName,
+      'b': breed,
+      'o': ownerName,
+      't': phoneNumber,
+    };
+    if (note != null && note.isNotEmpty) {
+      data['r'] = note;
+    }
+    final jsonStr = jsonEncode(data);
+    final base64Str = base64Encode(utf8.encode(jsonStr));
+    return '$nfcPageBaseUrl#$base64Str';
   }
 
   /// NFC書き込みデータを生成
@@ -171,6 +209,130 @@ class NfcService {
       if (!completer.isCompleted) {
         return NfcWriteResponse(
           NfcWriteResult.writeFailed, 'startSession threw: $e');
+      }
+    }
+
+    final result = await completer.future;
+    timer.cancel();
+    return result;
+  }
+
+  /// NFCタグにうちの子免許証データを書き込む
+  ///
+  /// URIレコード（GitHub Pages + Base64データ）+ テキストレコードの2つを書き込む。
+  /// URIレコードを1番目に置くことで、iPhoneのバックグラウンド読み取りで自動通知される。
+  Future<NfcWriteResponse> writeUchinokoTag({
+    required String petName,
+    required String breed,
+    required String ownerName,
+    required String phoneNumber,
+    String? note,
+    VoidCallback? onTagDiscovered,
+    int timeoutSeconds = 30,
+  }) async {
+    if (!await isAvailable()) {
+      return const NfcWriteResponse(NfcWriteResult.notAvailable);
+    }
+
+    // URIとテキストの両方を生成
+    final uri = buildNfcUri(
+      petName: petName,
+      breed: breed,
+      ownerName: ownerName,
+      phoneNumber: phoneNumber,
+      note: note,
+    );
+    final text = buildNfcText(
+      petName: petName,
+      breed: breed,
+      ownerName: ownerName,
+      phoneNumber: phoneNumber,
+      note: note,
+    );
+
+    // 2レコード（URI + テキスト）のNDEFメッセージを構築
+    // URIレコードを1番目に置くこと（iOSバックグラウンド読み取りは1番目しか見ない）
+    final message = NdefMessage([
+      NdefRecord.createUri(Uri.parse(uri)),
+      NdefRecord.createText(text),
+    ]);
+
+    final estimatedBytes = estimateNdefMessageBytes(message);
+    if (estimatedBytes > maxCapacity) {
+      return const NfcWriteResponse(NfcWriteResult.capacityExceeded);
+    }
+
+    final completer = Completer<NfcWriteResponse>();
+
+    final timer = Timer(Duration(seconds: timeoutSeconds), () {
+      if (!completer.isCompleted) {
+        NfcManager.instance.stopSession();
+        completer.complete(const NfcWriteResponse(NfcWriteResult.timeout));
+      }
+    });
+
+    try {
+      await NfcManager.instance.startSession(
+        pollingOptions: {NfcPollingOption.iso14443},
+        onDiscovered: (NfcTag tag) async {
+          onTagDiscovered?.call();
+
+          try {
+            if (completer.isCompleted) return;
+
+            final ndef = Ndef.from(tag);
+            if (ndef == null || !ndef.isWritable) {
+              if (!completer.isCompleted) {
+                completer.complete(const NfcWriteResponse(
+                    NfcWriteResult.writeFailed,
+                    'Ndef.from returned null or not writable'));
+              }
+              NfcManager.instance
+                  .stopSession(errorMessage: 'このタグは書き込みに対応していません');
+              return;
+            }
+
+            if (ndef.maxSize < estimatedBytes) {
+              if (!completer.isCompleted) {
+                completer.complete(
+                    const NfcWriteResponse(NfcWriteResult.capacityExceeded));
+              }
+              NfcManager.instance
+                  .stopSession(errorMessage: 'タグの容量が不足しています');
+              return;
+            }
+
+            await ndef.write(message);
+            if (!completer.isCompleted) {
+              completer
+                  .complete(const NfcWriteResponse(NfcWriteResult.success));
+            }
+            NfcManager.instance.stopSession();
+          } catch (e) {
+            debugPrint('NFC writeUchinokoTag error: $e');
+            if (!completer.isCompleted) {
+              completer.complete(NfcWriteResponse(
+                  NfcWriteResult.writeFailed, 'onDiscovered error: $e'));
+            }
+            NfcManager.instance.stopSession(errorMessage: '書き込みに失敗しました');
+          }
+        },
+        onError: (error) async {
+          debugPrint('NFC session error: $error');
+          final detail =
+              'onError: type=${error.type}, message=${error.message}';
+          if (!completer.isCompleted) {
+            completer.complete(
+                NfcWriteResponse(NfcWriteResult.writeFailed, detail));
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('NFC start session error: $e');
+      timer.cancel();
+      if (!completer.isCompleted) {
+        return NfcWriteResponse(
+            NfcWriteResult.writeFailed, 'startSession threw: $e');
       }
     }
 
