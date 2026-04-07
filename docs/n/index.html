@@ -216,6 +216,14 @@
     notice.className = 'notice';
     notice.textContent = '迷子のペットを保護していただきありがとうございます。飼い主さんへのご連絡をお願いいたします。';
     card.appendChild(notice);
+
+    var privacy = document.createElement('div');
+    privacy.className = 'notice';
+    privacy.style.background = '#f5f5f5';
+    privacy.style.color = '#666';
+    privacy.style.fontSize = '11px';
+    privacy.textContent = 'このページに表示されている情報は、NFCタグから直接読み取られたものです。当サイトのサーバーには一切保存されません。URLをコピーしたり、ブックマークに保存したりしないようご注意ください。';
+    card.appendChild(privacy);
   }
 
   decodeData();
