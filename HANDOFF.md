@@ -1,7 +1,7 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-04-07（minne/Creema出品完了 + NFC URI実装 + 写真パスバグ修正 + NFC容量対策 + v1.0.5再submit済み・審査中）
+2026-04-07（AdMob app-ads.txt認証完了 + AdMob×Firebaseリンク完了 + NFC情報ページにApp Store導線追加・push済み）
 
 ## 現在のPhase
 
@@ -14,7 +14,24 @@
 | 5 v1.0.5アップデート | 🔄 審査中 | NFC URI対応 + 写真パスバグ修正 + NFC容量対策（再submit済み、TestFlightで全項目テスト通過済み） |
 | マーケ施策 | 🔄 実行中 | minne審査中、Creema公開済み |
 
-## v1.0.5の変更内容（再ビルド準備中）
+## 直近セッションでの変更（2026-04-07）
+
+### AdMob関連（管理画面のみで完結、コード変更なし）
+- ✅ **app-ads.txt 認証完了**：「準備完了：アプリ内広告を配信する準備が整っています」表示確認
+- ✅ **AdMob × Firebase リンク完了**：iOSアプリを既存Firebaseプロジェクトに紐付け
+- ✅ **インプレッション単位の広告収益 ON**：全地域の広告収益データをFirebase Analyticsに送信
+
+### NFC情報ページにApp Store導線を追加（commit 94441bf, push済み）
+- `docs/n/index.html`：ペット情報カードの**外側・下**にアプリ紹介セクションを追加
+  - エラー時にも表示される構造（`card`の中身を書き換えても残る）
+  - 小見出し「うちの子免許証」+ キャッチコピー + App Storeバッジ
+  - リンク先: `https://apps.apple.com/jp/app/うちの子免許証/id6760520451`
+  - `target="_blank" rel="noopener"` で新規タブ
+- `docs/n/app-store-badge.svg`：Apple公式日本語版バッジ（黒）を新規配置
+- `docs/design_document.md` 9.6 にNFCタグをアプリプロモ媒体として活用する設計意図を記載
+- Android版リリース時はGoogle Playバッジを並べて表示する方針
+
+## v1.0.5の変更内容（審査中）
 
 1. **NFC URI対応**：iPhoneでアプリ不要で読み取り可能に
    - 書き込みは **URIレコード1本のみ**（容量節約のためテキストレコード併載は廃止）
@@ -111,6 +128,12 @@
 3. RevenueCatダッシュボード → Customers → IDで検索
 4. Grant Promotional Entitlement → 「Uchino Ko License Pro」→ Lifetime
 5. 友達にアプリ再起動を依頼
+
+## 別PCで作業引き継ぐ場合
+1. `git pull` で最新を取得
+2. このHANDOFF.mdを最初に読む（現状把握）
+3. `docs/design_document.md` で技術設計を確認
+4. 直近のcommit `94441bf` までpush済み
 
 ## 注意事項
 - このファイルは毎セッション終了時に上書き更新される
