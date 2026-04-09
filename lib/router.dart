@@ -18,7 +18,10 @@ import 'screens/editor/photo_editor_screen.dart';
 import 'screens/camera_guide_screen.dart';
 import 'screens/nfc_write_screen.dart';
 import 'screens/nfc_read_screen.dart';
+import 'screens/help_screen.dart';
+import 'screens/help_detail_screen.dart';
 import 'models/license_card.dart';
+import 'data/help_contents.dart';
 
 /// 作成フロー用のスライドアニメーション（右からスライドイン）
 CustomTransitionPage<void> _slideTransition({
@@ -162,6 +165,23 @@ final router = GoRouter(
       path: '/nfc-read',
       pageBuilder: (context, state) =>
           _fadeTransition(state: state, child: const NfcReadScreen()),
+    ),
+
+    // ヘルプ
+    GoRoute(
+      path: '/help',
+      pageBuilder: (context, state) =>
+          _fadeTransition(state: state, child: const HelpScreen()),
+    ),
+    GoRoute(
+      path: '/help/detail',
+      pageBuilder: (context, state) {
+        final item = state.extra as HelpItem;
+        return _slideTransition(
+          state: state,
+          child: HelpDetailScreen(item: item),
+        );
+      },
     ),
   ],
 );
