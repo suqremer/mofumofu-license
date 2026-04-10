@@ -663,7 +663,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
   }
 
   Future<void> _saveCardToGallery(LicenseCard card) async {
-    final path = card.savedImagePath;
+    final path = card.resolvedSavedImagePath;
     if (path == null || !File(path).existsSync()) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
