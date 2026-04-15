@@ -66,7 +66,7 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              'v1.0.7',
+                              'v1.0.8',
                               style: TextStyle(
                                   fontSize: 14, color: AppColors.textMedium),
                             ),
@@ -264,7 +264,7 @@ class SettingsScreen extends ConsumerWidget {
                     onTap: () => showLicensePage(
                       context: context,
                       applicationName: 'うちの子免許証',
-                      applicationVersion: '1.0.6',
+                      applicationVersion: '1.0.8',
                     ),
                   ),
                 ],

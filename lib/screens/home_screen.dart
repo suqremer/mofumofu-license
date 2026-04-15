@@ -184,7 +184,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   'うちの子公安委員会',
                   style: GoogleFonts.zenMaruGothic(
                     fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.textMedium,
                     letterSpacing: 2.0,
                   ),
@@ -701,7 +701,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             style: GoogleFonts.zenMaruGothic(
               fontSize: 12,
               color: AppColors.textMedium,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: AppSpacing.xs),

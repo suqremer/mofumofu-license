@@ -21,7 +21,7 @@ abstract final class AppTypography {
 
   static TextStyle get headingSmall => GoogleFonts.zenMaruGothic(
     fontSize: 18,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w700,
     color: AppColors.textDark,
     height: 1.3,
   );
