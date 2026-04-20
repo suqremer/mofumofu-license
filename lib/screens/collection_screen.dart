@@ -400,8 +400,8 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 _detailActionButton(
-                  icon: Icons.local_shipping_outlined,
-                  label: '注文',
+                  icon: Icons.credit_card_rounded,
+                  label: '実物カードに',
                   onTap: () {
                     Navigator.pop(ctx);
                     context.push('/order');

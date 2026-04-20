@@ -837,6 +837,20 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
           SizedBox(width: double.infinity, child: primaryButton),
           const SizedBox(height: AppSpacing.sm),
           secondaryRow,
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: isReady ? () => context.push('/order') : null,
+              icon: const Icon(Icons.credit_card, size: 18),
+              label: const Text('うちの子を実物カードに'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.accent,
+                side: const BorderSide(color: AppColors.accent),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
           const SizedBox(height: AppSpacing.xs),
           TextButton.icon(
             onPressed: () => context.go('/'),

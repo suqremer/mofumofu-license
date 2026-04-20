@@ -101,6 +101,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   _buildProductShowcase(),
                   const SizedBox(height: 20),
                   _buildTicketCta(context),
+                  const SizedBox(height: 12),
+                  _buildMerchandiseBanner(context),
                   const SizedBox(height: 10),
                   if (!AppPreferences.isPremium) _buildMonthlyCounter(),
                   const SizedBox(height: 20),
@@ -112,6 +114,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   _buildIssuedLicenses(context, licensesAsync),
                   const SizedBox(height: 20),
                   _buildTicketCta(context),
+                  const SizedBox(height: 12),
+                  _buildMerchandiseBanner(context),
                   const SizedBox(height: 10),
                   if (!AppPreferences.isPremium) _buildMonthlyCounter(),
                   const SizedBox(height: 20),
@@ -347,6 +351,81 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   // ─────────────────────────────────────────────
+  // 実物グッズバナー
+  // ─────────────────────────────────────────────
+
+  Widget _buildMerchandiseBanner(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => context.push('/order'),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: 14),
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+              border: Border.all(
+                color: AppColors.accent.withValues(alpha: 0.4),
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.credit_card_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'うちの子を実物カードに',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'お家に届ける  ¥2,280〜',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.accent,
+                  size: 24,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────
   // 残数バッジ（累計制限）
   // ─────────────────────────────────────────────
 
@@ -441,10 +520,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             children: [
               Expanded(
                 child: _CounterCard(
-                  icon: Icons.local_shipping_rounded,
-                  label: '実物グッズ',
-                  subtitle: '注文する',
-                  onTap: () => context.push('/order'),
+                  icon: Icons.help_outline_rounded,
+                  label: 'ヘルプ',
+                  subtitle: 'よくある質問',
+                  onTap: () => context.push('/help'),
                 ),
               ),
               const SizedBox(width: 12),
