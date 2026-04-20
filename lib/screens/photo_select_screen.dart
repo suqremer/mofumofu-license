@@ -35,6 +35,7 @@ class _PhotoSelectScreenState extends State<PhotoSelectScreen> {
       );
 
       if (pickedFile == null) {
+        if (!mounted) return;
         setState(() => _isProcessing = false);
         return;
       }
@@ -50,14 +51,13 @@ class _PhotoSelectScreenState extends State<PhotoSelectScreen> {
       final savedPath = '${docDir.path}/photos/picked_$timestamp.$ext';
       await File(pickedFile.path).copy(savedPath);
 
+      if (!mounted) return;
       setState(() => _isProcessing = false);
 
-      if (mounted) {
-        await context.push('/create/info', extra: savedPath);
-      }
+      await context.push('/create/info', extra: savedPath);
     } on PlatformException catch (e) {
-      setState(() => _isProcessing = false);
       if (!mounted) return;
+      setState(() => _isProcessing = false);
 
       // カメラ/写真ライブラリの権限拒否を検出
       if (e.code == 'camera_access_denied' ||
@@ -93,9 +93,10 @@ class _PhotoSelectScreenState extends State<PhotoSelectScreen> {
 
     try {
       final result = await context.push<String>('/create/camera');
+      if (!mounted) return;
       setState(() => _isProcessing = false);
 
-      if (result != null && mounted) {
+      if (result != null) {
         await context.push('/create/info', extra: result);
       }
     } catch (e) {

@@ -54,12 +54,14 @@ class _CameraGuideScreenState extends State<CameraGuideScreen>
   Future<void> _initCamera() async {
     try {
       _cameras = await availableCameras();
+      if (!mounted) return;
       if (_cameras.isEmpty) {
         setState(() => _error = 'カメラが見つかりません');
         return;
       }
       await _setupCamera();
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = 'カメラの起動に失敗しました');
     }
   }
@@ -88,6 +90,7 @@ class _CameraGuideScreenState extends State<CameraGuideScreen>
         _error = null;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = 'カメラの起動に失敗しました');
     }
   }

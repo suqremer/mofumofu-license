@@ -254,6 +254,7 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
     // 1. 免許証スライドイン（窓口から出てくる演出）
     _slideController.forward(from: 0.0);
     await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
 
     // 2. フラッシュ + バイブ + SE
     _flashController.forward(from: 0.0);
@@ -265,10 +266,13 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
     }
 
     // 3. 印鑑スタンプ（ポンッ）
+    if (!mounted) return;
     await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
     _stampController.forward(from: 0.0);
     // スタンプ着地時に軽いバイブ
     await Future.delayed(const Duration(milliseconds: 360));
+    if (!mounted) return;
     HapticFeedback.mediumImpact();
   }
 
