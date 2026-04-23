@@ -493,7 +493,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               style: AppTypography.headingSmall,
             ),
           ),
-          // 2×2 グリッド
+          // 2×3 グリッド
           Row(
             children: [
               Expanded(
@@ -511,6 +511,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   label: 'ペット手帳',
                   subtitle: '健康記録',
                   onTap: () => context.push('/pet-notebook'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _CounterCard(
+                  icon: Icons.nfc_rounded,
+                  label: 'NFC書き込み',
+                  subtitle: 'カードに登録',
+                  onTap: () => context.push('/nfc-write'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _CounterCard(
+                  icon: Icons.contactless_rounded,
+                  label: 'NFC読み取り',
+                  subtitle: 'カードを読む',
+                  onTap: () => context.push('/nfc-read'),
                 ),
               ),
             ],

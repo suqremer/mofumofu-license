@@ -6,11 +6,12 @@ import '../theme/colors.dart';
 /// NFC書き込み画面
 ///
 /// 免許証のペット情報をNFCタグに書き込む。
-/// 飼い主名・電話番号・特記事項はユーザーが入力/編集できる。
+/// card が指定された場合: ペット名・品種は免許証から自動入力（読み取り専用）
+/// card が null の場合: ペット名・品種も手入力（独立起動時）
 class NfcWriteScreen extends StatefulWidget {
-  final LicenseCard card;
+  final LicenseCard? card;
 
-  const NfcWriteScreen({super.key, required this.card});
+  const NfcWriteScreen({super.key, this.card});
 
   @override
   State<NfcWriteScreen> createState() => _NfcWriteScreenState();
@@ -26,6 +27,8 @@ enum _NfcWriteState {
 
 class _NfcWriteScreenState extends State<NfcWriteScreen>
     with SingleTickerProviderStateMixin {
+  late final TextEditingController _petNameController;
+  late final TextEditingController _breedController;
   final _ownerController = TextEditingController();
   final _phoneController = TextEditingController();
   final _noteController = TextEditingController();
@@ -38,9 +41,18 @@ class _NfcWriteScreenState extends State<NfcWriteScreen>
   late AnimationController _successAnimController;
   late Animation<double> _successScaleAnim;
 
+  /// 独立起動か（免許証未選択でアクセスされたか）
+  bool get _isStandalone => widget.card == null;
+
   @override
   void initState() {
     super.initState();
+    _petNameController = TextEditingController(
+      text: widget.card?.petName ?? '',
+    );
+    _breedController = TextEditingController(
+      text: widget.card?.breed ?? widget.card?.species ?? '',
+    );
     _successAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -56,6 +68,8 @@ class _NfcWriteScreenState extends State<NfcWriteScreen>
 
   @override
   void dispose() {
+    _petNameController.dispose();
+    _breedController.dispose();
     _ownerController.dispose();
     _phoneController.dispose();
     _noteController.dispose();
@@ -73,8 +87,8 @@ class _NfcWriteScreenState extends State<NfcWriteScreen>
 
   String _buildPreviewText() {
     return NfcService.buildNfcText(
-      petName: widget.card.petName,
-      breed: widget.card.breed ?? widget.card.species,
+      petName: _petNameController.text,
+      breed: _breedController.text,
       ownerName: _ownerController.text,
       phoneNumber: _phoneController.text,
       note: _noteController.text.isEmpty ? null : _noteController.text,
@@ -91,8 +105,8 @@ class _NfcWriteScreenState extends State<NfcWriteScreen>
     setState(() => _state = _NfcWriteState.waiting);
 
     final response = await NfcService.instance.writeUchinokoTag(
-      petName: widget.card.petName,
-      breed: widget.card.breed ?? widget.card.species,
+      petName: _petNameController.text,
+      breed: _breedController.text,
       ownerName: _ownerController.text,
       phoneNumber: _phoneController.text,
       note: _noteController.text.isEmpty ? null : _noteController.text,
@@ -207,13 +221,32 @@ class _NfcWriteScreenState extends State<NfcWriteScreen>
             ),
             const SizedBox(height: 24),
 
-            // ペット情報（自動入力・読み取り専用）
+            // ペット情報（card がある時は自動入力・読み取り専用、ない時は手入力）
             _buildSectionHeader('ペット情報'),
             const SizedBox(height: 8),
-            _buildReadOnlyField('ペット名', widget.card.petName),
-            const SizedBox(height: 8),
-            _buildReadOnlyField(
-                '品種', widget.card.breed ?? widget.card.species),
+            if (_isStandalone) ...[
+              TextFormField(
+                controller: _petNameController,
+                decoration: _inputDecoration('ペット名', '例: ポチ'),
+                maxLength: 20,
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'ペット名を入力してください' : null,
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _breedController,
+                decoration: _inputDecoration('品種', '例: 柴犬'),
+                maxLength: 30,
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? '品種を入力してください' : null,
+                onChanged: (_) => setState(() {}),
+              ),
+            ] else ...[
+              _buildReadOnlyField('ペット名', _petNameController.text),
+              const SizedBox(height: 8),
+              _buildReadOnlyField('品種', _breedController.text),
+            ],
             const SizedBox(height: 20),
 
             // 飼い主情報（入力可能）

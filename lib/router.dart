@@ -154,7 +154,7 @@ final router = GoRouter(
     GoRoute(
       path: '/nfc-write',
       pageBuilder: (context, state) {
-        final card = state.extra as LicenseCard;
+        final card = state.extra as LicenseCard?;
         return _fadeTransition(
           state: state,
           child: NfcWriteScreen(card: card),

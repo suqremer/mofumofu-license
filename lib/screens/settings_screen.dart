@@ -66,7 +66,7 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              'v1.0.9',
+                              'v1.1.0',
                               style: TextStyle(
                                   fontSize: 14, color: AppColors.textMedium),
                             ),
@@ -162,6 +162,26 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () => PaywallBottomSheet.show(context),
                     ),
                   ],
+                ],
+              ),
+
+              // ── ツール ──
+              _sectionHeader('ツール'),
+              _sectionCard(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.nfc_rounded),
+                    title: const Text('NFCカードに書き込む'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/nfc-write'),
+                  ),
+                  _thinDivider(),
+                  ListTile(
+                    leading: const Icon(Icons.contactless_rounded),
+                    title: const Text('NFCカードを読み取る'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/nfc-read'),
+                  ),
                 ],
               ),
 
@@ -264,7 +284,7 @@ class SettingsScreen extends ConsumerWidget {
                     onTap: () => showLicensePage(
                       context: context,
                       applicationName: 'うちの子免許証',
-                      applicationVersion: '1.0.9',
+                      applicationVersion: '1.1.0',
                     ),
                   ),
                 ],
