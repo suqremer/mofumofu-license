@@ -277,11 +277,16 @@
 
 ### 物理カード製造ライン
 - [x] ~~カード裏面デザイン作成~~ → 完了（2026-04-27、`assets/print_templates/card_back.png`、QRコードはNFC一本に集約のため不採用）
-- [x] ~~印刷テンプレートのbleed確認~~ → 完了（91.6×60mm @350dpi、塗り足し3mm込み、`generate_card_back.py` で再生成可能）
+- [x] ~~印刷テンプレートのbleed確認~~ → 完了（91.6×60mm @600dpi、塗り足し3mm込み、`generate_card_back.py` で再生成可能）
 - [ ] NTAG215カードテスト
 - [ ] 印刷品質テスト
 - [ ] 梱包資材調達・テスト
 - [ ] クリックポスト テスト発送
+
+### 物理タグ製造ライン
+- [x] ~~タグ裏面デザイン作成~~ → 完了（2026-04-27、`assets/print_templates/tag_back.png`、Φ25mm円形PNG @1200dpi、`generate_tag_back.py` で再生成可能）
+- [ ] 印刷品質テスト（レジン越しの視認性確認）
+- [ ] レジン埋め込み実装テスト
 
 ### マーケ施策（実行系）
 - [x] ~~ハンドメイドサイト出品（minne/Creema）~~ → minne審査中、Creema公開中
