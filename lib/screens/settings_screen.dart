@@ -66,7 +66,7 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              'v1.1.0',
+                              'v1.1.1',
                               style: TextStyle(
                                   fontSize: 14, color: AppColors.textMedium),
                             ),
