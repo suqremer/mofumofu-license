@@ -76,6 +76,26 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
   void initState() {
     super.initState();
 
+    // マナーモード時は音を鳴らさず振動のみ残す。
+    // - iOS: AVAudioSessionCategory.ambient -> マナーモード(消音スイッチON)で自動的に音が止まる
+    // - Android: AndroidUsageType.notification -> マナーモードを尊重
+    // 振動(HapticFeedback) は両OS共にマナーモードでも鳴るので、フィードバックは残る。
+    _audioPlayer.setAudioContext(
+      AudioContext(
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.ambient,
+          options: const {AVAudioSessionOptions.mixWithOthers},
+        ),
+        android: AudioContextAndroid(
+          isSpeakerphoneOn: false,
+          stayAwake: false,
+          contentType: AndroidContentType.sonification,
+          usageType: AndroidUsageType.notification,
+          audioFocus: AndroidAudioFocus.none,
+        ),
+      ),
+    );
+
     // フラッシュ
     _flashController = AnimationController(
       duration: const Duration(milliseconds: 400),

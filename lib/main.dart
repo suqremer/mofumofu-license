@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
@@ -37,10 +39,33 @@ void main() async {
   // フォントはアプリにバンドル済み。ネットからのダウンロードを禁止
   GoogleFonts.config.allowRuntimeFetching = false;
 
-  // Firebase初期化
+  // 軽量な初期化を並行で実行（起動時間短縮）
+  await Future.wait([
+    _initFirebase(),
+    PathResolver.init(),
+    AppPreferences.init(),
+  ]);
+
+  // 課金状態は広告表示判定（shouldShowAds）に必要なので順次 await
+  await PurchaseManager.instance.initialize();
+
+  // 広告SDK と ONNX ランタイムは非ブロッキング（runApp 後にバックグラウンドで完了）
+  // - 広告SDK: UMP同意フローで最大10秒待つ可能性があるため、起動を引っ張らせない
+  // - ONNX: 数秒のロード時間。背景自動削除を初めて使う時までに完了していればOK
+  unawaited(AdManager.instance.initialize());
+  unawaited(
+    BackgroundRemover.instance.initializeOrt().catchError((e) {
+      debugPrint('BackgroundRemover init failed: $e');
+    }),
+  );
+
+  runApp(const ProviderScope(child: MofumofuApp()));
+}
+
+/// Firebase 初期化 + Crashlytics 設定（Future.wait で並行実行できるよう関数化）
+Future<void> _initFirebase() async {
   try {
     await Firebase.initializeApp();
-
     // Crashlytics設定（デバッグ時は無効）
     if (!kDebugMode) {
       FlutterError.onError =
@@ -53,18 +78,6 @@ void main() async {
   } catch (e) {
     debugPrint('Firebase init failed: $e');
   }
-
-  await PathResolver.init();
-  await AppPreferences.init();
-  await PurchaseManager.instance.initialize();
-  await AdManager.instance.initialize();
-
-  // 背景自動削除用 ONNX ランタイム初期化（バックグラウンドで実行、起動をブロックしない）
-  BackgroundRemover.instance.initializeOrt().catchError((e) {
-    debugPrint('BackgroundRemover init failed: $e');
-  });
-
-  runApp(const ProviderScope(child: MofumofuApp()));
 }
 
 class MofumofuApp extends StatelessWidget {
@@ -77,6 +90,15 @@ class MofumofuApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
+      // 全画面共通: 背景タップでキーボードを閉じる
+      // TextField やボタン上のタップは各 Widget がイベントを消費するため干渉しない
+      builder: (context, child) {
+        return GestureDetector(
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          behavior: HitTestBehavior.opaque,
+          child: child,
+        );
+      },
       // 日本語ローカリゼーション
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
