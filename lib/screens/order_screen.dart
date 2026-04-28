@@ -179,7 +179,7 @@ class _NfcGuideSection extends StatelessWidget {
             const SizedBox(height: 8),
             _buildStep('1', 'コレクション画面で書き込みたいカードをタップ'),
             _buildStep('2', '「NFC」ボタン →「書き込み」を選択'),
-            _buildStep('3', 'NTAG215タグをiPhoneの上部にかざす'),
+            _buildStep('3', 'NTAG215タグをスマートフォンの上部にかざす'),
             _buildStep('4', '完了メッセージが出たら書き込み成功'),
             const SizedBox(height: 16),
 
@@ -187,7 +187,7 @@ class _NfcGuideSection extends StatelessWidget {
             _buildSubHeader('書き込み内容を確認する方法'),
             const SizedBox(height: 6),
             _buildStep('1', 'コレクション画面で「NFC」ボタン →「読み取り」を選択'),
-            _buildStep('2', '書き込み済みのタグをiPhoneの上部にかざす'),
+            _buildStep('2', '書き込み済みのタグをスマートフォンの上部にかざす'),
             _buildStep('3', 'ペット名や飼い主情報が正しく表示されればOK'),
             const SizedBox(height: 16),
 

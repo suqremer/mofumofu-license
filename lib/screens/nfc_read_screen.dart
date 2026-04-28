@@ -298,7 +298,7 @@ class _NfcReadScreenState extends State<NfcReadScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'iOSのNFCダイアログでタグをかざしてください',
+            'NFCタグに端末の上部をかざしてください',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.textMedium,
@@ -505,7 +505,7 @@ class _NfcReadScreenState extends State<NfcReadScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'iOSのNFCダイアログでタグをかざしてください',
+            '消去するタグに端末の上部をかざしてください',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.textMedium,
