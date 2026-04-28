@@ -134,8 +134,15 @@ class _PhotoSelectScreenState extends State<PhotoSelectScreen> {
           FilledButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // iOSの設定アプリを開く
-              launchUrl(Uri.parse('app-settings:'));
+              // OS別: iOSは app-settings:、Androidはアプリ詳細画面（package:）
+              if (Platform.isIOS) {
+                launchUrl(Uri.parse('app-settings:'));
+              } else {
+                launchUrl(
+                  Uri.parse('package:com.suqremer.mofumofu_license'),
+                  mode: LaunchMode.externalApplication,
+                ).catchError((_) => false);
+              }
             },
             child: const Text('設定を開く'),
           ),
