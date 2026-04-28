@@ -184,7 +184,9 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   }
 
   Future<void> _loadPhoto(String path, {bool saveAsOriginal = false}) async {
-    final file = File(path);
+    // 相対パス対応: PathResolver で絶対パスに変換してから File を開く
+    final resolvedPath = PathResolver.resolve(path) ?? path;
+    final file = File(resolvedPath);
     if (!await file.exists()) return;
     final bytes = await file.readAsBytes();
     final codec = await ui.instantiateImageCodec(bytes);
@@ -210,8 +212,9 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
     if (_photoPath != null) {
       await _loadPhoto(_photoPath!);
     }
-    // 元画像を復元ブラシ用にロード
-    final origFile = File(originalPath);
+    // 元画像を復元ブラシ用にロード（相対パス対応）
+    final resolvedOriginal = PathResolver.resolve(originalPath) ?? originalPath;
+    final origFile = File(resolvedOriginal);
     if (await origFile.exists()) {
       final bytes = await origFile.readAsBytes();
       final codec = await ui.instantiateImageCodec(bytes);

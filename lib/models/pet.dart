@@ -55,6 +55,10 @@ class Pet {
     );
   }
 
+  /// モデルをDBのMapに変換
+  ///
+  /// photoPath は DB 保存時に必ず相対パス化する
+  /// （iOS の UUID 変動 / Android の Documents パス差異対策）。
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
@@ -63,7 +67,7 @@ class Pet {
       'breed': breed,
       'birth_date': birthDate?.toIso8601String(),
       'gender': gender,
-      'photo_path': photoPath,
+      'photo_path': PathResolver.toRelative(photoPath),
       'hospital_name': hospitalName,
       'microchip_number': microchipNumber,
       'insurance_info': insuranceInfo,

@@ -27,6 +27,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../services/path_resolver.dart';
 import '../theme/colors.dart';
 
 // ---------------------------------------------------------------------------
@@ -145,7 +146,9 @@ class _MaskEditScreenState extends State<MaskEditScreen> {
 
   Future<void> _loadImage() async {
     try {
-      final file = File(_imagePath!);
+      // 相対パス対応: PathResolver で絶対パスに変換してから File を開く
+      final resolvedPath = PathResolver.resolve(_imagePath!) ?? _imagePath!;
+      final file = File(resolvedPath);
       final bytes = await file.readAsBytes();
       final codec = await ui.instantiateImageCodec(bytes);
       final frame = await codec.getNextFrame();

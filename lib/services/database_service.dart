@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
@@ -39,15 +40,18 @@ class DatabaseService {
       await db.execute(
           'ALTER TABLE licenses ADD COLUMN extra_data TEXT');
     }
-    if (oldVersion < 3) {
-      // フルパス→相対パスに変換（iOSアプデでUUIDが変わる問題の対応）
-      await _migratePathsToRelative(db);
-    }
-    if (oldVersion < 4) {
-      // v1.0.3以降に絶対パスで再保存されたデータの再相対化
-      await _migratePathsToRelative(db);
-      // extra_data 内の originalPhotoPath も相対化
-      await _migrateExtraDataPaths(db);
+    // v3 / v4 のパス相対化マイグレーションは iOS の `/Documents/` マーカー
+    // 方式に依存しているため、iOS でのみ実行する。
+    // Android では PathResolver の改修により、既存のフルパスデータが
+    // あっても resolve() がセルフヒーリングするため、マイグレーション不要。
+    if (Platform.isIOS) {
+      if (oldVersion < 3) {
+        await _migratePathsToRelative(db);
+      }
+      if (oldVersion < 4) {
+        await _migratePathsToRelative(db);
+        await _migrateExtraDataPaths(db);
+      }
     }
   }
 

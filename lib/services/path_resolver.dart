@@ -1,10 +1,20 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// ファイルパスの解決ユーティリティ
 ///
 /// iOSではアプリアップデート時にサンドボックスのUUIDが変わるため、
 /// DBにフルパスを保存すると無効になる。
-/// このクラスは相対パス↔フルパスの変換を一元管理する。
+/// Androidでは Documents パスに `/Documents/` という文字列が含まれず、
+/// `/data/user/0/<package>/app_flutter/` が使われるため、
+/// `/Documents/` マーカー方式は使えない。
+///
+/// このクラスは両OS対応の相対パス↔フルパスの変換を一元管理する。
+/// 設計ポイント:
+/// - **チェック1（両OS共通）**: `_documentsPath` を直接アンカーとして相対化
+/// - **チェック2（iOS のみ）**: `/Documents/` マーカーで旧UUIDパスをセルフヒーリング
+/// - **冪等性**: 既に相対パスの場合は何度呼んでも同じ結果
 ///
 /// アプリ起動時に [init] を呼んで初期化すること。
 class PathResolver {
@@ -24,45 +34,133 @@ class PathResolver {
     _documentsPath = dir.path;
   }
 
-  /// 相対パスまたはフルパスからフルパスを返す
-  ///
-  /// - 相対パス（例: `licenses/license_123.png`）→ Documentsパスと結合
-  /// - フルパス（例: `/var/mobile/.../Documents/licenses/license_123.png`）→
-  ///   `/Documents/` 以降を取り出して現Documentsに付け替える（セルフヒーリング）
-  ///   これによりアプデでUUIDが変わっても旧絶対パスから読み込めるようになる
-  /// - null → null
-  static String? resolve(String? path) {
-    if (path == null || path.isEmpty) return null;
-    if (path.startsWith('/')) {
-      // フルパスの場合、/Documents/ 以降を取り出して現Documentsに付け替える
-      const marker = '/Documents/';
-      final idx = path.indexOf(marker);
-      if (idx != -1) {
-        return '$_documentsPath/${path.substring(idx + marker.length)}';
-      }
-      // /Documents/ が含まれないフルパスはそのまま返す
-      return path;
-    }
-    // 相対パスならDocumentsパスと結合
-    return '$_documentsPath/$path';
+  /// テスト用：_documentsPath を直接設定
+  @visibleForTesting
+  // ignore: avoid_setters_without_getters
+  static set documentsPathForTest(String? path) {
+    _documentsPath = path;
   }
 
-  /// フルパスから相対パス（Documents/以降）を抽出する
+  // ───────────────────────────────────────────────────────
+  // resolve: 相対パス or フルパス → フルパス
+  // ───────────────────────────────────────────────────────
+
+  /// 相対パスまたはフルパスからフルパスを返す
   ///
-  /// - フルパスに `/Documents/` が含まれる場合 → その後ろを返す
-  /// - 既に相対パスの場合 → そのまま返す
-  /// - null → null
-  static String? toRelative(String? path) {
+  /// - 相対パス → Documentsパスと結合
+  /// - フルパス（現Documents配下）→ そのまま
+  /// - フルパス（旧UUID等）→ セルフヒーリングで現Documentsに付け替え
+  /// - 救済不能の絶対パス → そのまま返す（呼び出し側で File 存在チェック推奨）
+  /// - null/empty → null
+  static String? resolve(String? path) {
+    return _resolveImpl(path, isIOS: Platform.isIOS);
+  }
+
+  /// テスト用：iOS フラグを引数で受ける版
+  @visibleForTesting
+  static String? resolveForTest(String? path, {required bool isIOS}) {
+    return _resolveImpl(path, isIOS: isIOS);
+  }
+
+  static String? _resolveImpl(String? path, {required bool isIOS}) {
     if (path == null || path.isEmpty) return null;
-    // 既に相対パス（/で始まらない）ならそのまま
-    if (!path.startsWith('/')) return path;
-    // /Documents/ 以降を切り出す
-    const marker = '/Documents/';
-    final idx = path.indexOf(marker);
-    if (idx != -1) {
-      return path.substring(idx + marker.length);
+    final docsPath = _documentsPath;
+    if (docsPath == null) return path;
+
+    // 相対パス → Documents パスと結合
+    if (!_isAbsolute(path)) {
+      return '$docsPath/$path';
     }
-    // /Documents/ が見つからない場合（tmpパス等）はファイル名だけ返す
+
+    // 既に現Documents配下ならそのまま
+    if (path == docsPath || path.startsWith('$docsPath/')) {
+      return path;
+    }
+
+    // iOS の /private プレフィックス対応
+    if (isIOS && path.startsWith('/private$docsPath/')) {
+      return path;
+    }
+
+    // セルフヒーリング: 旧パスから救済
+    final relative = _extractRelativeImpl(path, isIOS: isIOS);
+    if (relative != null) {
+      return '$docsPath/$relative';
+    }
+
+    // 救済不可、そのまま返す
+    return path;
+  }
+
+  // ───────────────────────────────────────────────────────
+  // toRelative: 絶対パス → 相対パス（冪等）
+  // ───────────────────────────────────────────────────────
+
+  /// フルパスから相対パス（Documents以降）を抽出する
+  ///
+  /// - 既に相対パス → そのまま返す（**冪等性**）
+  /// - 現Documents配下のフルパス → Documents以降を返す
+  /// - iOS のみ: `/Documents/` マーカーで旧UUIDパスを救済
+  /// - フォールバック: ファイル名のみ（バグ検出のため debugPrint）
+  /// - null/empty → null
+  static String? toRelative(String? path) {
+    return _toRelativeImpl(path, isIOS: Platform.isIOS);
+  }
+
+  /// テスト用：iOS フラグを引数で受ける版
+  @visibleForTesting
+  static String? toRelativeForTest(String? path, {required bool isIOS}) {
+    return _toRelativeImpl(path, isIOS: isIOS);
+  }
+
+  static String? _toRelativeImpl(String? path, {required bool isIOS}) {
+    if (path == null || path.isEmpty) return null;
+
+    // 既に相対パス → そのまま返す（冪等性）
+    if (!_isAbsolute(path)) return path;
+
+    final docsPath = _documentsPath;
+    if (docsPath == null) {
+      return path.split('/').last;
+    }
+
+    final extracted = _extractRelativeImpl(path, isIOS: isIOS);
+    if (extracted != null) return extracted;
+
+    // フォールバック: ファイル名のみ（バグ検出のため debugPrint）
+    if (kDebugMode) {
+      // ignore: avoid_print
+      print('[PathResolver] Fallback used (file name only): $path');
+    }
     return path.split('/').last;
   }
+
+  /// 絶対パスから相対パス部分を抽出する内部ヘルパ（resolve / toRelative 共通）
+  static String? _extractRelativeImpl(String absolute, {required bool isIOS}) {
+    final docsPath = _documentsPath;
+    if (docsPath == null) return null;
+
+    // チェック1: 現 Documents パスから直接相対化（両OS対応の本命）
+    if (absolute.startsWith('$docsPath/')) {
+      return absolute.substring(docsPath.length + 1);
+    }
+
+    // iOS の /private プレフィックス対応
+    if (isIOS && absolute.startsWith('/private$docsPath/')) {
+      return absolute.substring('/private$docsPath/'.length);
+    }
+
+    // チェック2: iOS マーカー（旧 UUID パス対応、セルフヒーリング）
+    if (isIOS) {
+      const iosMarker = '/Documents/';
+      final idx = absolute.indexOf(iosMarker);
+      if (idx != -1) {
+        return absolute.substring(idx + iosMarker.length);
+      }
+    }
+
+    return null;
+  }
+
+  static bool _isAbsolute(String path) => path.startsWith('/');
 }

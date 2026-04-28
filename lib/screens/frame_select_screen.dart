@@ -9,6 +9,7 @@ import '../models/costume.dart';
 import '../models/costume_overlay.dart';
 import '../models/license_template.dart';
 import '../services/license_painter.dart';
+import '../services/path_resolver.dart';
 import '../services/purchase_manager.dart';
 import '../theme/colors.dart';
 
@@ -368,7 +369,9 @@ class _FrameSelectScreenState extends State<FrameSelectScreen>
     _isLoadingPhoto = true;
 
     try {
-      final file = File(path);
+      // 相対パス対応: PathResolver で絶対パスに変換してから File を開く
+      final resolvedPath = PathResolver.resolve(path) ?? path;
+      final file = File(resolvedPath);
       final bytes = await file.readAsBytes();
       final codec = await ui.instantiateImageCodec(bytes);
       final frame = await codec.getNextFrame();

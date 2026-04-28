@@ -16,11 +16,11 @@ void main() {
           'gender': '♀',
           'specialty': 'ごろごろ',
           'license_type': 'にゃん転免許',
-          'photo_path': '/photos/tama.jpg',
+          'photo_path': 'photos/tama.jpg',
           'costume_id': 'sailor',
           'frame_color': 'silver',
           'template_type': 'usa',
-          'saved_image_path': '/saved/tama_license.png',
+          'saved_image_path': 'saved/tama_license.png',
           'created_at': now.toIso8601String(),
           'updated_at': now.toIso8601String(),
         };
@@ -30,7 +30,7 @@ void main() {
           'pet_name': 'ポチ',
           'species': '犬',
           'license_type': 'わん転免許',
-          'photo_path': '/photos/pochi.jpg',
+          'photo_path': 'photos/pochi.jpg',
           'created_at': now.toIso8601String(),
           'updated_at': now.toIso8601String(),
         };
@@ -47,11 +47,11 @@ void main() {
         expect(card.gender, '♀');
         expect(card.specialty, 'ごろごろ');
         expect(card.licenseType, 'にゃん転免許');
-        expect(card.photoPath, '/photos/tama.jpg');
+        expect(card.photoPath, 'photos/tama.jpg');
         expect(card.costumeId, 'sailor');
         expect(card.frameColor, 'silver');
         expect(card.templateType, 'usa');
-        expect(card.savedImagePath, '/saved/tama_license.png');
+        expect(card.savedImagePath, 'saved/tama_license.png');
         expect(card.createdAt, now);
         expect(card.updatedAt, now);
       });
@@ -67,7 +67,7 @@ void main() {
         expect(card.gender, isNull);
         expect(card.specialty, isNull);
         expect(card.licenseType, 'わん転免許');
-        expect(card.photoPath, '/photos/pochi.jpg');
+        expect(card.photoPath, 'photos/pochi.jpg');
         // デフォルト値の確認
         expect(card.costumeId, 'gakuran');
         expect(card.frameColor, 'gold');
@@ -106,11 +106,11 @@ void main() {
         expect(map['gender'], '♀');
         expect(map['specialty'], 'ごろごろ');
         expect(map['license_type'], 'にゃん転免許');
-        expect(map['photo_path'], '/photos/tama.jpg');
+        expect(map['photo_path'], 'photos/tama.jpg');
         expect(map['costume_id'], 'sailor');
         expect(map['frame_color'], 'silver');
         expect(map['template_type'], 'usa');
-        expect(map['saved_image_path'], '/saved/tama_license.png');
+        expect(map['saved_image_path'], 'saved/tama_license.png');
         expect(map['created_at'], now.toIso8601String());
         expect(map['updated_at'], now.toIso8601String());
       });
@@ -180,11 +180,11 @@ void main() {
           gender: '♂',
           specialty: 'ジャンプ',
           licenseType: 'うちの子免許',
-          photoPath: '/photos/new.jpg',
+          photoPath: 'photos/new.jpg',
           costumeId: 'kimono',
           frameColor: 'black',
           templateType: 'usa',
-          savedImagePath: '/saved/new.png',
+          savedImagePath: 'saved/new.png',
           createdAt: newDate,
           updatedAt: newDate,
         );
@@ -197,11 +197,11 @@ void main() {
         expect(copied.gender, '♂');
         expect(copied.specialty, 'ジャンプ');
         expect(copied.licenseType, 'うちの子免許');
-        expect(copied.photoPath, '/photos/new.jpg');
+        expect(copied.photoPath, 'photos/new.jpg');
         expect(copied.costumeId, 'kimono');
         expect(copied.frameColor, 'black');
         expect(copied.templateType, 'usa');
-        expect(copied.savedImagePath, '/saved/new.png');
+        expect(copied.savedImagePath, 'saved/new.png');
         expect(copied.createdAt, newDate);
         expect(copied.updatedAt, newDate);
       });

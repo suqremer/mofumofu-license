@@ -67,6 +67,10 @@ class LicenseCard {
   }
 
   /// モデルをDBのMapに変換
+  ///
+  /// photoPath / savedImagePath は DB 保存時に必ず相対パス化する
+  /// （iOS の UUID 変動 / Android の Documents パス差異対策）。
+  /// PathResolver.toRelative は冪等なので、すでに相対パスの場合もそのまま返る。
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
@@ -77,11 +81,11 @@ class LicenseCard {
       'gender': gender,
       'specialty': specialty,
       'license_type': licenseType,
-      'photo_path': photoPath,
+      'photo_path': PathResolver.toRelative(photoPath) ?? photoPath,
       'costume_id': costumeId,
       'frame_color': frameColor,
       'template_type': templateType,
-      'saved_image_path': savedImagePath,
+      'saved_image_path': PathResolver.toRelative(savedImagePath),
       'extra_data': extraData != null ? jsonEncode(extraData) : null,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
