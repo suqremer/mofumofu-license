@@ -200,17 +200,25 @@ LicenseComposer.compose()
 ### 3.5 画像パス管理
 
 iOSではアプリアップデート時にサンドボックスのUUIDが変わるため、DBにフルパスを保存すると無効になる。
-この問題に対応するため、`PathResolver` で相対パス↔フルパスの変換を一元管理する。
+Android では Documents パスが `/data/user/0/<package>/app_flutter/...` となり、iOS の `/Documents/` マーカー方式が使えない。
+これら両 OS の差異に対応するため、`PathResolver` で相対パス↔フルパスの変換を一元管理する。
 
 - **DB保存**: 相対パスで保存（例: `licenses/license_123.png`）
 - **File操作**: `PathResolver.resolve()` でDocumentsパスと結合してフルパスに復元
-- **セルフヒーリング**: `resolve()` は絶対パスを受け取った場合も `/Documents/` 以降を取り出して現Documentsに付け替える。これによりDB内に旧UUIDの絶対パスが残っていても自動復旧できる
+- **多段フォールバック方式**（v1.2.0で改修、両OS対応）:
+  - チェック1: `_documentsPath` を直接アンカーとして相対化（両 OS 共通の本命）
+  - チェック2: iOS のみ `/Documents/` マーカーで旧 UUID パスをセルフヒーリング（`Platform.isIOS` ガード）
+  - フォールバック: ファイル名のみ（バグ検出のため debugPrint）
+- **冪等性**: 既に相対パスならそのまま返す（ダブル相対化防止）
 - **Documentsパスキャッシュ**: アプリ起動時に `PathResolver.init()` で1回取得してstaticに保持
 - **マイグレーション**:
   - DBバージョン3で `licenses.photo_path`/`saved_image_path` と `pets.photo_path` をフルパスから相対パスに変換
   - DBバージョン4で `extra_data` JSON 内の `originalPhotoPath` も相対パス化（v1.0.5で追加）
-- **保存時の相対パス化**: `preview_screen.dart` で `LicenseCard` を保存する前に `PathResolver.toRelative()` で必ず相対化する。新規・編集どちらの経路でも絶対パスがDBに混入しないようにガード
+  - v1.2.0 で v3/v4 マイグレーションを `Platform.isIOS` でガード（Android では `_documentsPath` 直接アンカー方式で透過的に解決できるため不要）
+- **保存時の相対パス化**: `LicenseCard.toMap()` / `Pet.toMap()` で `PathResolver.toRelative()` を呼んで必ず相対化（v1.2.0 で追加、新規・編集どちらの経路でも絶対パスがDBに混入しないようガード）
+- **読み込み時の resolve**: 各画面で `File()` に渡す前に `PathResolver.resolve()` を必ず呼ぶ（frame_select_screen / photo_editor_screen / mask_edit_screen 等）
 - **写真保存先**: `Documents/photos/`（tmp/はOSに随時削除される可能性があるため使用しない）
+- **ユニットテスト**: `test/services/path_resolver_test.dart` で iOS / Android パターンを網羅し冪等性も検証
 
 ---
 

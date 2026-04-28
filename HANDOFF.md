@@ -1,7 +1,7 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-04-20（v1.1.0 リリース済み / NFC独立導線追加）
+2026-04-28（v1.2.0 候補ビルド作成 / Android リリース準備対応）
 
 ## 現在のPhase
 
@@ -17,7 +17,55 @@
 | 8 v1.0.8アップデート | ✅ 完了 | ZenMaruGothic Mediumウェイト未登録によるクラッシュ修正（2026-04-15 リリース済み） |
 | 9 v1.0.9アップデート | ✅ 完了 | AnimationController dispose後操作クラッシュ修正 + 物理商品導線強化4点（2026-04-17頃 リリース済み） |
 | 10 v1.1.0アップデート | ✅ 完了 | NFC独立導線追加（ホーム画面2×3グリッド + 設定画面ツールセクション、2026-04-20 リリース済み） |
+| 11 Android初リリース準備 | 🔄 進行中 | 写真パス対応・ProGuard・INTERNET権限・NFC文言・起動高速化等の修正を実装、Android実機で動作確認済み（2026-04-27〜28） |
 | マーケ施策 | 🔄 実行中 | minne審査中、Creema公開済み、Instagram `@uchinoko_co` ブースト広告配信中（PCブラウザ経由でApple手数料回避、¥240/日×13日） |
+
+## 直近セッションでの変更（2026-04-27〜2026-04-28: Android リリース準備対応）
+
+### 物理商品 裏面デザインデータ整備（commit 0776c70, e1c41c6, push済み）
+- カード裏面（91.6×60mm @600dpi）+ タグ裏面（Φ25mm 円形PNG @1200dpi）を `assets/print_templates/` 配下に整備
+- Pillow 製の再生成スクリプト同梱（PCクラッシュで元データ失った教訓を活かしてgit管理化）
+
+### Android リリース準備対応（commits b436635, 4dd5b00, 8e62169, c790410, 未push）
+
+#### 写真パス Android 対応（commit b436635）
+- **症状**: 作成済み免許証編集でペット画像消失、タグ用丸形画像で写真表示NG
+- **原因**: `PathResolver` の `/Documents/` マーカー方式が iOS 前提、Android で `path.split('/').last` フォールバックに落ちサブディレクトリ情報消失
+- **修正**: `_documentsPath` 直接アンカー方式の多段フォールバックに改修、iOS マーカーは `Platform.isIOS` ガード化
+- DB マイグレーション v3/v4 も `Platform.isIOS` でガード（Android で誤発火しないよう保険）
+- ユニットテスト 25 件追加（iOS/Android パスパターン網羅、冪等性検証）
+- 関連修正: `license_card.dart` / `pet.dart` の toMap で `toRelative` を呼ぶ、各画面の `File()` 直渡しを `resolve()` 経由に
+
+#### Android リリースビルド対応（commit 4dd5b00）
+- **ONNX Runtime クラッシュ修正**: `android/app/proguard-rules.pro` 新規作成、ai.onnxruntime.* / Flutter / AdMob / Firebase / RevenueCat / NFC を R8 から保護。`isMinifyEnabled = true` 有効化
+- **INTERNET / ACCESS_NETWORK_STATE 権限**追加（広告・課金・Firebase 通信用）
+- **Google Services / Crashlytics プラグイン適用**（Mapping ファイル自動アップロード）
+- `app-settings:` URL スキームを `Platform.isIOS` でガード（Android では package: でアプリ詳細画面）
+
+#### NFC UI 文言の OS 別対応（commit 8e62169）
+- 「iOSのNFCダイアログでタグをかざしてください」→「NFCタグに端末の上部をかざしてください」（読み取り画面・消去画面）
+- 「iPhoneの上部にかざす」→「スマートフォンの上部にかざす」（注文画面・ヘルプ書き込み方法）
+- ヘルプの「読み取り方法 - 方法2」「対応機種」を `Platform.isIOS` で出し分け（iOS 既存文言完全維持）
+- `kHelpItems` を `const List` → `final List` に変更
+
+#### 起動高速化 + UX 改善（commit c790410）
+- main.dart の起動初期化を `Future.wait` で並列化（Firebase / PathResolver / AppPreferences を同時実行）
+- AdManager / BackgroundRemover を `unawaited` で非ブロッキング化
+- **実機計測: Android 起動時間 12〜13秒 → 1〜2秒**
+- MaterialApp.builder で全画面共通のキーボード閉じ処理（背景タップ→unfocus）
+- preview_screen の AudioPlayer に AudioContext 設定（マナーモード時は振動のみ、通常モードは音+振動）
+
+#### 動作確認状況
+- ✅ Android 実機で広告表示・起動高速化・キーボード閉じ・マナーモード対応 を確認
+- ✅ 写真パス問題は新規データで解消確認（既存テストデータは Phase B 修正前の壊れた状態のため削除前提）
+- ⏳ NFC 書き込み・読み取りは実機テスト未実施（しゅーと出先のため）
+- ⏳ iOS 実機回帰テスト（v1.1.0 → v1.2.0）未実施
+
+#### 既知の保留事項
+- **RevenueCat Google Play APIキー差し替え未対応**（`lib/config/iap_config.dart` の `_googleApiKey` がダミー値、リリース前必須）
+- **Google Play Console デベロッパーアカウント本人確認2項目**（しゅーと作業、Androidモバイルアプリでの確認・電話番号確認）
+- **文字ズレ問題（license_painter.dart の fontFamily 未指定）** はリリース後 v1.2.x で対応予定（iOS 既存ユーザー保護のため Platform.isAndroid 限定で対応）
+- **作成数2枚制限のAndroid引き継ぎ**: flutter_secure_storage の OS 仕様（iOS Keychainは残る、Android は消える）として許容、ヘルプにも明記しない方針（α回避）
 
 ## 直近セッションでの変更（2026-04-15〜2026-04-20）
 
@@ -262,15 +310,27 @@
 
 ## リリース後タスク
 
+### Android 初リリース前必須タスク（v1.2.0 リリース判定基準）
+- [ ] **RevenueCat Google Play APIキーの差し替え**（`lib/config/iap_config.dart` の `_googleApiKey` がダミー値のまま）
+- [ ] **Google Play Console デベロッパーアカウント本人確認**（Androidモバイルアプリでの確認・連絡先電話番号の確認）
+- [ ] keystore（`android/upload-keystore.jks`）の暗号化バックアップを複数箇所に保管（PCクラッシュ事故対策）
+- [ ] **iOS 実機回帰テスト**（v1.1.0 → v1.2.0 アップデートで既存データ保持・写真表示・編集が動作するか）
+- [ ] Android 実機 NFC 書き込み・読み取りテスト
+- [ ] Google Play Console アプリ作成・ストア素材アップロード（アイコン、フィーチャーグラフィック、スクショ、データセーフティ申告）
+- [ ] Internal Testing で実機ダウンロード確認 → Closed Testing → Production の段階公開
+
 ### アプリ関連
-- [ ] Android版リリース時: RevenueCat Google Play APIキーの差し替え（`lib/config/iap_config.dart` の `_googleApiKey` がダミー値のまま）
-- [ ] **Android版リリース時: ヘルプのNFC方法2(かざすだけ読み取り)の挙動を調査・修正**
-   - 現在のヘルプはiOS前提で書いている（画面上部に通知→タップでブラウザ）
-   - Android版では挙動が違う可能性があるため、Android実機で検証してヘルプを更新
+- [x] ~~Android版リリース時: ヘルプのNFC方法2(かざすだけ読み取り)の挙動を調査・修正~~ → 完了（2026-04-28、`Platform.isIOS` 分岐でiOS文言維持・Android用文言追加）
 - [ ] オファーコード作成（SNS紹介者にプレミアム無料プレゼント）
 - [x] ~~AdMob × Firebase リンク~~ → 完了（2026-04-07、インプレッション単位の広告収益もON）
-- [ ] 実機で広告表示確認（TestFlight or 本番アプリ）
+- [x] ~~実機で広告表示確認~~ → Android 実機で表示確認済み（2026-04-28、INTERNET権限+Google Servicesプラグイン適用後）
 - [ ] Firebase Analyticsで`ad_impression`イベント確認（2026-04-09以降）
+- [ ] **文字ズレ問題（license_painter.dart の fontFamily 未指定）の根本対応**（リリース後 v1.2.x で `Platform.isAndroid` 分岐限定の修正、iOS 既存ユーザー保護のため）
+- [ ] **AndroidManifest.xml に NDEF Intent Filter 追加検討**（NFCタグタッチでアプリ起動の選択肢、現状はブラウザで開く挙動）
+- [ ] CupertinoDatePicker → showDatePicker（Android UX 改善、Android 分岐）
+- [ ] Adaptive Icon / Themed Icon 設定（flutter_launcher_icons の `adaptive_icon_*` 追加）
+- [ ] 未使用の `image_cropper` 依存を pubspec.yaml から削除
+- [ ] 作成数2枚制限の Google Sign-In 連携（Android 引き継ぎ問題の根本解決、v1.3.x 以降検討）
 - [x] ~~AdMob app-ads.txt設置・認証~~ → 完了（2026-04-07 認証済み）
 - [x] ~~Stripe本番URL差し替え~~ → 完了（価格改定済み）
 - [ ] 設定画面: プレミアム購入後の即時反映確認（別Sandboxアカウントで確認必要）
