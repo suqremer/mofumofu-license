@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -231,8 +232,11 @@ class LicensePainter extends CustomPainter {
       ..strokeWidth = 3 * s;
 
     // ══════════ Row 0: 氏名 (gT → r1, full width gL→fR) ══════════
+    // Android のフォントメトリクス差で「氏名」ラベルが iOS より上にずれて見えるため、
+    // Android のみ Y 座標を 3 * s 下げて補正（iOS は v1.1.0 と同一の位置を維持）
+    final shimeiY = Platform.isAndroid ? -16 * s : -20 * s;
     _drawText(canvas, '氏名',
-        Offset(gL + lW / 2 - 10 * s, gT + (r1 - gT) / 2 - 20 * s),
+        Offset(gL + lW / 2 - 10 * s, gT + (r1 - gT) / 2 + shimeiY),
         fontSize: 25 * s,
         color: _textBlack,
         bold: true,
@@ -263,15 +267,20 @@ class LicensePainter extends CustomPainter {
 
     // ── 品種（氏名行と住所行の間に小さく表示）──
     if (breed != null && breed!.isNotEmpty && breed != '不明') {
+      // Android のフォントメトリクス差を補正（2 * s 下げ）
+      final breedY = Platform.isAndroid ? -13 * s : -15 * s;
       _drawText(canvas, breed!,
-          Offset(vL + 10 * s, r1 + (r1b - r1) / 2 - 15 * s),
+          Offset(vL + 10 * s, r1 + (r1b - r1) / 2 + breedY),
           fontSize: 18 * s,
           color: _textBlack);
     }
 
     // ══════════ Row 1: 住所 (r1b → r2, full width gL→fR) ══════════
+    // Android のフォントメトリクス差で「住所」ラベルが上にずれて見えるため、
+    // 氏名と同様に Android のみ Y 座標を 4 * s 下げて補正
+    final juushoY = Platform.isAndroid ? -16 * s : -20 * s;
     _drawText(canvas, '住所',
-        Offset(gL + lW / 2 - 10 * s, r1b + (r2 - r1b) / 2 - 20 * s),
+        Offset(gL + lW / 2 - 10 * s, r1b + (r2 - r1b) / 2 + juushoY),
         fontSize: 25 * s,
         color: _textBlack,
         bold: true,
@@ -285,8 +294,12 @@ class LicensePainter extends CustomPainter {
         maxWidth: fR - vL - 16 * s);
 
     // ══════════ Row 2: 交付 (r2 → r3, narrow gL→ugR) ══════════
+    // Android のフォントメトリクス差で「交付」ラベルと値が上にずれて見えるため、
+    // 氏名・住所と同様に Android のみ Y 座標を 4 * s 下げて補正
+    final koufuLabelY = Platform.isAndroid ? -16 * s : -20 * s;
+    final koufuValueY = Platform.isAndroid ? -19 * s : -27 * s;
     _drawText(canvas, '交付',
-        Offset(gL + lW / 2 - 10 * s, r2 + (r3 - r2) / 2 - 20 * s),
+        Offset(gL + lW / 2 - 10 * s, r2 + (r3 - r2) / 2 + koufuLabelY),
         fontSize: 25 * s,
         color: _textBlack,
         bold: true,
@@ -298,7 +311,7 @@ class LicensePainter extends CustomPainter {
         ' ${now.month.toString().padLeft(2, '0')} 月'
         ' ${now.day.toString().padLeft(2, '0')} 日';
     final code = Random(petName.hashCode + 7).nextInt(9000) + 1000;
-    _drawText(canvas, '$issued    $code', Offset(vL + 10 * s, r2 + (r3 - r2) / 2 - 27 * s),
+    _drawText(canvas, '$issued    $code', Offset(vL + 10 * s, r2 + (r3 - r2) / 2 + koufuValueY),
         fontSize: 32 * s,
         color: _textBlack,
         bold: true,
@@ -353,7 +366,7 @@ class LicensePainter extends CustomPainter {
             ? 63 * s
             : 0;
     _drawText(canvas, validityText,
-        Offset((gL + greenR) / 2 - 112 * s - validityDx, r3 + (r4 - r3) / 2 - 24 * s),
+        Offset((gL + greenR) / 2 - 112 * s - validityDx, r3 + (r4 - r3) / 2 - 26 * s),
         fontSize: 38 * s,
         color: _textBlack,
         bold: true,
@@ -483,10 +496,14 @@ class LicensePainter extends CustomPainter {
     final dateStr = '令和${wy.toString().padLeft(2, '0')}年'
         '${now.month.toString().padLeft(2, '0')}月'
         '${now.day.toString().padLeft(2, '0')}日';
+    // 種類欄の日付値の Y オフセット（Android のフォントメトリクス差で
+    // 上にずれて見えるため、交付値と同じく 8 * s 下げて補正）
+    final dateValueY = Platform.isAndroid ? -17 * s : -23 * s;
+
     // Row 0: 二・小・原
     _drawText(canvas, '二・小・原', Offset(gL + 7 * s, startY + rowH / 2 - 8 * s),
         fontSize: 12 * s, color: _textBlack, bold: true, maxWidth: 65 * s);
-    _drawText(canvas, dateStr, Offset(dateCol + 6 * s, startY + rowH / 2 - 23 * s),
+    _drawText(canvas, dateStr, Offset(dateCol + 6 * s, startY + rowH / 2 + dateValueY),
         fontSize: 30 * s, color: _textBlack, bold: true, maxWidth: 300 * s);
     final double catLeft = ugR - 316 * s;
     // 行間横線（ラベル列のみ）
@@ -496,7 +513,7 @@ class LicensePainter extends CustomPainter {
     final y1 = startY + rowH;
     _drawText(canvas, '他', Offset(gL + 31 * s, y1 + rowH / 2 - 8 * s),
         fontSize: 12 * s, color: _textBlack, bold: true, maxWidth: 65 * s);
-    _drawText(canvas, dateStr, Offset(dateCol + 6 * s, y1 + rowH / 2 - 23 * s),
+    _drawText(canvas, dateStr, Offset(dateCol + 6 * s, y1 + rowH / 2 + dateValueY),
         fontSize: 30 * s, color: _textBlack, bold: true, maxWidth: 300 * s);
     canvas.drawLine(Offset(gL, startY + rowH * 2), Offset(dateCol, startY + rowH * 2), lp);
 
@@ -504,7 +521,7 @@ class LicensePainter extends CustomPainter {
     final y2 = startY + rowH * 2;
     _drawText(canvas, '二種', Offset(gL + 24 * s, y2 + rowH / 2 - 8 * s),
         fontSize: 12 * s, color: _textBlack, bold: true, maxWidth: 65 * s);
-    _drawText(canvas, dateStr, Offset(dateCol + 6 * s, y2 + rowH / 2 - 23 * s),
+    _drawText(canvas, dateStr, Offset(dateCol + 6 * s, y2 + rowH / 2 + dateValueY),
         fontSize: 30 * s, color: _textBlack, bold: true, maxWidth: 300 * s);
 
     // 日付列の縦線（カテゴリグリッド領域まで）
