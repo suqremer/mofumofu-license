@@ -106,8 +106,12 @@
   これらのデータはすべてお客様のスマートフォン内に保存され、外部サーバーには送信されません。アプリを削除するとデータも消去されます（※下記「Keychain」に保存される情報を除きます）。
 </div>
 
-<h3>Keychainに保存される情報（iOS）</h3>
-<p>無料ユーザーの作成枚数制限を管理するため、免許証の累計作成回数をiOSのKeychainに保存しています。Keychainのデータはアプリを削除しても端末内に残りますが、当方のサーバーには送信されません。端末を初期化することで削除されます。</p>
+<h3>累計作成回数の永続保存（OS別）</h3>
+<p>無料ユーザーの作成枚数制限を管理するため、免許証の累計作成回数を以下の場所に保存しています。これらのデータが当方のサーバーに送信されることはありません。</p>
+<ul>
+  <li><strong>iOS</strong>: iOSのKeychainに保存。アプリを削除しても端末内に残ります（端末を初期化することで削除されます）</li>
+  <li><strong>Android</strong>: 暗号化された SharedPreferences（EncryptedSharedPreferences）に保存。アプリを削除すると同時にデータも削除されます</li>
+</ul>
 
 <h2>2. 第三者サービスとの情報共有</h2>
 <p>本アプリでは、以下の第三者サービスを利用しています。各サービスがデータを収集・処理する場合があります。</p>
@@ -150,13 +154,14 @@
 <p>AdMob は広告配信のために、端末の広告識別子（IDFA / GAID）やおおよその位置情報（国レベル）などを収集する場合があります。</p>
 <ul>
   <li><strong>iOS</strong>: App Tracking Transparency（ATT）に基づき、トラッキングの許可を求めるダイアログを表示します</li>
+  <li><strong>Android</strong>: Android 広告ID（AD_ID）パーミッションを使用します。端末設定で広告IDをリセット・オプトアウトすることが可能です</li>
   <li><strong>EU圏</strong>: GDPRに基づく同意管理プラットフォーム（UMP）を通じて同意を取得します</li>
 </ul>
 
 <h2>4. アプリ内課金について</h2>
-<p>本アプリでは、Apple App Store を通じたアプリ内課金（買い切り型）を提供しています。</p>
+<p>本アプリでは、Apple App Store および Google Play を通じたアプリ内課金（買い切り型）を提供しています。</p>
 <ul>
-  <li>決済処理はすべてApp Storeのシステムを通じて行われます</li>
+  <li>決済処理はすべて App Store / Google Play Billing のシステムを通じて行われます</li>
   <li>当方がクレジットカード番号や決済情報を収集・保存することはありません</li>
   <li>購入状態の管理にRevenueCatを使用しており、購入ステータスと累計作成回数がRevenueCatのサーバーに記録されます</li>
 </ul>
@@ -205,7 +210,8 @@
 <ul>
   <li><strong>アプリ内</strong>: 設定画面の「データを全て削除」から、端末内のデータ（写真・ペット情報・免許証など）を削除できます</li>
   <li><strong>アプリの削除</strong>: アプリを端末から削除すると、アプリ内のデータは消去されます</li>
-  <li><strong>Keychainデータ</strong>: iOSのKeychainに保存された作成回数は、端末の初期化により削除されます</li>
+  <li><strong>累計作成回数（iOS）</strong>: iOSのKeychainに保存された作成回数は、端末の初期化により削除されます</li>
+  <li><strong>累計作成回数（Android）</strong>: アプリの削除と同時に削除されます</li>
   <li><strong>RevenueCat</strong>: RevenueCatに記録された購入情報の削除をご希望の場合は、当方までご連絡ください</li>
 </ul>
 
@@ -217,7 +223,7 @@
 <p><a href="mailto:uchino.ko.license@gmail.com">uchino.ko.license@gmail.com</a></p>
 
 <footer>
-  <p>最終更新日: 2026年3月13日</p>
+  <p>最終更新日: 2026年4月29日</p>
   <p>&copy; 2026 suqremer</p>
 </footer>
 
