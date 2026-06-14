@@ -2,6 +2,8 @@
     <!-- ネット通信（広告・Firebase・課金・ONNXモデルロード等で必須） -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- AdMob: Android 13+（API 33+）で広告ID使用に明示的な宣言が必要 -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
     <uses-permission android:name="android.permission.NFC" />
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
     <application
