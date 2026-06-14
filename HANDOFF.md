@@ -1,7 +1,22 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-04-28（v1.2.0 候補ビルド作成 / Android リリース準備対応）
+2026-06-13（Google Play Console セットアップ完了、Internal Testing 公開、次回 v1.1.2 で注文フロー改修着手予定）
+
+## 🚨 別セッションのClaude へ：最初に読むべきこと
+
+このセッション（2026-06-13）で完了したこと:
+1. ✅ Google Play Console アプリのコンテンツ申告 **11/11 完了**
+2. ✅ ストア素材すべて準備（アイコン512×512、フィーチャーグラフィック1024×500、スマホスクショ8枚 + 7インチタブレット用8枚 + 10インチタブレット用8枚、YouTubeプロモ動画URL）
+3. ✅ ストア掲載情報入力完了 → Internal Testing 公開（**Google レビュー反映待ち**、数時間〜1日）
+4. ✅ NFC OS自動読み取り問題の判断記録（修正しない方針、後述）
+5. ✅ 次回着手する3つの「やりたいこと」を整理（後述）
+
+次回セッション開始時、まずやること:
+1. `git status` で **未push のコミット・未コミット変更の確認**
+2. `git log --oneline -10` で直近コミット履歴確認
+3. しゅーとに「Play Store 反映確認した？アプリ名・アイコンが正しく表示されてる？」と確認
+4. 次のステップ（後述「## 次回セッションで再開すべきタスク」セクション参照）
 
 ## 現在のPhase
 
@@ -17,8 +32,114 @@
 | 8 v1.0.8アップデート | ✅ 完了 | ZenMaruGothic Mediumウェイト未登録によるクラッシュ修正（2026-04-15 リリース済み） |
 | 9 v1.0.9アップデート | ✅ 完了 | AnimationController dispose後操作クラッシュ修正 + 物理商品導線強化4点（2026-04-17頃 リリース済み） |
 | 10 v1.1.0アップデート | ✅ 完了 | NFC独立導線追加（ホーム画面2×3グリッド + 設定画面ツールセクション、2026-04-20 リリース済み） |
-| 11 Android初リリース準備 | 🔄 進行中 | 写真パス対応・ProGuard・INTERNET権限・NFC文言・起動高速化等の修正を実装、Android実機で動作確認済み（2026-04-27〜28） |
+| 11 Android初リリース準備 | 🔄 進行中 | Internal Testing 公開済み（2026-06-13）、レビュー反映待ち。Closed Testing 移行 → 14日テスト → 製品版申請 が残り。並行で v1.1.2（注文フロー改修）を着手予定 |
 | マーケ施策 | 🔄 実行中 | minne審査中、Creema公開済み、Instagram `@uchinoko_co` ブースト広告配信中（PCブラウザ経由でApple手数料回避、¥240/日×13日） |
+
+## 直近セッションでの変更（2026-06-13: Play Console セットアップ完了、Internal Testing 公開）
+
+### Play Console アプリのコンテンツ申告 11/11 完了
+- プライバシーポリシー / ログイン詳細（ログイン不要）/ 広告（含む）/ コンテンツレーティング（IARC、エンタテイメントカテゴリ、暴力等なし、デジタル購入あり）/ ターゲットユーザー（13歳以上、子供向けではない）/ データセーフティ（収集データ：写真、診断情報、クラッシュログ、広告ID、購入履歴、おおよその位置情報）/ 行政アプリ（該当なし）/ 金融取引（該当なし）/ 健康（該当なし）/ アプリのカテゴリ・連絡先 / ストア掲載情報
+
+### ストア素材すべて準備（保存先）
+| 項目 | サイズ | 保存先 |
+|------|------|------|
+| アプリアイコン | 512×512 PNG | `C:\Users\azu_1\mofumofu-license\assets\icon\app_icon_512.png`（1024×1024 元素材 `assets/icon/app_icon.png` から Pillow でリサイズ生成） |
+| フィーチャーグラフィック | 1024×500 PNG | `C:\Users\azu_1\Desktop\🐾 うちの子免許証.png`（Canva で作成、犬の実物カード+タグ写真 + 「うちの子免許証」テキスト） |
+| スマホスクショ 8枚 | 1290×2796 | `C:\Users\azu_1\Desktop\skusyo\1.png` 〜 `8.png`（iOS版から流用） |
+| 7インチタブレットスクショ 8枚 | 1920×1200 | `C:\Users\azu_1\Desktop\skusyo_tablet7\1.png` 〜 `8.png`（Pillow でベージュ背景中央配置に変換） |
+| 10インチタブレットスクショ 8枚 | 2560×1600 | `C:\Users\azu_1\Desktop\skusyo_tablet10\1.png` 〜 `8.png`（同上） |
+| プロモーション動画 | YouTube | iOS版用に作成済み動画のURLを流用 |
+
+### ストア掲載情報の確定値
+- **アプリ名**: `うちの子免許証 - ペット写真の本格カード作成`
+- **短い説明（80字）**: `うちの子の写真で世界に1枚の免許証カードを作成。47種コスチューム＋6色フレームで着せ替え！NFC対応`
+- **詳細な説明（4000字）**: `docs/google_play_store_listing.md` 参照
+- **タグ5個**: エンタテイメント / ジョーク / フォトエディタ / ユーモア / 写真
+- **連絡先メアド**: `uchino.ko.license@gmail.com`
+- **連絡先ウェブサイト**: `https://uchinoko-license.com/`
+- **カテゴリ**: エンターテイメント
+- **プライバシーポリシーURL**: `https://uchinoko-license.com/privacy-policy/`
+
+### Internal Testing 公開状況
+- AAB アップロード成功（`com.suqremer.mofumofu_license`）
+- リリース名: `1.1.1 (551) - Android初リリース`
+- リリースノート記入済み
+- テスターメーリングリスト「内部テスター」作成、しゅーとの `sasuke22rui1@gmail.com` 登録済み
+- **現状: Google レビュー反映待ち**（数時間〜1日）
+- レビュー後、Play Store でアプリ名・アイコンが正しく表示される予定
+- 直接URL: `https://play.google.com/store/apps/details?id=com.suqremer.mofumofu_license`
+
+### NFC OS自動読み取り問題の判断（修正しない方針）
+- 症状: Android で NFC 書き込み成功直後、OSが別途タグを検知して「収集された新しいタグ」画面を表示
+- 検討した対応案:
+  - A: AndroidManifest.xml に Intent Filter追加 → ❌却下（知らない人がペットタグかざした時にPlayStoreに飛んでしまい迷子対策にならない）
+  - B: 「タグから離してOKを押す」フロー追加（Flutterレベル）
+  - C: enableForegroundDispatch のネイティブ実装
+- **結論: 修正しない**（リリース最短優先、迷子対策機能としては正常動作）
+- **実害が出たら（テスターから不満指摘・レビュー悪化等）再検討**
+
+### 次回着手する「やりたいこと」3つ（しゅーと2026-06-13指示、優先順位確定）
+
+#### ① 注文〜支払いフロー見直し（最優先）
+- **問題**: アプリ内「注文する」→ Stripe決済 → Googleフォーム送信 の現状フローで、**70%が決済せずフォーム送信のみで終わる**（既存収益損失中）
+- **原因仮説**: 「フォーム送信＝注文完了」のユーザー勘違い、フォーム導線が決済より目立つ、決済が面倒で離脱
+- **解決方針（A+Bハイブリッド合意済み）**:
+  1. Stripe Payment Links で「配送先住所・メアド」必須収集
+  2. Stripe Receipt Email にフォーム URL 埋め込み（順序強制：決済→メール→フォーム）
+  3. Googleフォームは「ペット写真送信専用」に簡素化
+  4. アプリ内 order_*_screen.dart の文言・導線見直し（フォームURL直接表示やめる）
+- **変更対象ファイル**:
+  - `lib/screens/order_card_screen.dart`
+  - `lib/screens/order_tag_screen.dart`
+  - `lib/screens/order_screen.dart`
+  - `docs/order_flow.md`
+- **しゅーと作業**: Stripe ダッシュボードで Payment Links 設定変更、Receipt Email カスタマイズ、Googleフォーム項目簡素化
+
+#### ② 顧客情報取得（住所・メアド）の確実化
+- **問題**: 現状、Stripe決済が完了しないと顧客情報が取得できず、決済未完了の70%は顧客との連絡手段がない
+- **解決**: ①の改修で同時解決（Stripe で必須収集）
+- **①と一体で進める**
+
+#### ③ Android迷子情報ページ（uchinoko-license.com/n/）に Google Play バッジ追加
+- **現状**: `docs/n/index.html` に App Store バッジのみ設置（`docs/n/app-store-badge.svg`）
+- **対応**: Google公式日本語版（黒）の Google Play バッジ画像を追加配置（縦並び推奨）
+- **Google Play URL**: `https://play.google.com/store/apps/details?id=com.suqremer.mofumofu_license`
+- **タイミング**: **Android 製品版公開後**（公開前は URL が 404）
+- **工数**: 30分（バッジ画像入手 + HTML編集 + push）
+
+### 優先順位の合意（しゅーと2026-06-13選択：案A）
+- **案A採用**: ①②を即対応で v1.1.2 として iOS にも配信、Android にも反映（テスト期間中の改善コミットとして製品版申請の説得材料にする）
+- 想定スケジュール:
+  - Day 0-1: ①②の調査・設計（次回セッション開始時）
+  - Day 2-4: 実装 + iOS Codemagic ビルド + Android AAB
+  - Day 3-4: 並行で Closed Testing 準備、テスター追加募集
+  - Day 5: iOS v1.1.2 リリース + Android Closed Testing 公開
+  - Day 5-18: 14日テスト
+  - Day 19: 製品版申請
+  - Day 22-25: Google 審査
+  - Day 26-30: 段階公開（同時に③のバッジ追加）
+  - Day 27〜: グッズ発送
+
+### 未push のコミット・未コミット変更
+- **未push のコミット**:
+  - `3c01c2a docs: プライバシーポリシーをAndroid対応版に更新` (2026-05-01のセッション後、push 認証エラーで止まったまま)
+- **未コミット変更（git status で見えるはず）**:
+  - `android/app/src/main/AndroidManifest.xml`: AD_ID パーミッション追加（2026-05-02のビルド時に修正）
+  - `docs/google_play_store_listing.md`: 素材保存先パスを追記
+  - `HANDOFF.md`: 今回（2026-06-13）の更新（次回セッション開始時にはコミット済みのはず）
+- **未追跡ファイル**:
+  - `docs/data_safety_declaration.md` (2026-05-01作成、データセーフティ申告メモ)
+  - `docs/google_play_store_listing.md` (2026-05-01作成、ストア掲載文叩き台)
+  - `docs/tester_recruitment.md` (2026-05-01作成、テスター募集セット)
+  - `assets/icon/app_icon_512.png` (2026-06-13生成、Google Play用アイコン)
+- **次回セッション開始時、しゅーとに「push してOK？」確認の上、まとめてpush推奨**
+
+### push 認証エラーの注意
+- 2026-05-02時点で `git push` が `Invalid username or token. Password authentication is not supported.` エラーで失敗
+- しゅーと環境で GitHub の Personal Access Token 期限切れ or credential helper 問題の可能性
+- 次回 push する前に解消が必要（しゅーとが GitHub Desktop / VSCode の GitHub 拡張 / `gh auth login` で対応）
+
+---
 
 ## 直近セッションでの変更（2026-04-27〜2026-04-28: Android リリース準備対応）
 
@@ -395,6 +516,15 @@
 - [ ] Firebase Analyticsで`ad_impression`イベント確認（2026-04-09以降）
 - [ ] **文字ズレ問題（license_painter.dart の fontFamily 未指定）の根本対応**（リリース後 v1.2.x で `Platform.isAndroid` 分岐限定の修正、iOS 既存ユーザー保護のため）
 - [ ] **AndroidManifest.xml に NDEF Intent Filter 追加検討**（NFCタグタッチでアプリ起動の選択肢、現状はブラウザで開く挙動）
+- [ ] **Android NFC書き込み直後のOS自動読み取り問題**（2026-06-13 検討）
+  - 症状：書き込み成功画面表示 → 即座にOSの「収集された新しいタグ」画面が出る
+  - 原因：書き込み完了後にNFCタグがまだ近くにあるため、Android OSが別途タグを検知して自動読み取り発動
+  - **判断：修正しない方針**（リリース最短優先、迷子対策機能としては正常動作、開発者のテスト時のみ気になるレベル）
+  - 対応案（必要になったら）：
+    - A. AndroidManifest.xml に Intent Filter追加 → ❌却下（知らない人がペットタグかざした時にPlayStoreに飛んでしまい迷子対策にならない）
+    - B. 「タグから離してOKを押す」フロー追加（Flutterレベルで NFC セッション保持）
+    - C. enableForegroundDispatch のネイティブ実装
+  - **実害が出たら（テスターから不満指摘・レビュー悪化等）再検討**
 - [ ] CupertinoDatePicker → showDatePicker（Android UX 改善、Android 分岐）
 - [ ] Adaptive Icon / Themed Icon 設定（flutter_launcher_icons の `adaptive_icon_*` 追加）
 - [ ] 未使用の `image_cropper` 依存を pubspec.yaml から削除
