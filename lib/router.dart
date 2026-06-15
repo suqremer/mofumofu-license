@@ -13,6 +13,8 @@ import 'screens/pet_notebook_screen.dart';
 import 'screens/order_screen.dart';
 import 'screens/order_card_screen.dart';
 import 'screens/order_tag_screen.dart';
+import 'screens/order_upload_screen.dart';
+import 'screens/order_history_screen.dart';
 import 'screens/tag_design_screen.dart';
 import 'screens/editor/photo_editor_screen.dart';
 import 'screens/camera_guide_screen.dart';
@@ -21,6 +23,7 @@ import 'screens/nfc_read_screen.dart';
 import 'screens/help_screen.dart';
 import 'screens/help_detail_screen.dart';
 import 'models/license_card.dart';
+import 'models/order_record.dart';
 import 'data/help_contents.dart';
 
 /// 作成フロー用のスライドアニメーション（右からスライドイン）
@@ -140,6 +143,21 @@ final router = GoRouter(
       path: '/order/set',
       pageBuilder: (context, state) =>
           _slideTransition(state: state, child: const OrderCardScreen(isSet: true)),
+    ),
+    GoRoute(
+      path: '/order/upload',
+      pageBuilder: (context, state) {
+        final order = state.extra as OrderRecord;
+        return _slideTransition(
+          state: state,
+          child: OrderUploadScreen(order: order),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/order/history',
+      pageBuilder: (context, state) =>
+          _fadeTransition(state: state, child: const OrderHistoryScreen()),
     ),
     GoRoute(
       path: '/order/tag-design',

@@ -1,7 +1,7 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-06-15（注文フロー刷新 v1.1.2：設計確定（v3）＋**実装の土台まで完成**。Firebase基本設定A-D完了。**コードは全て未コミット**。次回は画面実装の続きから）
+2026-06-15（v1.1.2：**画面層 Phase A〜C 実装完了・未コミット**。order画面刷新／/order/upload／/order/history／router／order_screen導線。flutter analyze クリーン。次回は **Phase D = ディープリンク・main App Check・Firebaseルール**＝しゅーと側設定とセット）
 
 ## 🚨 別セッションのClaude へ：最初に読むべきこと
 
@@ -9,14 +9,16 @@
 1. ✅ 設計を確定（v3）＝アプリ内完結＋Stripe Webhook。`docs/design_document.md` 8.4 が正
 2. ✅ Stripe実機検証：決済成功時に session_id がリダイレクトURLに乗る／client_reference_id 付与可（テストモードで確認済み）
 3. ✅ **Firebase基本設定 A-D 完了（しゅーと作業）**：Blazeプラン（予算アラート¥1,000）/ Cloud Storage（US-EAST1・本番モード）/ Firestore（(default)・本番モード）/ 匿名認証。**セキュリティルールとApp Checkは未**
-4. ✅ **コード実装の土台が完成**（下記「### 実装進捗」）：受付番号生成・OrderRecordモデル・DB v5・OrderUploadService。テスト15件パス・analyzeクリーン。**全て未コミット**
-5. ⏸️ 残り：画面実装（tag_design改修・order画面・/order/upload・main温め・ディープリンク）、Eルール、Stripe/着地ページ/Apple Developer設定
+4. ✅ **コード実装・土台**：受付番号/OrderRecord/DB v5/OrderUploadService（テスト15件）を **efbfc8b でコミット済み**
+5. ✅ **コード実装・画面層 Phase A〜C（未コミット）**：order_card/order_tag を刷新フローに作り変え（パス返却対応で中間状態を解消・カメラロール保存/フォーム導線/決済後ダイアログを撤去・NFC代行スイッチ＋備考追加・「お支払いに進む」で受付番号発番＋pending保存＋client_reference_id付きURL＋認証温め）／新規 `/order/upload`（サムネ確認→Firebase送信→完了/失敗リトライ＋問い合わせ導線）／新規 `/order/history`（控え一覧＋pendingの「写真を送る」救済導線）／router に2ルート登録／order_screen に履歴入口＋説明文を新フローに更新。**flutter analyze：触ったファイルは issue ゼロ**
+6. ⏸️ 残り（Phase D・しゅーと側設定とセット）：ディープリンク受信・main の App Check activate・Firebaseセキュリティルール反映、Stripe/着地ページ/Apple Developer設定
 
 次回セッション開始時、まずやること:
-1. `git status` で**未コミットの実装**を確認（下記「### 実装進捗」と照合。commit はしゅーと指示が出てから）
+1. `git status` で**未コミット分**（tag_design_screen.dart＋今回の order_card/order_tag/order_upload/order_history/router/order_screen）を確認（commit はしゅーと指示が出てから）
 2. `docs/design_document.md` 8.4 と本セクションで設計・進捗を把握
 3. しゅーとに「Play Store 反映確認した？」「Android Closed Testing の進捗」を確認（継続宿題）
-4. 画面実装の続き（下記「### 実装進捗」の「残り」）から再開。順序の想定：tag_design_screen 改修 → order画面 → /order/upload → main温め → ディープリンク
+4. **Phase D から再開**：ディープリンク（着地ページ復帰で session_id 受け取り→`/order/upload`）→ main の App Check → Firebaseルール反映。いずれもしゅーと側設定（着地ページ・ユニバーサルリンク・Apple Developer・Webhook）と一体で進める
+5. ⚠️ **既存テスト15件failはスコープ外の別件**（costume_test=コスチューム8件想定だが実際47種／license_template_test／pet_test／widget_test=home起動 pumpAndSettle timeout）。今回の注文フロー刷新とは無関係。テスト追従の更新は別タスクで対応する
 
 ## v1.1.2 注文フロー刷新（2026-06-15 設計確定・実装待ち）
 
@@ -54,23 +56,29 @@
 - [ ] Bundle ID は `com.suqremer.mofumofuLicense`（**camelCase**。AASA はこれを使う。CLAUDE.md の snake_case 記載は誤記）
 - [ ] バージョン：実装時に pubspec を 1.1.2 に（しゅーと確認の上）
 
-### 実装進捗（2026-06-15時点・全て未コミット）
+### 実装進捗（2026-06-15時点）
 
-**✅ 完了（土台）:**
+**✅ 完了・コミット済み（`efbfc8b`「feat: 注文フロー刷新v1.1.2の土台実装」）:**
 - `lib/models/order_record.dart`（新規）: OrderRecord モデル＋`generateOrderNumber`（UNK-YYYYMMDD-XXXXXX、紛らわしい文字0/1/O/I/L除外）。OrderStatus(pending/uploaded)。toMap で image_paths を相対化
 - `lib/services/database_service.dart`（改修）: `_dbVersion` 4→5、`order_history` テーブル（CREATE文を定数化し `_onCreate`/`_onUpgrade` 両方で共用）、注文CRUD（upsertOrder/getOrder/getAllOrders/getPendingOrders/deleteOrder）、deleteAllData に order_history 追加
 - `lib/services/order_upload_service.dart`（新規）: `ensureSignedIn()`（匿名認証・決済前の温め用）＋`uploadOrder()`（全画像Storageアップロード→成功後Firestoreへ1回write、all-or-nothing・`image_{i}.png`固定で冪等）。`OrderUploadException`
 - `test/models/order_record_test.dart`（新規）: テスト15件パス
-- `pubspec.yaml`: firebase_auth ^5.4.0 / cloud_firestore ^5.6.0 / firebase_storage ^12.4.0 追加（pub get済み）
+- `pubspec.yaml`/`pubspec.lock`: firebase_auth ^5.4.0 / cloud_firestore ^5.6.0 / firebase_storage ^12.4.0 追加（pub get済み）
 
-**⏳ 残り（画面・連携）:**
-- `tag_design_screen.dart`: 丸形画像のパスを返すよう改修（現状 `Navigator.pop(context, true)` のbool返し＋カメラロール保存 → `pop(context, path)` でパス返却。カメラロール保存は不要なので削除可）
-- `order_card_screen.dart`/`order_tag_screen.dart`: ①注文内容組み立てに改修（削除＝カメラロール保存ステップ・フォームボタン・`_showPostPaymentDialog`／追加＝NFC代行チェック・備考入力／`_canOrder` を「選択済み（タグは丸形画像作成済み）」に変更／「お支払いに進む」で `OrderRecord.generateOrderNumber`→`upsertOrder`(pending,imagePaths=免許証画像/丸形画像)→`?client_reference_id=受付番号` 付き決済URL起動）
-- `/order/upload`（新規画面＋router）: pending注文を読み出し→サムネ確認→`OrderUploadService.uploadOrder`→成功で order_history を uploaded に更新→完了画面（受付番号・サマリ・問い合わせ口）。失敗時リトライ
-- `/order/history`（新規画面＋router）: `getAllOrders()` 表示
-- `main.dart`: App Check activate（unawaited）、決済前 `ensureSignedIn` 温めは order画面側で
-- ディープリンク（`app_links` 導入＋iOS/Android設定）: 着地ページ復帰で session_id 受け取り→`/order/upload`。+ 起動時 `getPendingOrders()` で未送信検知→再開導線
-- **Eセキュリティルール（OrderUploadServiceの書き方に確定済み、次回貼るだけ）**:
+**🔧 完了・未コミット（次回まとめてコミット）:**
+- `lib/screens/tag_design_screen.dart`（改修）: 丸形画像を「カメラロール保存＋bool返し」→「アプリ内保存＋パス返し」（`Navigator.pop(context, path)`、`gal` import削除、ボタン文言「この画像で決定」）
+- `lib/screens/order_card_screen.dart`（刷新・カード/セット兼用）: パス返却受け（`Map<int,String> _tagImagePaths`）で中間状態を解消。カメラロール保存/フォーム/決済後ダイアログを撤去。NFC代行スイッチ（`_nfcProxy`）＋備考（`_noteController`）追加。`_launchPayment`＝受付番号発番→`_collectImagePaths`（カード=完成画像／セット=完成画像＋丸形をカードごとにペア）→`DatabaseService().upsertOrder(pending)`→`AppPreferences.setHasOrdered()`→`ensureSignedIn()`温め（失敗は握り潰し）→`client_reference_id`付きURLを launchUrl。決済後は画面内に「写真を送る」導線（`/order/upload`）を表示
+- `lib/screens/order_tag_screen.dart`（刷新）: 同様。imagePaths=各カードの丸形画像。`_canOrder`=全カード丸形作成済み
+- `lib/screens/order_upload_screen.dart`（新規）: confirm/uploading/done/error の4フェーズ。サムネ確認→`OrderUploadService.uploadOrder`→成功で`upsertOrder(uploaded)`→完了画面（受付番号・サマリ・発送目安・問い合わせmailto＝件名に受付番号）。失敗は`OrderUploadException`でリトライUI＋「お支払い済み・二重払い不要」明記
+- `lib/screens/order_history_screen.dart`（新規）: `getAllOrders()`一覧。pendingに「写真未送信」バッジ＋「写真を送る」救済ボタン（決済済み・写真未達の救済導線）
+- `lib/router.dart`: `/order/upload`（`OrderRecord`をextra）・`/order/history` 登録
+- `lib/screens/order_screen.dart`: AppBarに注文履歴入口、注意書きを新フロー文言（「アプリに戻って写真を送る」）に更新
+- ✅ flutter analyze：上記すべて issue ゼロ。`order_record_test` 15件パス（他の既存テストfailは別件＝冒頭🚨参照）
+
+**⏳ 残り（次回・Phase D、しゅーと側設定とセット）:**
+- `main.dart`: App Check activate（unawaited、段階導入なので最初は計測モード）。`firebase_app_check` 依存追加が必要
+- ディープリンク（`app_links` 導入＋iOS Associated Domains/Android intent-filter）: 着地ページ復帰で session_id 受け取り→`/order/upload`。+ 起動時 `getPendingOrders()` で未送信検知→home等に再開導線（※現状でも `/order/history` から救済可能）
+- **Eセキュリティルール（OrderUploadServiceの書き方に確定済み、次回 Firebase Console で貼るだけ）**:
   - Storage: `match /orders/{uid}/{p=**} { allow read: if request.auth!=null && request.auth.uid==uid; allow write: if 同条件 && request.resource.size<10*1024*1024 && request.resource.contentType.matches('image/.*'); }`
   - Firestore: `match /orders/{n} { allow read: if false; allow write: if request.auth!=null && request.resource.data.uid==request.auth.uid; }`（Webhookは Admin SDK でルールバイパス）
 
@@ -96,7 +104,7 @@
 | 9 v1.0.9アップデート | ✅ 完了 | AnimationController dispose後操作クラッシュ修正 + 物理商品導線強化4点（2026-04-17頃 リリース済み） |
 | 10 v1.1.0アップデート | ✅ 完了 | NFC独立導線追加（ホーム画面2×3グリッド + 設定画面ツールセクション、2026-04-20 リリース済み） |
 | 11 Android初リリース準備 | 🔄 進行中 | Internal Testing 公開済み（2026-06-13）、レビュー反映待ち。Closed Testing 移行 → 14日テスト → 製品版申請 が残り |
-| 12 v1.1.2 注文フロー刷新 | 🔄 実装中（土台完成） | アプリ内完結＋Stripe Webhook。設計は `docs/design_document.md` 8.4 が正。2026-06-15：設計確定（v3）＋Firebase設定A-D＋実装土台（モデル/DB/連携サービス）完成・**未コミット**。残りは画面実装。詳細は本HANDOFF「## v1.1.2 注文フロー刷新」 |
+| 12 v1.1.2 注文フロー刷新 | 🔄 実装中（画面層まで完成） | アプリ内完結＋Stripe Webhook。設計は `docs/design_document.md` 8.4 が正。2026-06-15：設計確定（v3）＋Firebase設定A-D＋土台（モデル/DB/連携）＝efbfc8b、**画面層 Phase A〜C（order刷新/upload/history/router/導線）＝未コミット**。残りは Phase D（ディープリンク・App Check・Firebaseルール＝しゅーと側設定とセット）。詳細は本HANDOFF「## v1.1.2 注文フロー刷新」 |
 | マーケ施策 | 🔄 実行中 | minne審査中、Creema公開済み、Instagram `@uchinoko_co` ブースト広告配信中（PCブラウザ経由でApple手数料回避、¥240/日×13日） |
 
 ## 直近セッションでの変更（2026-06-13: Play Console セットアップ完了、Internal Testing 公開）

@@ -1,20 +1,25 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gal/gal.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/license_card.dart';
+import '../models/order_record.dart';
 import '../providers/database_provider.dart';
 import '../services/app_preferences.dart';
+import '../services/database_service.dart';
+import '../services/order_upload_service.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../widgets/photo_crop_preview.dart';
 import '../widgets/product_gallery.dart';
 
-/// カード注文画面: 免許証を選んで Stripe Payment Link へ遷移
+/// カード注文画面: 免許証を選んで注文内容を組み立て、Stripe Payment Link へ遷移。
+///
+/// 刷新フロー（v1.1.2・アプリ内完結方式）:
+///  ① ここで注文内容（免許証選択／セットは丸形画像作成／NFC代行／備考）を組み立てる
+///  ②「お支払いに進む」で受付番号を発番しローカル保存（pending）→ Stripe決済へ
+///  ③ 決済後にアプリへ戻り `/order/upload` で写真を Firebase へ送る
 class OrderCardScreen extends ConsumerStatefulWidget {
   /// セット注文の場合 true（タグも同時注文）
   final bool isSet;
@@ -28,20 +33,29 @@ class OrderCardScreen extends ConsumerStatefulWidget {
 class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
   final List<LicenseCard> _selectedCards = [];
 
-  /// カードID → カード画像カメラロール保存済みか
-  final Map<int, bool> _cardSavedStatus = {};
+  /// セット注文時: カードID → タグ用丸形画像のアプリ内保存パス
+  final Map<int, String> _tagImagePaths = {};
 
-  /// セット注文時: カードID → タグ用丸形画像保存済みか
-  final Map<int, bool> _tagSavedStatus = {};
+  /// NFC書き込み代行の希望
+  bool _nfcProxy = false;
+
+  /// 備考（任意）
+  final TextEditingController _noteController = TextEditingController();
+
+  /// 「お支払いに進む」を押して決済ページを開いた後 true。
+  /// 決済から戻ってきた人向けに「写真を送る」導線を表示する。
+  bool _orderPlaced = false;
+
+  /// 発番してローカル保存した注文（写真送付画面へ渡す）
+  OrderRecord? _pendingOrder;
 
   String get _paymentUrl => widget.isSet
       ? 'https://buy.stripe.com/7sY6oGcwCdmKgV007T5os02'
       : 'https://buy.stripe.com/dRm3cu9kq96u8ou7Al5os01';
 
-  static const _formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfSkYTQgcdnhExlgoIGxQLj_dvnTSgTbDGlpIK3Xarx6QHk-g/viewform';
-
   String get _title => widget.isSet ? 'セット注文' : 'カード注文';
   int get _unitPrice => widget.isSet ? 3980 : 2280;
+  String get _productType => widget.isSet ? 'set' : 'card';
   String get _description => widget.isSet
       ? 'カード＋タグのセット'
       : 'クレジットカードサイズの本格カード';
@@ -49,32 +63,36 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
   Color get _accentColor =>
       widget.isSet ? AppColors.accent : AppColors.secondary;
 
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
+
   String _formatPrice(int yen) => '¥${yen.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}';
 
   bool _isSelected(LicenseCard card) =>
       _selectedCards.any((c) => c.id == card.id);
 
-  /// 全カードの画像がカメラロールに保存済みか
-  bool get _allCardImagesSaved =>
+  /// 全選択カードのカード画像（完成画像）が揃っているか
+  bool get _allCardImagesReady =>
       _selectedCards.isNotEmpty &&
-      _selectedCards.every((c) => _cardSavedStatus[c.id] == true);
+      _selectedCards.every((c) => c.resolvedSavedImagePath != null);
 
-  /// セット注文時: 全カードのタグ画像が保存済みか
-  bool get _allTagImagesSaved =>
+  /// セット注文時: 全カードのタグ用丸形画像が作成済みか
+  bool get _allTagImagesReady =>
       !widget.isSet ||
       (_selectedCards.isNotEmpty &&
-          _selectedCards.every((c) => _tagSavedStatus[c.id] == true));
-
-  /// 全画像保存済みか（カード画像 + タグ画像）
-  bool get _allImagesSaved => _allCardImagesSaved && _allTagImagesSaved;
+          _selectedCards.every((c) => _tagImagePaths[c.id] != null));
 
   bool get _canOrder =>
-      _selectedCards.isNotEmpty && _allImagesSaved;
+      _selectedCards.isNotEmpty && _allCardImagesReady && _allTagImagesReady;
 
   void _toggleSelection(LicenseCard card) {
     setState(() {
       if (_isSelected(card)) {
         _selectedCards.removeWhere((c) => c.id == card.id);
+        _tagImagePaths.remove(card.id);
       } else {
         _selectedCards.add(card);
       }
@@ -142,9 +160,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
               children: [
                 // 商品スライドショー
                 ProductGallery(
-                  photos: widget.isSet
-                      ? kAllProductPhotos
-                      : kCardPhotos,
+                  photos: widget.isSet ? kAllProductPhotos : kCardPhotos,
                   height: 160,
                   compact: true,
                 ),
@@ -184,184 +200,69 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                 const SizedBox(height: 12),
                 _buildLicenseGrid(licenses),
 
-                // 選択済み免許証の横スクロールプレビュー
+                // 選択済み免許証の確認プレビュー
                 if (_selectedCards.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.md),
                   _buildSelectedPreview(),
                 ],
                 const SizedBox(height: AppSpacing.lg),
 
-                // Step 2: カード用画像をカメラロールに保存
-                _buildStepHeader(stepNum++, 'カード画像をカメラロールに保存'),
-                const SizedBox(height: AppSpacing.sm),
-                const Text(
-                  'フォームで画像を送付するため、カメラロールに保存してください。',
-                  style: TextStyle(
-                      fontSize: 13, color: AppColors.textMedium, height: 1.5),
-                ),
-                if (_selectedCards.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  ..._selectedCards.map((card) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _cardSavedStatus[card.id] == true
-                            ? null
-                            : () => _saveCardToGallery(card),
-                        icon: _cardSavedStatus[card.id] == true
-                            ? const Icon(Icons.check_circle, size: 18, color: AppColors.success)
-                            : const Icon(Icons.save_alt, size: 18),
-                        label: Text(
-                          _cardSavedStatus[card.id] == true
-                              ? '${card.petName}のカード画像を保存済み'
-                              : '${card.petName}のカード画像を保存',
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: _cardSavedStatus[card.id] == true
-                              ? AppColors.success
-                              : AppColors.primary,
-                          side: BorderSide(
-                            color: _cardSavedStatus[card.id] == true
-                                ? AppColors.success
-                                : AppColors.primary,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-                          ),
-                        ),
-                      ),
-                    ),
-                  )),
-                ],
-                const SizedBox(height: AppSpacing.lg),
-
-                // セット注文時: タグ用丸形画像作成ステップ
+                // Step 2（セットのみ）: タグ用丸形画像作成
                 if (widget.isSet) ...[
                   _buildStepHeader(stepNum++, 'タグ用の丸形画像を作成'),
                   const SizedBox(height: AppSpacing.sm),
                   const Text(
-                    'セット注文にはタグ用の丸形画像も必要です。\n'
-                    '作成した画像はカメラロールに保存されます。',
+                    'セットにはタグ用の丸形画像も必要です。\n'
+                    '免許証ごとに、写真の位置・サイズを丸形に合わせて作成してください。',
                     style: TextStyle(
                         fontSize: 13, color: AppColors.textMedium, height: 1.5),
                   ),
                   if (_selectedCards.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    ..._selectedCards.map((card) => Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => _openTagDesign(card),
-                          icon: _tagSavedStatus[card.id] == true
-                              ? const Icon(Icons.check_circle, size: 18, color: AppColors.success)
-                              : const Icon(Icons.crop, size: 18),
-                          label: Text(
-                            _tagSavedStatus[card.id] == true
-                                ? '${card.petName}のタグ画像を保存済み'
-                                : '${card.petName}の丸形画像を作成',
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: _tagSavedStatus[card.id] == true
-                                ? AppColors.success
-                                : AppColors.primary,
-                            side: BorderSide(
-                              color: _tagSavedStatus[card.id] == true
-                                  ? AppColors.success
-                                  : AppColors.primary,
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-                            ),
-                          ),
-                        ),
-                      ),
-                    )),
+                    ..._selectedCards.map(_buildTagDesignButton),
                   ],
                   const SizedBox(height: AppSpacing.lg),
                 ],
 
-                // 決済ステップ
-                _buildStepHeader(stepNum++, '決済ページで支払い'),
+                // Step: NFC書き込み代行
+                _buildStepHeader(stepNum++, 'NFC書き込み代行（任意）'),
+                const SizedBox(height: AppSpacing.sm),
+                _buildNfcProxyTile(),
+                const SizedBox(height: AppSpacing.lg),
+
+                // Step: 備考
+                _buildStepHeader(stepNum++, 'ご要望・備考（任意）'),
+                const SizedBox(height: AppSpacing.sm),
+                _buildNoteField(),
+                const SizedBox(height: AppSpacing.lg),
+
+                // Step: 決済
+                _buildStepHeader(stepNum, 'お支払いに進む'),
                 const SizedBox(height: AppSpacing.sm),
                 const Text(
-                  '「注文する」を押すと外部の決済ページ（Stripe）が開きます。\n'
-                  '配送先はStripeの画面で入力してください。',
+                  '「お支払いに進む」を押すと外部の決済ページ（Stripe）が開きます。\n'
+                  'お届け先・メールアドレスは決済ページで入力してください。',
                   style: TextStyle(fontSize: 13, color: AppColors.textMedium, height: 1.5),
                 ),
-                // 注意書き
                 if (_selectedCards.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.info_outline, size: 18, color: AppColors.accent),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            widget.isSet
-                                ? '決済完了後、次のステップのフォームから免許証画像と'
-                                  'タグ用の丸形画像を送ってください。画像の送付がないと制作を開始できません。'
-                                : '決済完了後、次のステップのフォームから免許証の画像を'
-                                  '送ってください。画像の送付がないと制作を開始できません。',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textMedium,
-                              height: 1.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  _buildInfoNote(
+                    'お支払いが完了したら、この画面に戻って写真を送信してください。'
+                    '写真の送付がないと制作を開始できません。',
                   ),
                 ],
-                const SizedBox(height: 20),
 
-                // 写真送付ステップ（常時表示）
-                _buildStepHeader(stepNum, '専用フォームから写真を送付'),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  widget.isSet
-                      ? 'Googleフォームで免許証画像とタグ用画像を送ってください。\n'
-                        'カメラロールに保存した画像をアップロードしてね！'
-                      : 'Googleフォームで免許証の画像を送ってください。\n'
-                        'カメラロールに保存した画像をアップロードしてね！',
-                  style: const TextStyle(fontSize: 13, color: AppColors.textMedium, height: 1.5),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _launchPhotoForm,
-                    icon: const Icon(Icons.open_in_new, size: 16),
-                    label: const Text('写真送付フォームを開く'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.textMedium,
-                      side: BorderSide(color: Colors.grey.shade400),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-                      ),
-                    ),
-                  ),
-                ),
+                // 決済後: 写真送付への導線
+                if (_orderPlaced && _pendingOrder != null) ...[
+                  const SizedBox(height: 20),
+                  _buildUploadPrompt(),
+                ],
               ],
             ),
           ),
         ),
 
-        // 注文ボタン（固定フッター）
+        // フッター（お支払いに進むボタン）
         _buildOrderButton(),
       ],
     );
@@ -397,6 +298,173 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTagDesignButton(LicenseCard card) {
+    final done = _tagImagePaths[card.id] != null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () => _openTagDesign(card),
+          icon: done
+              ? const Icon(Icons.check_circle, size: 18, color: AppColors.success)
+              : const Icon(Icons.crop, size: 18),
+          label: Text(
+            done
+                ? '${card.petName}の丸形画像を作成済み（変更する）'
+                : '${card.petName}の丸形画像を作成',
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: done ? AppColors.success : AppColors.primary,
+            side: BorderSide(
+              color: done ? AppColors.success : AppColors.primary,
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNfcProxyTile() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: SwitchListTile(
+        value: _nfcProxy,
+        onChanged: (v) => setState(() => _nfcProxy = v),
+        activeThumbColor: AppColors.primary,
+        title: const Text(
+          'NFC書き込みをお願いする',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
+        subtitle: const Text(
+          'ご希望の場合、書き込み内容を後ほどメールで確認します（別途料金がかかる場合があります）。',
+          style: TextStyle(fontSize: 12, color: AppColors.textMedium, height: 1.4),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Widget _buildNoteField() {
+    return TextField(
+      controller: _noteController,
+      maxLines: 3,
+      maxLength: 200,
+      decoration: InputDecoration(
+        hintText: '例: 文字色の希望、ラッピング希望 など',
+        hintStyle: const TextStyle(fontSize: 13, color: AppColors.textLight),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.all(12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.primary),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoNote(String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, size: 18, color: AppColors.accent),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textMedium,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 決済後に表示する「写真を送る」プロンプト
+  Widget _buildUploadPrompt() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.check_circle, size: 20, color: AppColors.success),
+              const SizedBox(width: AppSpacing.sm),
+              const Expanded(
+                child: Text(
+                  'お支払いはお済みですか？',
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '受付番号: ${_pendingOrder!.orderNumber}\n'
+            'お支払いが完了したら、下のボタンから写真を送信してください。',
+            style: const TextStyle(
+                fontSize: 13, color: AppColors.textMedium, height: 1.5),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _goToUpload,
+              icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+              label: const Text('写真を送る'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -496,7 +564,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
     );
   }
 
-  /// 選択済み免許証の横スクロールプレビュー
+  /// 選択済み免許証の確認プレビュー（送信前サムネ確認）
   Widget _buildSelectedPreview() {
     final count = _selectedCards.length;
     final total = _unitPrice * count;
@@ -506,7 +574,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
         Row(
           children: [
             Text(
-              '選択中: $count枚',
+              'この写真で作ります（$count枚）',
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
@@ -514,24 +582,16 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
               ),
             ),
             const Spacer(),
-            if (count > 1)
-              Text(
-                '${_formatPrice(_unitPrice)} x $count = ${_formatPrice(total)}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: _accentColor,
-                ),
-              )
-            else
-              Text(
-                _formatPrice(total),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: _accentColor,
-                ),
+            Text(
+              count > 1
+                  ? '${_formatPrice(_unitPrice)} x $count = ${_formatPrice(total)}'
+                  : _formatPrice(total),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: _accentColor,
               ),
+            ),
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -594,10 +654,12 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
     String buttonLabel;
     if (count == 0) {
       buttonLabel = '免許証を選択してください';
-    } else if (!_allImagesSaved) {
-      buttonLabel = '画像を保存してください';
+    } else if (!_allTagImagesReady) {
+      buttonLabel = '丸形画像を作成してください';
+    } else if (!_allCardImagesReady) {
+      buttonLabel = 'カード画像を準備できません';
     } else {
-      buttonLabel = '注文する（${_formatPrice(total)}・$count枚）';
+      buttonLabel = 'お支払いに進む（${_formatPrice(total)}・$count枚）';
     }
 
     return Container(
@@ -612,108 +674,92 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (count > 0 && !_allImagesSaved)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.warning_amber_rounded,
-                      size: 16, color: Colors.orange.shade700),
-                  const SizedBox(width: AppSpacing.xs),
-                  Text(
-                    '全画像を保存してから注文に進めます',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.orange.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton.icon(
-              onPressed: _canOrder ? _launchPayment : null,
-              icon: const Icon(Icons.open_in_new, size: 18),
-              label: Text(
-                buttonLabel,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey.shade300,
-                disabledForegroundColor: Colors.grey.shade500,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                elevation: _canOrder ? 2 : 0,
-              ),
-            ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: ElevatedButton.icon(
+          onPressed: _canOrder ? _launchPayment : null,
+          icon: const Icon(Icons.open_in_new, size: 18),
+          label: Text(
+            buttonLabel,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
-        ],
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: Colors.grey.shade300,
+            disabledForegroundColor: Colors.grey.shade500,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
+            elevation: _canOrder ? 2 : 0,
+          ),
+        ),
       ),
     );
   }
 
-  Future<void> _saveCardToGallery(LicenseCard card) async {
-    final path = card.resolvedSavedImagePath;
-    if (path == null || !File(path).existsSync()) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('画像ファイルが見つかりません')),
-        );
-      }
-      return;
-    }
-
-    try {
-      final hasAccess = await Gal.hasAccess();
-      if (!hasAccess) {
-        await Gal.requestAccess();
-      }
-      await Gal.putImage(path, album: 'うちの子免許証');
-      if (mounted) {
-        setState(() => _cardSavedStatus[card.id!] = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${card.petName}のカード画像を保存しました'),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('保存に失敗しました: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+  Future<void> _openTagDesign(LicenseCard card) async {
+    final result = await context.push<String>('/order/tag-design', extra: card);
+    if (result != null && mounted) {
+      setState(() => _tagImagePaths[card.id!] = result);
     }
   }
 
-  Future<void> _openTagDesign(LicenseCard card) async {
-    final result = await context.push<bool>('/order/tag-design', extra: card);
-    if (result == true && mounted) {
-      setState(() => _tagSavedStatus[card.id!] = true);
+  /// アップロード対象の画像パスを集める。
+  ///  - カード: 各カードの完成画像
+  ///  - セット: 各カードの完成画像＋丸形画像（カードごとにペアで並べる）
+  List<String> _collectImagePaths() {
+    final paths = <String>[];
+    for (final card in _selectedCards) {
+      final cardPath = card.resolvedSavedImagePath;
+      if (cardPath != null) paths.add(cardPath);
+      if (widget.isSet) {
+        final tagPath = _tagImagePaths[card.id];
+        if (tagPath != null) paths.add(tagPath);
+      }
     }
+    return paths;
   }
 
   Future<void> _launchPayment() async {
+    final count = _selectedCards.length;
+    final orderNumber = OrderRecord.generateOrderNumber();
+    final order = OrderRecord(
+      orderNumber: orderNumber,
+      productType: _productType,
+      petNames: _selectedCards.map((c) => c.petName).toList(),
+      quantity: count,
+      nfcProxy: _nfcProxy,
+      note: _noteController.text.trim().isEmpty
+          ? null
+          : _noteController.text.trim(),
+      imagePaths: _collectImagePaths(),
+      amount: _unitPrice * count,
+      status: OrderStatus.pending,
+      createdAt: DateTime.now(),
+    );
+
+    // 注文をローカルに一時保存（決済から戻った後の写真送付の手がかり）
+    await DatabaseService().upsertOrder(order);
     await AppPreferences.setHasOrdered();
-    final uri = Uri.parse(_paymentUrl);
+
+    // 決済往復後のアップロードで失敗しないよう、匿名認証を「温めて」おく。
+    // 失敗しても決済自体は進められるよう握りつぶす（アップロード時に再試行）。
+    try {
+      await OrderUploadService.instance.ensureSignedIn();
+    } catch (_) {}
+
+    // 受付番号を client_reference_id として Stripe に渡し、Webhook と突合できるようにする
+    final uri = Uri.parse('$_paymentUrl?client_reference_id=$orderNumber');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (mounted) _showPostPaymentDialog();
+      if (mounted) {
+        setState(() {
+          _orderPlaced = true;
+          _pendingOrder = order;
+        });
+      }
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -723,76 +769,8 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
     }
   }
 
-  void _showPostPaymentDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusLg)),
-        title: const Row(
-          children: [
-            Icon(Icons.check_circle, color: AppColors.success, size: 24),
-            SizedBox(width: AppSpacing.sm),
-            Expanded(child: Text('写真の送付はお済みですか？', style: TextStyle(fontSize: 17))),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              widget.isSet
-                  ? '専用フォームから免許証画像とタグ用の丸形画像を送ってください。\n\n'
-                    'カメラロールに保存した画像をアップロードしてね！'
-                  : '専用フォームから免許証の画像を送ってください。\n\n'
-                    'カメラロールに保存した画像をアップロードしてね！',
-              style: const TextStyle(fontSize: 14, color: AppColors.textMedium, height: 1.5),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('あとで送る'),
-                  ),
-                ),
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('送付済み'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _launchPhotoForm();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: const Text('フォームを開く'),
-              ),
-            ),
-          ],
-        ),
-        actions: const [],
-      ),
-    );
-  }
-
-  Future<void> _launchPhotoForm() async {
-    final uri = Uri.parse(_formUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+  void _goToUpload() {
+    if (_pendingOrder == null) return;
+    context.push('/order/upload', extra: _pendingOrder);
   }
 }

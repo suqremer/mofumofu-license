@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/costume_overlay.dart';
 import '../models/license_card.dart';
@@ -32,7 +31,6 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
   Offset _focalStart = Offset.zero;
 
   bool _isSaving = false;
-  String? _savedPath;
 
   /// 高解像度元画像（Canvas直接描画用）
   ui.Image? _sourceImage;
@@ -206,37 +204,6 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
                     ),
                   ),
 
-                  // 保存済み表示
-                  if (_savedPath != null) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: AppColors.success.withValues(alpha: 0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.check_circle,
-                              color: AppColors.success, size: 20),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              'カメラロールに保存しました！\nフォームで送付する際にこの画像を使ってください',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textDark,
-                                height: 1.4,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -330,7 +297,7 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
         width: double.infinity,
         height: 52,
         child: ElevatedButton.icon(
-          onPressed: _isSaving || _savedPath != null ? null : _saveImage,
+          onPressed: _isSaving ? null : _saveImage,
           icon: _isSaving
               ? const SizedBox(
                   width: 18,
@@ -338,23 +305,16 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: Colors.white),
                 )
-              : _savedPath != null
-                  ? const Icon(Icons.check_circle, size: 20)
-                  : const Icon(Icons.save_alt, size: 20),
+              : const Icon(Icons.check_circle, size: 20),
           label: Text(
-            _isSaving
-                ? '保存中...'
-                : _savedPath != null
-                    ? '保存済み ✓ 注文画面に戻ります'
-                    : 'カメラロールに保存して次へ',
+            _isSaving ? '準備中...' : 'この画像で決定',
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           style: ElevatedButton.styleFrom(
-            backgroundColor:
-                _savedPath != null ? AppColors.success : AppColors.primary,
+            backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
-            disabledBackgroundColor: AppColors.success,
-            disabledForegroundColor: Colors.white,
+            disabledBackgroundColor: Colors.grey.shade300,
+            disabledForegroundColor: Colors.grey.shade500,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(28),
             ),
@@ -466,30 +426,12 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
         return;
       }
 
-      // まずファイルに書き出し（Gal はファイルパスが必要）
+      // アプリ内に保存（この画像をそのまま注文の写真としてアップロードする）
       final path = await _saveToFile(bytes);
-      if (path == null) return;
+      if (path == null || !mounted) return;
 
-      // カメラロールに保存
-      final hasAccess = await Gal.hasAccess();
-      if (!hasAccess) {
-        await Gal.requestAccess();
-      }
-      await Gal.putImage(path, album: 'うちの子免許証');
-
-      if (mounted) {
-        setState(() => _savedPath = path);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('カメラロールに保存しました'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        // 1秒後に自動で注文画面に戻る
-        Future.delayed(const Duration(seconds: 1), () {
-          if (mounted) Navigator.pop(context, true);
-        });
-      }
+      // 保存したパスを注文画面に返す
+      Navigator.pop(context, path);
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

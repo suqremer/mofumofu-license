@@ -18,6 +18,13 @@ class OrderScreen extends StatelessWidget {
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.textDark,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long_outlined),
+            tooltip: '注文履歴',
+            onPressed: () => context.push('/order/history'),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: AppSpacing.md),
@@ -123,7 +130,7 @@ class OrderScreen extends StatelessWidget {
                   const SizedBox(height: AppSpacing.sm),
                   const Text(
                     '• 決済は外部サイト（Stripe）で安全に処理されます\n'
-                    '• 決済完了後、専用フォームから写真を送っていただきます\n'
+                    '• 決済完了後、アプリに戻って写真を送っていただきます\n'
                     '• 写真確認後、2〜3営業日で発送します',
                     style: TextStyle(
                       fontSize: 12,
