@@ -4,13 +4,33 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import '../models/license_card.dart';
+import '../models/order_record.dart';
 import '../models/pet.dart';
 
 /// アプリのローカルDB管理
 class DatabaseService {
   static Database? _database;
   static const _dbName = 'mofumofu.db';
-  static const _dbVersion = 4;
+  static const _dbVersion = 5;
+
+  /// order_history テーブルの作成SQL。
+  /// _onCreate（新規インストール）と _onUpgrade（既存ユーザー）の両方で共用し、
+  /// 片方への入れ忘れによる定義ズレ・テーブル欠落クラッシュを防ぐ。
+  static const _createOrderHistoryTable = '''
+    CREATE TABLE order_history (
+      order_number TEXT PRIMARY KEY,
+      product_type TEXT NOT NULL,
+      pet_names TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      nfc_proxy INTEGER NOT NULL DEFAULT 0,
+      note TEXT,
+      image_paths TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      session_id TEXT,
+      created_at TEXT NOT NULL
+    )
+  ''';
 
   /// DBインスタンスを取得（初回は自動作成）
   Future<Database> get database async {
@@ -52,6 +72,11 @@ class DatabaseService {
         await _migratePathsToRelative(db);
         await _migrateExtraDataPaths(db);
       }
+    }
+
+    // v5: 物理グッズ注文の端末ローカル履歴テーブルを追加（全プラットフォーム共通）
+    if (oldVersion < 5) {
+      await db.execute(_createOrderHistoryTable);
     }
   }
 
@@ -193,6 +218,9 @@ class DatabaseService {
         FOREIGN KEY (pet_id) REFERENCES pets (id) ON DELETE CASCADE
       )
     ''');
+
+    // 物理グッズ注文の端末ローカル履歴テーブル
+    await db.execute(_createOrderHistoryTable);
   }
 
   // === 免許証 CRUD ===
@@ -327,6 +355,60 @@ class DatabaseService {
     return db.delete('weight_logs', where: 'id = ?', whereArgs: [id]);
   }
 
+  // === 注文履歴 CRUD ===
+
+  /// 注文を保存（受付番号が同じなら上書き）。
+  /// 決済前の pending 保存と、写真アップロード後の状態更新の両方で使う。
+  Future<void> upsertOrder(OrderRecord order) async {
+    final db = await database;
+    await db.insert(
+      'order_history',
+      order.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// 受付番号で1件取得（なければ null）
+  Future<OrderRecord?> getOrder(String orderNumber) async {
+    final db = await database;
+    final maps = await db.query(
+      'order_history',
+      where: 'order_number = ?',
+      whereArgs: [orderNumber],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return OrderRecord.fromMap(maps.first);
+  }
+
+  /// 全注文を新しい順に取得（注文履歴画面用）
+  Future<List<OrderRecord>> getAllOrders() async {
+    final db = await database;
+    final maps = await db.query('order_history', orderBy: 'created_at DESC');
+    return maps.map((m) => OrderRecord.fromMap(m)).toList();
+  }
+
+  /// 写真未送信（pending）の注文を取得（起動時の救済導線用）
+  Future<List<OrderRecord>> getPendingOrders() async {
+    final db = await database;
+    final maps = await db.query(
+      'order_history',
+      where: 'status = ?',
+      whereArgs: [OrderStatus.pending.name],
+      orderBy: 'created_at DESC',
+    );
+    return maps.map((m) => OrderRecord.fromMap(m)).toList();
+  }
+
+  Future<int> deleteOrder(String orderNumber) async {
+    final db = await database;
+    return db.delete(
+      'order_history',
+      where: 'order_number = ?',
+      whereArgs: [orderNumber],
+    );
+  }
+
   /// 全データを削除（設定画面の「データを全て削除」用）
   Future<void> deleteAllData() async {
     final db = await database;
@@ -334,5 +416,6 @@ class DatabaseService {
     await db.delete('vaccinations');
     await db.delete('licenses');
     await db.delete('pets');
+    await db.delete('order_history');
   }
 }
