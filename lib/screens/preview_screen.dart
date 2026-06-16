@@ -83,8 +83,11 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen>
     _audioPlayer.setAudioContext(
       AudioContext(
         iOS: AudioContextIOS(
+          // ambient は既定で他アプリと混在し、消音スイッチ(マナーモード)で自動消音される。
+          // mixWithOthers を明示すると audioplayers のバリデーションで
+          // 「playback/playAndRecord/multiRoute 以外では不可」と弾かれるため指定しない
+          // （ambient の既定動作で意図どおり）。
           category: AVAudioSessionCategory.ambient,
-          options: const {AVAudioSessionOptions.mixWithOthers},
         ),
         android: AudioContextAndroid(
           isSpeakerphoneOn: false,
