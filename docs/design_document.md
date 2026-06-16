@@ -553,25 +553,35 @@ service firebase.storage {
 }
 ```
 
-**Firestore**
+**Firestore**（2026-06-16 レビュー反映で強化版）
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /orders/{orderNumber} {
       allow read: if false;
-      allow write: if request.auth != null
-                   && request.resource.data.uid == request.auth.uid;
+      // 新規作成: 自分のuidを名乗り、doc IDと中身の orderNumber が一致すること
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.orderNumber == orderNumber;
+      // 更新: 上記に加え、決済の真実フィールド(paid/paidAt/sessionId)は変更禁止
+      allow update: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.orderNumber == orderNumber
+                    && !request.resource.data.diff(resource.data)
+                          .affectedKeys()
+                          .hasAny(['paid', 'paidAt', 'sessionId']);
     }
   }
 }
 ```
 
 **設計判断**:
-- 書き込み許可は「**新しく書き込む内容の `uid` が自分のuidと一致**」だけを見る（既存ドキュメントのuidは見ない）。理由＝決済時は **Stripe Webhook が先に** `paid=true` のドキュメントを作る（`uid` を持たない）→ その後アプリが同一ドキュメントを merge 更新するため。既存uid一致を要求すると、この「Webhook先・アプリ後」のケースで弾かれる。
+- 書き込み許可は「**新しく書き込む内容の `uid` が自分のuidと一致**」を基本とする（既存ドキュメントのuidは見ない）。理由＝決済時は **Stripe Webhook が先に** `paid=true` のドキュメントを作る（`uid` を持たない）→ その後アプリが同一ドキュメントを merge 更新するため。既存uid一致を要求すると、この「Webhook先・アプリ後」のケースで弾かれる。
+- **強化（レビュー反映）**: create/update を分け、(1) **doc ID ＝ 中身の `orderNumber` 一致**を要求（別注文ドキュメントへの混入防止）、(2) 更新時は **`paid`/`paidAt`/`sessionId`（＝Webが書く決済の真実）の変更を禁止**（受付番号を推測して他人docの決済状態を改ざんする攻撃を封じる）。`amount` はアプリ側も書く（=見積額）ため保護対象から除外（Webhook先行時に同値で衝突しないように）。
 - `allow read: if false`（Firestore）= アプリは注文メタを読まない（履歴は端末ローカルDB）。最小権限。
 - Webhook（Cloud Functions）は **Admin SDK** でルールをバイパスして `paid` を書く。
-- **割り切り**: 受付番号を推測できれば他人の注文メタを上書きできる理論上の穴があるが、受付番号はランダムで推測困難・写真本体は uid 分離で読めない・決済の真実(paid)は Admin で改ざん不可、のため被害は限定的。MVP では許容。
+- **残る割り切り**: 受付番号を推測できれば他人docの非決済メタ（imagePaths等）は依然上書きできるが、受付番号は暗号論的乱数で推測困難・写真本体は uid 分離で読めない・決済の真実は保護済み、のため被害は限定的。MVP では許容。
 
 #### App Check（不正アップロード対策・2026-06-16 Phase D）
 - 不正アップロード・課金荒らし対策に **App Check** を導入（`firebase_app_check`、main で unawaited activate）。

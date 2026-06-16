@@ -21,14 +21,25 @@
    - `docs/order/complete/index.html`（新規）：着地ページ（決済完了＋「アプリでお写真を送る」＝`mofumofulicense://order-return`＋手動/ストアフォールバック）
    - **方式判断**: ユニバーサルリンクではなく**カスタムスキーム**採用（iOS同一ドメイン問題回避・設定が軽くTeam ID/AASA/assetlinks/SHA不要。詳細は design_document 8.4）
 4. ✅ touched Dart（main / home_screen / deep_link_service）すべて `flutter analyze` クリーン
+5. ✅ **3観点レビュー（セキュリティ/正しさ/UX）実施→指摘#1-9を反映（未コミット）**：
+   - #1 `_launchPayment` 二度押しガード＋pending保存をlaunchUrl成功後に（order_card/tag、幽霊pending・受付番号二重発番を防止）
+   - #7 `setHasOrdered()` を決済時→**写真送付完了時**に移動（order_upload。離脱者を「注文済み」にしない）
+   - #2 注文履歴に**削除導線**追加（既存 deleteOrder 接続。未決済pendingを消せる）
+   - #3+#9 文言を中立・安心トーンに（「お支払いはお済みですか？」→「お支払いありがとうございます」等）＋「お写真」表記統一
+   - #4 受付番号を `Random.secure()` に / #5 DB `CREATE TABLE IF NOT EXISTS` に
+   - #6 **Firestoreルール強化**（create/update分離・docID=orderNumber一致・paid/paidAt/sessionId変更禁止）。確定版は design_document 8.4。**※Console再公開が必要（下記残り）**
+   - #8 着地ページの Google Play リンクを Android製品版公開まで非表示（コメントアウト）
+   - 触ったファイル analyze クリーン / order_record_test 15件パス
+   - ⚠️ レビュー最大の発見＝**決済の裏取りが無い**（Webhook未実装のため未決済でも uploaded=true が書ける）。Webhook実装まで「uploaded だけで製造しない・必ずStripe入金と突合」を運用ルールとする
 
 残り（しゅーと側設定・実機テスト）:
+- [ ] **Firestoreルールを強化版に再公開**（design_document 8.4 の Firestore ルール。Storageは変更なし）
 - [ ] 着地ページを **git push して公開**（GitHub Pages `uchinoko-license.com/order/complete/`）→ ブラウザで表示確認
-- [ ] **Stripe Payment Link 3本**の `after_completion` を `https://uchinoko-license.com/order/complete/` にリダイレクト設定＋住所/メアド必須収集ON
-- [ ] **実機テスト**：`mofumofulicense://order-return` でアプリ起動するか（iOSは FlutterSceneDelegate 自動転送のはず）／コールド起動でも復帰するか／ホーム救済バナーが出るか
-- [ ] Android App Check（Play Integrity）登録（後回し可）
+- [ ] **Stripe Payment Link 3本**の `after_completion` を `https://uchinoko-license.com/order/complete/?session_id={CHECKOUT_SESSION_ID}` にリダイレクト設定＋住所/メアド必須収集ON（**本番モード**で。3本のID: card=...os01 / tag=...os00 / set=...os02）
+- [ ] **実機テスト**：`mofumofulicense://order-return` でアプリ起動するか（iOSは FlutterSceneDelegate 自動転送のはず）／コールド起動でも復帰するか／ホーム救済バナーが出るか／Firアップロードがルール通過するか
+- [ ] Android App Check（Play Integrity）登録（後回し可。Console上部検索で「アプリの完全性」）
 - [ ] App Check を計測→**Enforce 切替**（計測データ確認後）
-- [ ] Stripe Webhook（Cloud Functions）は別タスク（paid記録・突合用。写真送付フロー自体には不要）
+- [ ] **Stripe Webhook（Cloud Functions）= 別タスクだがリリース前提**（paid記録・製造ゲート・突合用）
 
 次回セッション開始時、まずやること:
 1. `git status` で**未コミット分**を確認（commit はしゅーと指示が出てから）。今回の変更＝main.dart / home_screen.dart / deep_link_service.dart(新) / Info.plist / AndroidManifest.xml / pubspec / docs/order/(新) / design_document.md / HANDOFF.md
