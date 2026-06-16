@@ -1,24 +1,40 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-06-15（v1.1.2：**画面層 Phase A〜C 実装完了・未コミット**。order画面刷新／/order/upload／/order/history／router／order_screen導線。flutter analyze クリーン。次回は **Phase D = ディープリンク・main App Check・Firebaseルール**＝しゅーと側設定とセット）
+2026-06-16（v1.1.2 **Phase D 実装（全て未コミット）**。①Firebaseルール確定＆しゅーとがConsole公開済み（Storage/Firestore）②App Check＝コード実装＋iOS DeviceCheck登録済み（Android Play Integrityは後回し・計測モード・未Enforce）③ディープリンク＝カスタムスキーム `mofumofulicense://` 採用、app_links導入・iOS/Androidネイティブ設定・受信サービス・ホーム救済バナー・着地ページ。touched Dart は flutter analyze クリーン。残りはしゅーと側＝着地ページpush公開・Stripeリダイレクト設定・実機テスト）
+
+※ 画面層 Phase A〜C は前回コミット済み（`e68bf14`）。土台は `efbfc8b`。
 
 ## 🚨 別セッションのClaude へ：最初に読むべきこと
 
-このセッション（2026-06-15）で完了したこと:
-1. ✅ 設計を確定（v3）＝アプリ内完結＋Stripe Webhook。`docs/design_document.md` 8.4 が正
-2. ✅ Stripe実機検証：決済成功時に session_id がリダイレクトURLに乗る／client_reference_id 付与可（テストモードで確認済み）
-3. ✅ **Firebase基本設定 A-D 完了（しゅーと作業）**：Blazeプラン（予算アラート¥1,000）/ Cloud Storage（US-EAST1・本番モード）/ Firestore（(default)・本番モード）/ 匿名認証。**セキュリティルールとApp Checkは未**
-4. ✅ **コード実装・土台**：受付番号/OrderRecord/DB v5/OrderUploadService（テスト15件）を **efbfc8b でコミット済み**
-5. ✅ **コード実装・画面層 Phase A〜C（未コミット）**：order_card/order_tag を刷新フローに作り変え（パス返却対応で中間状態を解消・カメラロール保存/フォーム導線/決済後ダイアログを撤去・NFC代行スイッチ＋備考追加・「お支払いに進む」で受付番号発番＋pending保存＋client_reference_id付きURL＋認証温め）／新規 `/order/upload`（サムネ確認→Firebase送信→完了/失敗リトライ＋問い合わせ導線）／新規 `/order/history`（控え一覧＋pendingの「写真を送る」救済導線）／router に2ルート登録／order_screen に履歴入口＋説明文を新フローに更新。**flutter analyze：触ったファイルは issue ゼロ**
-6. ⏸️ 残り（Phase D・しゅーと側設定とセット）：ディープリンク受信・main の App Check activate・Firebaseセキュリティルール反映、Stripe/着地ページ/Apple Developer設定
+直近セッション（2026-06-16）で完了したこと（**Phase D・全て未コミット**）:
+1. ✅ **Firebaseセキュリティルール**確定（`OrderUploadService` の実装と突合）＝`docs/design_document.md` 8.4「セキュリティルール（確定版）」が正。**しゅーとが Console に公開済み（Storage / Firestore 両方）**
+2. ✅ **App Check（コード）**：`firebase_app_check ^0.3.2`（解決 0.3.2+10）追加、`lib/main.dart` の `_initFirebase` で unawaited activate（debug=debug / リリース=iOS DeviceCheck・Android Play Integrity）。**段階導入＝計測モード（Console側 Enforce はまだOFF）**
+   - ✅ iOS DeviceCheck 登録済み（Apple .p8 / **Key ID `63RRL34CJ7` / Team ID `6YBWD8ZH2K`**）
+   - ⏸ Android Play Integrity 登録は**後回し**（Play Consoleで「アプリの完全性」メニューが見つからず保留。計測モードゆえ実害なし。再開時は **Console 上部検索で「アプリの完全性」** を探す→Cloud project リンク→SHA-256登録）
+3. ✅ **ディープリンク（カスタムスキーム方式）**：`app_links ^6.3.0`（解決 6.4.1）導入
+   - iOS `Info.plist`：scheme `mofumofulicense` 登録＋`FlutterDeepLinkingEnabled=false`
+   - Android `Manifest`：VIEW intent-filter（scheme `mofumofulicense`）＋`flutter_deeplinking_enabled=false`
+   - `lib/services/deep_link_service.dart`（新規）：受信→pending注文を特定→1件なら`/order/upload`・他は`/order/history`
+   - `lib/main.dart`：runApp 後に `DeepLinkService.instance.init()`（unawaited）
+   - `lib/screens/home_screen.dart`：**ホーム救済バナー**（起動時 `getPendingOrders` 検知＝復帰の本命層。DLが不発でもアプリを開くだけで復帰可）
+   - `docs/order/complete/index.html`（新規）：着地ページ（決済完了＋「アプリでお写真を送る」＝`mofumofulicense://order-return`＋手動/ストアフォールバック）
+   - **方式判断**: ユニバーサルリンクではなく**カスタムスキーム**採用（iOS同一ドメイン問題回避・設定が軽くTeam ID/AASA/assetlinks/SHA不要。詳細は design_document 8.4）
+4. ✅ touched Dart（main / home_screen / deep_link_service）すべて `flutter analyze` クリーン
+
+残り（しゅーと側設定・実機テスト）:
+- [ ] 着地ページを **git push して公開**（GitHub Pages `uchinoko-license.com/order/complete/`）→ ブラウザで表示確認
+- [ ] **Stripe Payment Link 3本**の `after_completion` を `https://uchinoko-license.com/order/complete/` にリダイレクト設定＋住所/メアド必須収集ON
+- [ ] **実機テスト**：`mofumofulicense://order-return` でアプリ起動するか（iOSは FlutterSceneDelegate 自動転送のはず）／コールド起動でも復帰するか／ホーム救済バナーが出るか
+- [ ] Android App Check（Play Integrity）登録（後回し可）
+- [ ] App Check を計測→**Enforce 切替**（計測データ確認後）
+- [ ] Stripe Webhook（Cloud Functions）は別タスク（paid記録・突合用。写真送付フロー自体には不要）
 
 次回セッション開始時、まずやること:
-1. `git status` で**未コミット分**（tag_design_screen.dart＋今回の order_card/order_tag/order_upload/order_history/router/order_screen）を確認（commit はしゅーと指示が出てから）
+1. `git status` で**未コミット分**を確認（commit はしゅーと指示が出てから）。今回の変更＝main.dart / home_screen.dart / deep_link_service.dart(新) / Info.plist / AndroidManifest.xml / pubspec / docs/order/(新) / design_document.md / HANDOFF.md
 2. `docs/design_document.md` 8.4 と本セクションで設計・進捗を把握
-3. しゅーとに「Play Store 反映確認した？」「Android Closed Testing の進捗」を確認（継続宿題）
-4. **Phase D から再開**：ディープリンク（着地ページ復帰で session_id 受け取り→`/order/upload`）→ main の App Check → Firebaseルール反映。いずれもしゅーと側設定（着地ページ・ユニバーサルリンク・Apple Developer・Webhook）と一体で進める
-5. ⚠️ **既存テスト15件failはスコープ外の別件**（costume_test=コスチューム8件想定だが実際47種／license_template_test／pet_test／widget_test=home起動 pumpAndSettle timeout）。今回の注文フロー刷新とは無関係。テスト追従の更新は別タスクで対応する
+3. しゅーとに「着地ページ公開・Stripeリダイレクト設定したか」「Android Closed Testing の進捗」を確認
+4. ⚠️ **既存テスト15件failはスコープ外の別件**（costume_test／license_template_test／pet_test／widget_test=home起動 pumpAndSettle timeout）。注文フロー刷新とは無関係。テスト追従は別タスク
 
 ## v1.1.2 注文フロー刷新（2026-06-15 設計確定・実装待ち）
 
@@ -75,12 +91,14 @@
 - `lib/screens/order_screen.dart`: AppBarに注文履歴入口、注意書きを新フロー文言（「アプリに戻って写真を送る」）に更新
 - ✅ flutter analyze：上記すべて issue ゼロ。`order_record_test` 15件パス（他の既存テストfailは別件＝冒頭🚨参照）
 
-**⏳ 残り（次回・Phase D、しゅーと側設定とセット）:**
-- `main.dart`: App Check activate（unawaited、段階導入なので最初は計測モード）。`firebase_app_check` 依存追加が必要
-- ディープリンク（`app_links` 導入＋iOS Associated Domains/Android intent-filter）: 着地ページ復帰で session_id 受け取り→`/order/upload`。+ 起動時 `getPendingOrders()` で未送信検知→home等に再開導線（※現状でも `/order/history` から救済可能）
-- **Eセキュリティルール（OrderUploadServiceの書き方に確定済み、次回 Firebase Console で貼るだけ）**:
-  - Storage: `match /orders/{uid}/{p=**} { allow read: if request.auth!=null && request.auth.uid==uid; allow write: if 同条件 && request.resource.size<10*1024*1024 && request.resource.contentType.matches('image/.*'); }`
-  - Firestore: `match /orders/{n} { allow read: if false; allow write: if request.auth!=null && request.resource.data.uid==request.auth.uid; }`（Webhookは Admin SDK でルールバイパス）
+**✅ Phase D 完了（2026-06-16・未コミット）:** 詳細は冒頭🚨セクション参照。
+- `main.dart`: App Check activate（unawaited・計測モード）＋ `DeepLinkService.init()`
+- ディープリンク: **カスタムスキーム `mofumofulicense://` 採用**（ユニバーサルリンクは不採用＝iOS同一ドメイン問題回避）。`app_links` 受信→pending特定→`/order/upload`。`deep_link_service.dart` 新規。Flutter標準DLは無効化（plist/manifest）
+- `home_screen.dart`: 起動時 `getPendingOrders()` 検知→ホーム救済バナー（復帰の本命層）
+- セキュリティルール: **しゅーとが Firebase Console 公開済み**（確定版は design_document 8.4）。App Check iOS DeviceCheck 登録済み
+- 着地ページ: `docs/order/complete/index.html`（git push で公開待ち）
+
+**⏳ 残り（しゅーと側）:** 着地ページpush公開・Stripe Payment Link 3本のリダイレクト設定・実機テスト・Android App Check登録・App Check Enforce切替・Stripe Webhook（別タスク）
 
 ### リリース順序（審査衝突回避）
 - Android Closed Testing 14日完走 → 製品版申請 → **その後**に v1.1.2 新フローを投入。iOS/Android同時には出さず段階公開。旧フォーム方式は新フロー安定まで残す（ロールバック先）
@@ -104,7 +122,7 @@
 | 9 v1.0.9アップデート | ✅ 完了 | AnimationController dispose後操作クラッシュ修正 + 物理商品導線強化4点（2026-04-17頃 リリース済み） |
 | 10 v1.1.0アップデート | ✅ 完了 | NFC独立導線追加（ホーム画面2×3グリッド + 設定画面ツールセクション、2026-04-20 リリース済み） |
 | 11 Android初リリース準備 | 🔄 進行中 | Internal Testing 公開済み（2026-06-13）、レビュー反映待ち。Closed Testing 移行 → 14日テスト → 製品版申請 が残り |
-| 12 v1.1.2 注文フロー刷新 | 🔄 実装中（画面層まで完成） | アプリ内完結＋Stripe Webhook。設計は `docs/design_document.md` 8.4 が正。2026-06-15：設計確定（v3）＋Firebase設定A-D＋土台（モデル/DB/連携）＝efbfc8b、**画面層 Phase A〜C（order刷新/upload/history/router/導線）＝未コミット**。残りは Phase D（ディープリンク・App Check・Firebaseルール＝しゅーと側設定とセット）。詳細は本HANDOFF「## v1.1.2 注文フロー刷新」 |
+| 12 v1.1.2 注文フロー刷新 | 🔄 実装ほぼ完了（実機テスト待ち・未コミット） | アプリ内完結＋Stripe Webhook。設計は `docs/design_document.md` 8.4 が正。画面層=`e68bf14`／土台=`efbfc8b`。2026-06-16 Phase D（Firebaseルール公開済み／App Check計測モード・iOS登録済み／ディープリンク=カスタムスキーム `mofumofulicense://`）実装＝**未コミット**。残りはしゅーと側（着地ページpush・Stripeリダイレクト・実機テスト・App Check Enforce切替）。詳細は冒頭🚨 |
 | マーケ施策 | 🔄 実行中 | minne審査中、Creema公開済み、Instagram `@uchinoko_co` ブースト広告配信中（PCブラウザ経由でApple手数料回避、¥240/日×13日） |
 
 ## 直近セッションでの変更（2026-06-13: Play Console セットアップ完了、Internal Testing 公開）

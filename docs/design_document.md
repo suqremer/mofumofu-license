@@ -533,6 +533,61 @@ Android では Documents パスが `/data/user/0/<package>/app_flutter/...` と�
 - v3では **Stripe Webhook で決済成功を受信し Firestore に記録**するため、決済の有無をサーバー側で確実に判定できる（v2の「自己申告＋手動突合」から改善）。
 - これにより「払ったのに写真が来ない」の検知、突合、完遂率の計測がすべて自動化される。
 
+#### セキュリティルール（確定版・2026-06-16 Phase D で確定）
+
+`OrderUploadService` の実装（Storage: `orders/{uid}/{受付番号}/image_n.png`・contentType `image/png`／Firestore: doc ID = 受付番号・`uid` フィールド付き `set(merge:true)`・アプリは read しない）に合わせて確定。Firebase Console に貼る。
+
+**Storage**
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /orders/{uid}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null
+                   && request.auth.uid == uid
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
+```
+
+**Firestore**
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /orders/{orderNumber} {
+      allow read: if false;
+      allow write: if request.auth != null
+                   && request.resource.data.uid == request.auth.uid;
+    }
+  }
+}
+```
+
+**設計判断**:
+- 書き込み許可は「**新しく書き込む内容の `uid` が自分のuidと一致**」だけを見る（既存ドキュメントのuidは見ない）。理由＝決済時は **Stripe Webhook が先に** `paid=true` のドキュメントを作る（`uid` を持たない）→ その後アプリが同一ドキュメントを merge 更新するため。既存uid一致を要求すると、この「Webhook先・アプリ後」のケースで弾かれる。
+- `allow read: if false`（Firestore）= アプリは注文メタを読まない（履歴は端末ローカルDB）。最小権限。
+- Webhook（Cloud Functions）は **Admin SDK** でルールをバイパスして `paid` を書く。
+- **割り切り**: 受付番号を推測できれば他人の注文メタを上書きできる理論上の穴があるが、受付番号はランダムで推測困難・写真本体は uid 分離で読めない・決済の真実(paid)は Admin で改ざん不可、のため被害は限定的。MVP では許容。
+
+#### App Check（不正アップロード対策・2026-06-16 Phase D）
+- 不正アップロード・課金荒らし対策に **App Check** を導入（`firebase_app_check`、main で unawaited activate）。
+- **段階導入**: いきなり強制(Enforce)せず **計測モード（Console側 Unenforced）から**始める。正規ユーザーを誤って弾く事故を避けるため。データを見て問題なければ後日 Enforce に切り替える。
+- プロバイダ: **iOS=DeviceCheck**（iOS11+・最大限の端末互換を優先。App Attest は将来検討）、**Android=Play Integrity**、デバッグビルドは debug プロバイダ。
+- iOS DeviceCheck の鍵: Apple Developer の DeviceCheck 秘密鍵(.p8)＋Key ID＋Team ID を Firebase Console に登録。
+
+#### 復帰導線（決済→写真送付）の設計判断（2026-06-16 Phase D）
+決済往復後にユーザーをアプリの写真送付へ確実に戻すため、**3層**で担保する。
+- **本命＝起動時検知**: アプリ起動時に端末ローカルの pending 注文（写真未送信）を検知し、ホーム最上部にバナーを出す。ディープリンクが不発でも**アプリを開き直すだけで復帰できる**最も確実な層。
+- **便利＝ディープリンク**: 着地ページの「アプリでお写真を送る」ボタンからアプリ復帰。
+  - **方式はカスタムURLスキーム `mofumofulicense://` を採用**（ユニバーサルリンクは不採用）。理由＝決済後はユーザーが `uchinoko-license.com` を Safari で開いている状態で、**同一ドメインのユニバーサルリンクはiOSで不発になりやすい**（Apple仕様）。カスタムスキームはこの制約がなく、設定も軽い（Apple Developer の Associated Domains・AASA・assetlinks・SHA-256・autoVerify が不要）。未インストール時のストア誘導は着地ページ側で補う。
+  - どの注文かは**端末ローカルの pending から特定**する（Stripeのリダイレクトに乗るのは session_id で受付番号ではないため、リンクに注文情報は載せない）。`app_links` で受信、Flutter標準ディープリンクは無効化して二重処理を防ぐ。
+- **保険＝注文履歴**: `/order/history` から手動で再開（既存）。
+- 着地ページ: `docs/order/complete/index.html`（GitHub Pages / `uchinoko-license.com/order/complete/`）。Stripe Payment Link の `after_completion` をここへリダイレクト設定する。
+
 ### 8.5 タグ用丸形画像作成機能（TagDesignScreen）
 - アプリ内で証明写真を Φ30mm 丸形にトリミング（30mmプラ板に貼付）
 - savedImagePath から photoRect 領域をクロップしてプレビュー表示
