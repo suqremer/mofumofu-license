@@ -26,6 +26,23 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- ディープリンク: 決済後の着地ページからアプリ復帰用のカスタムURLスキーム -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.suqremer.mofumofuLicense</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mofumofulicense</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Flutter標準のディープリンク処理を無効化（app_links と二重処理しないため） -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

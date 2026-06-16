@@ -31,6 +31,17 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- ディープリンク: 決済後の着地ページからアプリ復帰用のカスタムURLスキーム -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="mofumofulicense"/>
+            </intent-filter>
+            <!-- Flutter標準のディープリンク処理を無効化（app_links と二重処理しないため） -->
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="false"/>
         </activity>
         <!-- image_cropper: UCrop のクロップ画面 -->
         <activity

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
@@ -14,6 +15,7 @@ import 'config/dev_config.dart';
 import 'router.dart';
 import 'services/ad_manager.dart';
 import 'services/app_preferences.dart';
+import 'services/deep_link_service.dart';
 import 'services/path_resolver.dart';
 import 'services/purchase_manager.dart';
 import 'theme/app_theme.dart';
@@ -60,12 +62,23 @@ void main() async {
   );
 
   runApp(const ProviderScope(child: MofumofuApp()));
+
+  // ディープリンク受信を開始（決済後の着地ページからアプリ復帰→写真送付）。
+  // runApp 後に呼ぶことで、初期リンクの遷移先（ルーター）が準備できている。
+  unawaited(DeepLinkService.instance.init());
 }
 
 /// Firebase 初期化 + Crashlytics 設定（Future.wait で並行実行できるよう関数化）
 Future<void> _initFirebase() async {
   try {
     await Firebase.initializeApp();
+
+    // App Check を起動（不正アップロード・課金荒らし対策）。
+    // 起動を引っ張らないよう unawaited。アップロードは決済往復後で十分後なので
+    // トークン準備が起動時に間に合わなくても問題ない。
+    // ※適用（Enforcement）は Firebase Console 側で「計測モード（OFF）」から段階導入する。
+    unawaited(_activateAppCheck());
+
     // Crashlytics設定（デバッグ時は無効）
     if (!kDebugMode) {
       FlutterError.onError =
@@ -77,6 +90,23 @@ Future<void> _initFirebase() async {
     }
   } catch (e) {
     debugPrint('Firebase init failed: $e');
+  }
+}
+
+/// App Check を有効化する。
+/// - デバッグビルド: debug プロバイダ（開発・テスト用トークン）
+/// - リリース: Android=Play Integrity / iOS=DeviceCheck（iOS11+・最大限の端末互換）
+/// 失敗しても起動を止めない（握りつぶす）。
+Future<void> _activateAppCheck() async {
+  try {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider:
+          kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+      appleProvider:
+          kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
+    );
+  } catch (e) {
+    debugPrint('App Check activate failed: $e');
   }
 }
 

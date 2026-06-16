@@ -34,6 +34,9 @@ dependencies:
   # 外部リンク
   url_launcher: ^6.3.1
 
+  # ディープリンク受信（決済後の着地ページからアプリ復帰）
+  app_links: ^6.3.0
+
   # カメラロール保存
   gal: ^2.3.2
 
@@ -58,6 +61,7 @@ dependencies:
   firebase_auth: ^5.4.0
   cloud_firestore: ^5.6.0
   firebase_storage: ^12.4.0
+  firebase_app_check: ^0.3.2
 
   # NFC
   nfc_manager: ^3.5.0

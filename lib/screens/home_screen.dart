@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/license_card.dart';
+import '../models/order_record.dart';
 import '../providers/database_provider.dart';
 import '../services/app_preferences.dart';
+import '../services/database_service.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
@@ -35,9 +37,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
+  /// 写真未送信（pending）の注文。決済済みなのに写真を送り損ねた人の救済導線に使う。
+  late Future<List<OrderRecord>> _pendingOrdersFuture;
+
   @override
   void initState() {
     super.initState();
+    // 起動時に未送信注文を検知（バナーで再開導線を出す）
+    _pendingOrdersFuture = DatabaseService().getPendingOrders();
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -95,6 +102,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               children: [
                 _buildSignboardHeader(context),
                 const SizedBox(height: 20),
+
+                // 写真未送信の注文があれば最優先で再開導線を出す
+                _buildPendingOrderBanner(),
 
                 if (!AppPreferences.hasOrdered) ...[
                   // 未注文: スライドショーを目立つ位置に
@@ -423,6 +433,102 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
     );
+  }
+
+  // ─────────────────────────────────────────────
+  // 写真未送信バナー（決済済み・写真未達の救済導線）
+  // ─────────────────────────────────────────────
+
+  Widget _buildPendingOrderBanner() {
+    return FutureBuilder<List<OrderRecord>>(
+      future: _pendingOrdersFuture,
+      builder: (context, snapshot) {
+        final pending = snapshot.data ?? const <OrderRecord>[];
+        if (pending.isEmpty) return const SizedBox.shrink();
+        final multiple = pending.length > 1;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+              border:
+                  Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.cloud_upload_outlined,
+                        size: 20, color: AppColors.warning),
+                    SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'お写真がまだ届いていません',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  multiple
+                      ? '${pending.length}件のご注文で、お写真がまだ送信されていません。'
+                          'お支払い済みの場合はお写真を送ってください。'
+                      : '受付番号 ${pending.first.orderNumber} のお写真がまだ送信されていません。'
+                          'お支払い済みの場合はお写真を送ってください。',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textMedium,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _resumePendingOrder(pending),
+                    icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                    label: Text(multiple ? 'お写真を送る（注文履歴へ）' : 'お写真を送る'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// バナーから写真送付を再開する。
+  /// pending が1件なら直接アップロード画面、複数なら注文履歴で選んでもらう。
+  Future<void> _resumePendingOrder(List<OrderRecord> pending) async {
+    if (pending.length == 1) {
+      await context.push('/order/upload', extra: pending.first);
+    } else {
+      await context.push('/order/history');
+    }
+    // 送信完了後に戻ってくる可能性があるので再検知してバナーを更新
+    if (mounted) {
+      setState(() {
+        _pendingOrdersFuture = DatabaseService().getPendingOrders();
+      });
+    }
   }
 
   // ─────────────────────────────────────────────
