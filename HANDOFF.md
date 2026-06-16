@@ -1,13 +1,13 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-06-16（v1.1.2 **Phase D 実装（全て未コミット）**。①Firebaseルール確定＆しゅーとがConsole公開済み（Storage/Firestore）②App Check＝コード実装＋iOS DeviceCheck登録済み（Android Play Integrityは後回し・計測モード・未Enforce）③ディープリンク＝カスタムスキーム `mofumofulicense://` 採用、app_links導入・iOS/Androidネイティブ設定・受信サービス・ホーム救済バナー・着地ページ。touched Dart は flutter analyze クリーン。残りはしゅーと側＝着地ページpush公開・Stripeリダイレクト設定・実機テスト）
+2026-06-16（v1.1.2 **Phase D ＋ 3観点レビュー反映まで完了・コミット＆push済み**。最新コミット `a6a6e7d`、作業ツリー clean、origin/main 同期済み。①Firebaseルール（強化版）＝しゅーとConsole公開済み ②App Check＝コード実装＋iOS DeviceCheck登録済み（Android後回し・計測モード・未Enforce）③ディープリンク＝カスタムスキーム `mofumofulicense://`・着地ページ・ホーム救済バナー。レビュー指摘#1-9も反映済み。Stripeリダイレクト/住所収集もしゅーと設定済み。**残りは実機テスト（Step1）と Stripe Webhook（別タスク・リリース前提）**）
 
-※ 画面層 Phase A〜C は前回コミット済み（`e68bf14`）。土台は `efbfc8b`。
+※ 画面層 Phase A〜C は `e68bf14`、土台は `efbfc8b`。Phase D本体は `0731054`/`b1f3b05`、レビュー反映は `e3a718d`/`a6a6e7d`。
 
 ## 🚨 別セッションのClaude へ：最初に読むべきこと
 
-直近セッション（2026-06-16）で完了したこと（**Phase D・全て未コミット**）:
+直近セッション（2026-06-16）で完了したこと（**Phase D ＋ レビュー反映・コミット＆push済み, 最新 `a6a6e7d`**）:
 1. ✅ **Firebaseセキュリティルール**確定（`OrderUploadService` の実装と突合）＝`docs/design_document.md` 8.4「セキュリティルール（確定版）」が正。**しゅーとが Console に公開済み（Storage / Firestore 両方）**
 2. ✅ **App Check（コード）**：`firebase_app_check ^0.3.2`（解決 0.3.2+10）追加、`lib/main.dart` の `_initFirebase` で unawaited activate（debug=debug / リリース=iOS DeviceCheck・Android Play Integrity）。**段階導入＝計測モード（Console側 Enforce はまだOFF）**
    - ✅ iOS DeviceCheck 登録済み（Apple .p8 / **Key ID `63RRL34CJ7` / Team ID `6YBWD8ZH2K`**）
@@ -21,7 +21,7 @@
    - `docs/order/complete/index.html`（新規）：着地ページ（決済完了＋「アプリでお写真を送る」＝`mofumofulicense://order-return`＋手動/ストアフォールバック）
    - **方式判断**: ユニバーサルリンクではなく**カスタムスキーム**採用（iOS同一ドメイン問題回避・設定が軽くTeam ID/AASA/assetlinks/SHA不要。詳細は design_document 8.4）
 4. ✅ touched Dart（main / home_screen / deep_link_service）すべて `flutter analyze` クリーン
-5. ✅ **3観点レビュー（セキュリティ/正しさ/UX）実施→指摘#1-9を反映（未コミット）**：
+5. ✅ **3観点レビュー（セキュリティ/正しさ/UX）実施→指摘#1-9を反映（コミット済 `e3a718d`/`a6a6e7d`）**：
    - #1 `_launchPayment` 二度押しガード＋pending保存をlaunchUrl成功後に（order_card/tag、幽霊pending・受付番号二重発番を防止）
    - #7 `setHasOrdered()` を決済時→**写真送付完了時**に移動（order_upload。離脱者を「注文済み」にしない）
    - #2 注文履歴に**削除導線**追加（既存 deleteOrder 接続。未決済pendingを消せる）
@@ -32,20 +32,25 @@
    - 触ったファイル analyze クリーン / order_record_test 15件パス
    - ⚠️ レビュー最大の発見＝**決済の裏取りが無い**（Webhook未実装のため未決済でも uploaded=true が書ける）。Webhook実装まで「uploaded だけで製造しない・必ずStripe入金と突合」を運用ルールとする
 
-残り（しゅーと側設定・実機テスト）:
-- [ ] **Firestoreルールを強化版に再公開**（design_document 8.4 の Firestore ルール。Storageは変更なし）
-- [ ] 着地ページを **git push して公開**（GitHub Pages `uchinoko-license.com/order/complete/`）→ ブラウザで表示確認
-- [ ] **Stripe Payment Link 3本**の `after_completion` を `https://uchinoko-license.com/order/complete/?session_id={CHECKOUT_SESSION_ID}` にリダイレクト設定＋住所/メアド必須収集ON（**本番モード**で。3本のID: card=...os01 / tag=...os00 / set=...os02）
-- [ ] **実機テスト**：`mofumofulicense://order-return` でアプリ起動するか（iOSは FlutterSceneDelegate 自動転送のはず）／コールド起動でも復帰するか／ホーム救済バナーが出るか／Firアップロードがルール通過するか
-- [ ] Android App Check（Play Integrity）登録（後回し可。Console上部検索で「アプリの完全性」）
+しゅーと側 完了済み（2026-06-16）:
+- [x] Firebaseルール（**強化版**）を Console 再公開（Storage/Firestore）
+- [x] 着地ページ公開（push済み → `uchinoko-license.com/order/complete/`。Google Playリンクは Android製品版まで非表示）
+- [x] Stripe Payment Link 3本のリダイレクト設定＋住所/メアド必須収集（本番モード。3本ID: card=...os01 / tag=...os00 / set=...os02）
+- [x] iOS App Check（DeviceCheck）登録（Key ID `63RRL34CJ7` / Team ID `6YBWD8ZH2K`）
+
+残り（次回以降）:
+- [ ] **【次回ここから】実機テスト（ロードマップ Step1・無料）**：Android実機で `flutter run`。確認＝`mofumofulicense://order-return` でアプリ起動／コールド起動でも復帰／ホーム救済バナー表示／写真アップロードが Firebaseルール＆App Check を通る。iOSは Codemagic 手動ビルド→TestFlight（その際バージョンを 1.1.2 に上げる相談）
+- [ ] Android App Check（Play Integrity）登録（後回し可。Console上部検索で「アプリの完全性」→Cloudプロジェクトリンク→SHA-256）
 - [ ] App Check を計測→**Enforce 切替**（計測データ確認後）
-- [ ] **Stripe Webhook（Cloud Functions）= 別タスクだがリリース前提**（paid記録・製造ゲート・突合用）
+- [ ] **Stripe Webhook（Cloud Functions）= 別タスクだがリリース前提**（paid記録・製造ゲート・突合用）。実装まで「`uploaded`だけで製造しない・必ずStripe入金と受付番号で突合」運用
+- [ ] リリースは段階公開（Android Closed Testing 14日→製品版申請→**その後**に新フロー投入。詳細は本HANDOFF「リリース順序」）
 
 次回セッション開始時、まずやること:
-1. `git status` で**未コミット分**を確認（commit はしゅーと指示が出てから）。今回の変更＝main.dart / home_screen.dart / deep_link_service.dart(新) / Info.plist / AndroidManifest.xml / pubspec / docs/order/(新) / design_document.md / HANDOFF.md
+1. `git status` がクリーン・origin同期済みを確認（前回 `a6a6e7d` まで push 済み）
 2. `docs/design_document.md` 8.4 と本セクションで設計・進捗を把握
-3. しゅーとに「着地ページ公開・Stripeリダイレクト設定したか」「Android Closed Testing の進捗」を確認
-4. ⚠️ **既存テスト15件failはスコープ外の別件**（costume_test／license_template_test／pet_test／widget_test=home起動 pumpAndSettle timeout）。注文フロー刷新とは無関係。テスト追従は別タスク
+3. **実機テスト（Step1）から再開**。しゅーとに Android実機の用意を確認
+4. しゅーとに「Android Closed Testing の進捗」も確認（継続宿題）
+5. ⚠️ **既存テスト15件failはスコープ外の別件**（costume_test／license_template_test／pet_test／widget_test=home起動 pumpAndSettle timeout）。注文フロー刷新とは無関係。テスト追従は別タスク
 
 ## v1.1.2 注文フロー刷新（2026-06-15 設計確定・実装待ち）
 
