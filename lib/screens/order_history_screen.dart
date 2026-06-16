@@ -168,7 +168,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
-                'まだ写真が送信されていません。お支払い済みの場合は写真を送ってください。',
+                'まだお写真が送信されていません。お支払い済みの場合はお写真を送ってください。\n'
+                '受付番号はお支払い時に届いたメールでご確認いただけます。',
                 style: TextStyle(
                     fontSize: 12, color: AppColors.textMedium, height: 1.4),
               ),
@@ -179,13 +180,22 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
               child: ElevatedButton.icon(
                 onPressed: () => _goToUpload(order),
                 icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                label: const Text('写真を送る'),
+                label: const Text('お写真を送る'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20)),
+                ),
+              ),
+            ),
+            Center(
+              child: TextButton(
+                onPressed: () => _confirmDelete(order),
+                child: const Text(
+                  'お支払いしていない／この注文を削除',
+                  style: TextStyle(fontSize: 12, color: AppColors.textLight),
                 ),
               ),
             ),
@@ -216,5 +226,34 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     await context.push('/order/upload', extra: order);
     // 送信完了後に戻ってくる可能性があるので一覧を更新
     if (mounted) setState(_reload);
+  }
+
+  /// 未送信（pending）注文の控えを削除する。
+  /// 決済せず離脱した注文がバナー/履歴に残り続けるのを解消するための導線。
+  Future<void> _confirmDelete(OrderRecord order) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('この注文を削除しますか？'),
+        content: Text(
+          '受付番号 ${order.orderNumber} の控えを削除します。\n'
+          'お支払い済みの場合は削除しないでください。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('削除', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await DatabaseService().deleteOrder(order.orderNumber);
+      if (mounted) setState(_reload);
+    }
   }
 }

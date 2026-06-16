@@ -17,7 +17,7 @@ class DatabaseService {
   /// _onCreate（新規インストール）と _onUpgrade（既存ユーザー）の両方で共用し、
   /// 片方への入れ忘れによる定義ズレ・テーブル欠落クラッシュを防ぐ。
   static const _createOrderHistoryTable = '''
-    CREATE TABLE order_history (
+    CREATE TABLE IF NOT EXISTS order_history (
       order_number TEXT PRIMARY KEY,
       product_type TEXT NOT NULL,
       pet_names TEXT NOT NULL,

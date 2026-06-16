@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/order_record.dart';
+import '../services/app_preferences.dart';
 import '../services/database_service.dart';
 import '../services/order_upload_service.dart';
 import '../theme/colors.dart';
@@ -55,7 +56,7 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(_phase == _UploadPhase.done ? '送信完了' : '写真の送信'),
+        title: Text(_phase == _UploadPhase.done ? '送信完了' : 'お写真の送信'),
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.textDark,
         elevation: 0,
@@ -84,7 +85,7 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
                 _buildOrderSummaryCard(),
                 const SizedBox(height: AppSpacing.lg),
                 const Text(
-                  'この写真で送信します',
+                  'このお写真で送信します',
                   style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -121,7 +122,7 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
               onPressed: paths.isEmpty ? null : _startUpload,
               icon: const Icon(Icons.cloud_upload_outlined, size: 18),
               label: const Text(
-                'この写真を送信する',
+                'このお写真を送信する',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
@@ -259,7 +260,7 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
           const Icon(Icons.check_circle, size: 72, color: AppColors.success),
           const SizedBox(height: AppSpacing.md),
           const Text(
-            '写真の送信が完了しました',
+            'お写真の送信が完了しました',
             textAlign: TextAlign.center,
             style: TextStyle(
                 fontSize: 18,
@@ -341,8 +342,8 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
           ),
           const SizedBox(height: AppSpacing.sm),
           const Text(
-            'お支払いは完了しています。二重に支払う必要はありません。\n'
-            '写真は何度でも送り直せます。',
+            'お支払い済みの場合は、二重に支払う必要はありません。\n'
+            'お写真は何度でも送り直せます。',
             textAlign: TextAlign.center,
             style: TextStyle(
                 fontSize: 12, color: AppColors.textLight, height: 1.5),
@@ -414,6 +415,9 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
 
     try {
       await OrderUploadService.instance.uploadOrder(widget.order);
+      // 写真送付の完了をもって「注文済み」とする（ホームUIの切替に使う）。
+      // 決済前ではなくここで立てることで、決済せず離脱した人を「注文済み」にしない。
+      await AppPreferences.setHasOrdered();
       // ローカルの控えを「写真送信済み」に更新
       await DatabaseService()
           .upsertOrder(widget.order.copyWith(status: OrderStatus.uploaded));

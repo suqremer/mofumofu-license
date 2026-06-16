@@ -6,7 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/license_card.dart';
 import '../models/order_record.dart';
 import '../providers/database_provider.dart';
-import '../services/app_preferences.dart';
 import '../services/database_service.dart';
 import '../services/order_upload_service.dart';
 import '../theme/colors.dart';
@@ -48,6 +47,9 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
 
   /// 発番してローカル保存した注文（写真送付画面へ渡す）
   OrderRecord? _pendingOrder;
+
+  /// 「お支払いに進む」処理中フラグ（二度押しで受付番号が二重発番されるのを防ぐ）
+  bool _launching = false;
 
   String get _paymentUrl => widget.isSet
       ? 'https://buy.stripe.com/7sY6oGcwCdmKgV007T5os02'
@@ -247,8 +249,8 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                 if (_selectedCards.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   _buildInfoNote(
-                    'お支払いが完了したら、この画面に戻って写真を送信してください。'
-                    '写真の送付がないと制作を開始できません。',
+                    'お支払いが完了したら、この画面に戻ってお写真を送信してください。'
+                    'お写真の送付がないと制作を開始できません。',
                   ),
                 ],
 
@@ -431,7 +433,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
               const SizedBox(width: AppSpacing.sm),
               const Expanded(
                 child: Text(
-                  'お支払いはお済みですか？',
+                  'お支払いありがとうございます',
                   style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -443,7 +445,8 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
           const SizedBox(height: AppSpacing.sm),
           Text(
             '受付番号: ${_pendingOrder!.orderNumber}\n'
-            'お支払いが完了したら、下のボタンから写真を送信してください。',
+            'お支払いはブラウザで完了しています（お写真の送信は無料です）。'
+            '下のボタンからお写真を送ってください。',
             style: const TextStyle(
                 fontSize: 13, color: AppColors.textMedium, height: 1.5),
           ),
@@ -453,7 +456,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
             child: ElevatedButton.icon(
               onPressed: _goToUpload,
               icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-              label: const Text('写真を送る'),
+              label: const Text('お写真を送る'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.success,
                 foregroundColor: Colors.white,
@@ -678,7 +681,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
         width: double.infinity,
         height: 52,
         child: ElevatedButton.icon(
-          onPressed: _canOrder ? _launchPayment : null,
+          onPressed: (_canOrder && !_launching) ? _launchPayment : null,
           icon: const Icon(Icons.open_in_new, size: 18),
           label: Text(
             buttonLabel,
@@ -723,49 +726,56 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
   }
 
   Future<void> _launchPayment() async {
-    final count = _selectedCards.length;
-    final orderNumber = OrderRecord.generateOrderNumber();
-    final order = OrderRecord(
-      orderNumber: orderNumber,
-      productType: _productType,
-      petNames: _selectedCards.map((c) => c.petName).toList(),
-      quantity: count,
-      nfcProxy: _nfcProxy,
-      note: _noteController.text.trim().isEmpty
-          ? null
-          : _noteController.text.trim(),
-      imagePaths: _collectImagePaths(),
-      amount: _unitPrice * count,
-      status: OrderStatus.pending,
-      createdAt: DateTime.now(),
-    );
-
-    // 注文をローカルに一時保存（決済から戻った後の写真送付の手がかり）
-    await DatabaseService().upsertOrder(order);
-    await AppPreferences.setHasOrdered();
-
-    // 決済往復後のアップロードで失敗しないよう、匿名認証を「温めて」おく。
-    // 失敗しても決済自体は進められるよう握りつぶす（アップロード時に再試行）。
+    if (_launching) return; // 二度押しガード
+    setState(() => _launching = true);
     try {
-      await OrderUploadService.instance.ensureSignedIn();
-    } catch (_) {}
+      final count = _selectedCards.length;
+      final orderNumber = OrderRecord.generateOrderNumber();
+      final order = OrderRecord(
+        orderNumber: orderNumber,
+        productType: _productType,
+        petNames: _selectedCards.map((c) => c.petName).toList(),
+        quantity: count,
+        nfcProxy: _nfcProxy,
+        note: _noteController.text.trim().isEmpty
+            ? null
+            : _noteController.text.trim(),
+        imagePaths: _collectImagePaths(),
+        amount: _unitPrice * count,
+        status: OrderStatus.pending,
+        createdAt: DateTime.now(),
+      );
 
-    // 受付番号を client_reference_id として Stripe に渡し、Webhook と突合できるようにする
-    final uri = Uri.parse('$_paymentUrl?client_reference_id=$orderNumber');
-    if (await canLaunchUrl(uri)) {
+      // 決済往復後のアップロードで失敗しないよう、匿名認証を「温めて」おく。
+      // 失敗しても決済自体は進められるよう握りつぶす（アップロード時に再試行）。
+      try {
+        await OrderUploadService.instance.ensureSignedIn();
+      } catch (_) {}
+
+      // 受付番号を client_reference_id として Stripe に渡し、Webhook と突合できるようにする
+      final uri = Uri.parse('$_paymentUrl?client_reference_id=$orderNumber');
+      if (!await canLaunchUrl(uri)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('決済ページを開けませんでした')),
+          );
+        }
+        return;
+      }
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+      // 決済ページを開けた後にだけ pending を保存する。
+      // （開けなかった場合に幽霊pendingを残さない。setHasOrdered は写真送付完了時に行う）
+      await DatabaseService().upsertOrder(order);
+
       if (mounted) {
         setState(() {
           _orderPlaced = true;
           _pendingOrder = order;
         });
       }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('決済ページを開けませんでした')),
-        );
-      }
+    } finally {
+      if (mounted) setState(() => _launching = false);
     }
   }
 

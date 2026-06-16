@@ -82,10 +82,12 @@ class OrderRecord {
   /// 受付番号を生成する（例: UNK-20260615-7K2QF9）
   ///
   /// 一意性は決済の session_id が担保するため、これは人間が読む表示・突合用。
-  /// 6桁（約11億通り）で日次の衝突をほぼ排除する。
+  /// 6桁（約8.9億通り）で日次の衝突をほぼ排除する。
+  /// 受付番号は他人ドキュメントの推測を防ぐ事実上の境界も兼ねるため、
+  /// 予測困難な暗号論的乱数 [Random.secure] を使う（テストは引数で固定可能）。
   static String generateOrderNumber([DateTime? now, Random? random]) {
     final t = now ?? DateTime.now();
-    final rnd = random ?? Random();
+    final rnd = random ?? Random.secure();
     final y = t.year.toString().padLeft(4, '0');
     final m = t.month.toString().padLeft(2, '0');
     final d = t.day.toString().padLeft(2, '0');

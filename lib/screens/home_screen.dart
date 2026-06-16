@@ -467,7 +467,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        'お写真がまだ届いていません',
+                        'お写真の送信がお済みでない注文があります',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
