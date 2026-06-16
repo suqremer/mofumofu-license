@@ -1,9 +1,9 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-06-16（v1.1.2 **Phase D ＋ 3観点レビュー反映まで完了・コミット＆push済み**。最新コミット `a6a6e7d`、作業ツリー clean、origin/main 同期済み。①Firebaseルール（強化版）＝しゅーとConsole公開済み ②App Check＝コード実装＋iOS DeviceCheck登録済み（Android後回し・計測モード・未Enforce）③ディープリンク＝カスタムスキーム `mofumofulicense://`・着地ページ・ホーム救済バナー。レビュー指摘#1-9も反映済み。Stripeリダイレクト/住所収集もしゅーと設定済み。**残りは実機テスト（Step1）と Stripe Webhook（別タスク・リリース前提）**）
+2026-06-16（v1.1.2 **Phase D ＋ 3観点レビュー反映 ＋ Android実機テスト全合格まで完了・コミット＆push済み**。最新コミット `1b4ea69`、作業ツリー clean、origin/main 同期済み。①Firebaseルール（強化版）＝しゅーとConsole公開済み ②App Check＝コード実装＋iOS DeviceCheck登録済み（Android後回し・計測モード・未Enforce）③ディープリンク＝カスタムスキーム `mofumofulicense://`・着地ページ・ホーム救済バナー。レビュー指摘#1-9反映済み。**Android実機でテスト1〜3（カスタムスキーム/救済バナー/Firアップロード）全合格**。実機テスト中に発見した AudioContextクラッシュも修正(`1b4ea69`)。**残りは iOS実機テスト(TestFlight)と Stripe Webhook（別タスク・リリース前提）**）
 
-※ 画面層 Phase A〜C は `e68bf14`、土台は `efbfc8b`。Phase D本体は `0731054`/`b1f3b05`、レビュー反映は `e3a718d`/`a6a6e7d`。
+※ 画面層 Phase A〜C は `e68bf14`、土台は `efbfc8b`。Phase D本体は `0731054`/`b1f3b05`、レビュー反映は `e3a718d`/`a6a6e7d`、AudioContext修正は `1b4ea69`。
 
 ## 🚨 別セッションのClaude へ：最初に読むべきこと
 
@@ -31,6 +31,11 @@
    - #8 着地ページの Google Play リンクを Android製品版公開まで非表示（コメントアウト）
    - 触ったファイル analyze クリーン / order_record_test 15件パス
    - ⚠️ レビュー最大の発見＝**決済の裏取りが無い**（Webhook未実装のため未決済でも uploaded=true が書ける）。Webhook実装まで「uploaded だけで製造しない・必ずStripe入金と突合」を運用ルールとする
+6. ✅ **Android実機テスト全合格**（CPH2797・debugビルド `flutter run`）：
+   - テスト1 カスタムスキーム＝`adb am start -d mofumofulicense://order-return` でアプリ起動→app_links受信(`Handled intent`)→注文履歴へ遷移 ✅
+   - テスト2 救済バナー＝注文(pending保存)→force-stop→コールド起動→ホーム最上部にバナー表示 ✅（起動時 getPendingOrders 検知が実機で動作）
+   - テスト3 アップロード＝バナー→送信→「お写真の送信が完了しました」(受付番号 UNK-20260616-YRGEBY・セット注文)。ルール拒否ログなし＝Firebaseルール/App Check(計測)/匿名認証 全通過 ✅
+   - 🐛 **実機テストで重大バグ発見＆修正**：プレビュー画面の AudioContext が `category=ambient` + `mixWithOthers` 明示で audioplayers の新バリデーションに弾かれクラッシュ（免許証作成不可）。`mixWithOthers` 指定を削除して修正（`1b4ea69`）。※今セッションの `flutter pub get`(firebase_app_check/app_links追加)で audioplayers が 6.6.0 に上がり顕在化したと推測
 
 しゅーと側 完了済み（2026-06-16）:
 - [x] Firebaseルール（**強化版**）を Console 再公開（Storage/Firestore）
@@ -39,16 +44,17 @@
 - [x] iOS App Check（DeviceCheck）登録（Key ID `63RRL34CJ7` / Team ID `6YBWD8ZH2K`）
 
 残り（次回以降）:
-- [ ] **【次回ここから】実機テスト（ロードマップ Step1・無料）**：Android実機で `flutter run`。確認＝`mofumofulicense://order-return` でアプリ起動／コールド起動でも復帰／ホーム救済バナー表示／写真アップロードが Firebaseルール＆App Check を通る。iOSは Codemagic 手動ビルド→TestFlight（その際バージョンを 1.1.2 に上げる相談）
+- [x] ~~Android実機テスト（Step1）~~ → **全合格（上記6参照）**
+- [ ] **【次回ここから】iOS実機テスト（Codemagic手動ビルド→TestFlight）**：バージョンを 1.1.2 に上げる相談→ビルド。**iOS固有部分のみ確認すればよい**（共通Dartロジックの再確認は不要）：①🔴カスタムスキーム受信（iOSは FlutterSceneDelegate 経由＝Androidと別系統。最重要）②AudioContext修正後の音/マナーモード挙動（ambientはiOS向け設定）③App Check DeviceCheck のトークン取得 ④Firアップロード（念のため）
 - [ ] Android App Check（Play Integrity）登録（後回し可。Console上部検索で「アプリの完全性」→Cloudプロジェクトリンク→SHA-256）
 - [ ] App Check を計測→**Enforce 切替**（計測データ確認後）
 - [ ] **Stripe Webhook（Cloud Functions）= 別タスクだがリリース前提**（paid記録・製造ゲート・突合用）。実装まで「`uploaded`だけで製造しない・必ずStripe入金と受付番号で突合」運用
 - [ ] リリースは段階公開（Android Closed Testing 14日→製品版申請→**その後**に新フロー投入。詳細は本HANDOFF「リリース順序」）
 
 次回セッション開始時、まずやること:
-1. `git status` がクリーン・origin同期済みを確認（前回 `a6a6e7d` まで push 済み）
+1. `git status` がクリーン・origin同期済みを確認（前回 `1b4ea69` まで push 済み）
 2. `docs/design_document.md` 8.4 と本セクションで設計・進捗を把握
-3. **実機テスト（Step1）から再開**。しゅーとに Android実機の用意を確認
+3. **iOS実機テスト（TestFlight）から再開**。バージョン1.1.2への引き上げをしゅーとに相談→Codemagic手動ビルド。確認はiOS固有部分のみ（上記「残り」参照）
 4. しゅーとに「Android Closed Testing の進捗」も確認（継続宿題）
 5. ⚠️ **既存テスト15件failはスコープ外の別件**（costume_test／license_template_test／pet_test／widget_test=home起動 pumpAndSettle timeout）。注文フロー刷新とは無関係。テスト追従は別タスク
 
