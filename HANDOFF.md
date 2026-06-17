@@ -1,9 +1,19 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-06-16（v1.1.2 **Phase D ＋ 3観点レビュー反映 ＋ Android実機テスト全合格まで完了・コミット＆push済み**。最新コミット `1b4ea69`、作業ツリー clean、origin/main 同期済み。①Firebaseルール（強化版）＝しゅーとConsole公開済み ②App Check＝コード実装＋iOS DeviceCheck登録済み（Android後回し・計測モード・未Enforce）③ディープリンク＝カスタムスキーム `mofumofulicense://`・着地ページ・ホーム救済バナー。レビュー指摘#1-9反映済み。**Android実機でテスト1〜3（カスタムスキーム/救済バナー/Firアップロード）全合格**。実機テスト中に発見した AudioContextクラッシュも修正(`1b4ea69`)。**残りは iOS実機テスト(TestFlight)と Stripe Webhook（別タスク・リリース前提）**）
+2026-06-16（v1.1.2 **Phase D ＋ 3観点レビュー反映 ＋ Android実機テスト＆回帰テストまで完了・コミット＆push済み**。最新コミット `43023f7`、作業ツリー clean、origin/main 同期済み。①Firebaseルール（強化版）＝しゅーとConsole公開済み ②App Check＝コード実装＋iOS DeviceCheck登録済み（Android後回し・計測モード・未Enforce）③ディープリンク＝カスタムスキーム `mofumofulicense://`・着地ページ・ホーム救済バナー。レビュー指摘#1-9反映済み。**Android実機でPhase Dテスト1〜3＋回帰テスト全合格**。実機テストで見つけた不具合・改善も修正済み（下記）。**残りは iOS実機テスト(TestFlight)と Stripe Webhook（別タスク・リリース前提）**）
 
-※ 画面層 Phase A〜C は `e68bf14`、土台は `efbfc8b`。Phase D本体は `0731054`/`b1f3b05`、レビュー反映は `e3a718d`/`a6a6e7d`、AudioContext修正は `1b4ea69`。
+※ 画面層 Phase A〜C は `e68bf14`、土台は `efbfc8b`。Phase D本体は `0731054`/`b1f3b05`、レビュー反映は `e3a718d`/`a6a6e7d`、AudioContext修正は `1b4ea69`、回帰テスト修正は `7feafd7`(fix)/`43023f7`(feat)。
+
+### 2026-06-16 Android実機回帰テストで見つけた修正（コミット済み `7feafd7`/`43023f7`）
+すべて Dart コードのため、**共通修正は次回 iOS ビルドで自動反映**（iOS側の個別作業は不要）。文字位置のみ Android 限定（iOS は元々正しいので不変）。
+- 🐛 `license_painter`: Android のフォントメトリクス差で文字が上にずれる問題を補正（生年月日 -1*s／優良 Android分岐／ハンコ「子」縦書き漢字 fontSize*0.26下げ／品種は漢字含む時 -12*s／ひみつ「ひ・み・つ」平仮名 -5*s上・中点 +1*s下）。**`Platform.isAndroid` 限定・iOS不変**
+- 🐛 `tag_design`: ペット名に `/` 等が含まれると丸形画像の保存に失敗→無反応になる不具合を修正（ファイル名サニタイズ＋失敗時 SnackBar）。**共通**
+- `order_card/tag`: 「ご要望・備考」欄を削除（実現不可の期待防止）／NFC代行に料金 ¥500 明記。**共通**
+- `order_upload`: 写真送信画面に「お支払いしていない／削除」救済導線を追加。**共通**
+- `settings`/`order_upload`: お問い合わせでメールアプリが無い時にアドレスをコピー。**共通**
+- `help_contents`: 注文関連3項目を新フロー（Googleフォーム廃止→アプリ内写真送信）に更新。**共通**
+- ✅ 連打テスト（二度押しガード）も問題なし。NFC実機確認は後日（しゅーと）
 
 ## 🚨 別セッションのClaude へ：最初に読むべきこと
 
