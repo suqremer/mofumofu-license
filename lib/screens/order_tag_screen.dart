@@ -35,9 +35,6 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
   /// NFC書き込み代行の希望
   bool _nfcProxy = false;
 
-  /// 備考（任意）
-  final TextEditingController _noteController = TextEditingController();
-
   /// 「お支払いに進む」を押して決済ページを開いた後 true
   bool _orderPlaced = false;
 
@@ -49,12 +46,6 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
 
   static const _paymentUrl = 'https://buy.stripe.com/7sY7sK8gm3MaeMS7Al5os00';
   static const _unitPrice = 2480;
-
-  @override
-  void dispose() {
-    _noteController.dispose();
-    super.dispose();
-  }
 
   String _formatPrice(int yen) => '¥${yen.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}';
 
@@ -197,12 +188,6 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
                 _buildNfcProxyTile(),
                 const SizedBox(height: AppSpacing.lg),
 
-                // Step: 備考
-                _buildStepHeader(stepNum++, 'ご要望・備考（任意）'),
-                const SizedBox(height: AppSpacing.sm),
-                _buildNoteField(),
-                const SizedBox(height: AppSpacing.lg),
-
                 // Step: 決済
                 _buildStepHeader(stepNum, 'お支払いに進む'),
                 const SizedBox(height: AppSpacing.sm),
@@ -314,37 +299,10 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
         subtitle: const Text(
-          'ご希望の場合、書き込み内容を後ほどメールで確認します（別途料金がかかる場合があります）。',
+          'ご希望の場合、書き込み内容を後ほどメールで確認します。別途¥500（税込）をメールにてご請求します。',
           style: TextStyle(fontSize: 12, color: AppColors.textMedium, height: 1.4),
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
-  Widget _buildNoteField() {
-    return TextField(
-      controller: _noteController,
-      maxLines: 3,
-      maxLength: 200,
-      decoration: InputDecoration(
-        hintText: '例: 紐の色の希望、ラッピング希望 など',
-        hintStyle: const TextStyle(fontSize: 13, color: AppColors.textLight),
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.all(12),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary),
-        ),
       ),
     );
   }
@@ -692,9 +650,7 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
         petNames: _selectedCards.map((c) => c.petName).toList(),
         quantity: count,
         nfcProxy: _nfcProxy,
-        note: _noteController.text.trim().isEmpty
-            ? null
-            : _noteController.text.trim(),
+        note: null,
         imagePaths: _selectedCards
             .map((c) => _tagImagePaths[c.id])
             .whereType<String>()

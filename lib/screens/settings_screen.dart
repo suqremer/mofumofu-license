@@ -388,8 +388,10 @@ class SettingsScreen extends ConsumerWidget {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else {
+      await Clipboard.setData(const ClipboardData(text: _supportEmail));
       if (context.mounted) {
-        _showSnack(context, '$_supportEmail にメールしてください');
+        _showSnack(context,
+            'メールアプリが見つかりませんでした。アドレスをコピーしました（$_supportEmail）');
       }
     }
   }
@@ -406,8 +408,10 @@ class SettingsScreen extends ConsumerWidget {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else {
+      await Clipboard.setData(const ClipboardData(text: _supportEmail));
       if (context.mounted) {
-        _showSnack(context, '$_supportEmail にメールしてください');
+        _showSnack(context,
+            'メールアプリが見つかりませんでした。アドレスをコピーしました（$_supportEmail）');
       }
     }
   }

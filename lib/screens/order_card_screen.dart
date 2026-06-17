@@ -38,9 +38,6 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
   /// NFC書き込み代行の希望
   bool _nfcProxy = false;
 
-  /// 備考（任意）
-  final TextEditingController _noteController = TextEditingController();
-
   /// 「お支払いに進む」を押して決済ページを開いた後 true。
   /// 決済から戻ってきた人向けに「写真を送る」導線を表示する。
   bool _orderPlaced = false;
@@ -64,12 +61,6 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
 
   Color get _accentColor =>
       widget.isSet ? AppColors.accent : AppColors.secondary;
-
-  @override
-  void dispose() {
-    _noteController.dispose();
-    super.dispose();
-  }
 
   String _formatPrice(int yen) => '¥${yen.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}';
 
@@ -232,12 +223,6 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
                 _buildNfcProxyTile(),
                 const SizedBox(height: AppSpacing.lg),
 
-                // Step: 備考
-                _buildStepHeader(stepNum++, 'ご要望・備考（任意）'),
-                const SizedBox(height: AppSpacing.sm),
-                _buildNoteField(),
-                const SizedBox(height: AppSpacing.lg),
-
                 // Step: 決済
                 _buildStepHeader(stepNum, 'お支払いに進む'),
                 const SizedBox(height: AppSpacing.sm),
@@ -350,37 +335,10 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
         subtitle: const Text(
-          'ご希望の場合、書き込み内容を後ほどメールで確認します（別途料金がかかる場合があります）。',
+          'ご希望の場合、書き込み内容を後ほどメールで確認します。別途¥500（税込）をメールにてご請求します。',
           style: TextStyle(fontSize: 12, color: AppColors.textMedium, height: 1.4),
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
-  Widget _buildNoteField() {
-    return TextField(
-      controller: _noteController,
-      maxLines: 3,
-      maxLength: 200,
-      decoration: InputDecoration(
-        hintText: '例: 文字色の希望、ラッピング希望 など',
-        hintStyle: const TextStyle(fontSize: 13, color: AppColors.textLight),
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.all(12),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary),
-        ),
       ),
     );
   }
@@ -737,9 +695,7 @@ class _OrderCardScreenState extends ConsumerState<OrderCardScreen> {
         petNames: _selectedCards.map((c) => c.petName).toList(),
         quantity: count,
         nfcProxy: _nfcProxy,
-        note: _noteController.text.trim().isEmpty
-            ? null
-            : _noteController.text.trim(),
+        note: null,
         imagePaths: _collectImagePaths(),
         amount: _unitPrice * count,
         status: OrderStatus.pending,

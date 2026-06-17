@@ -2,6 +2,7 @@
 import 'dart:io'; // File を明示的に使用（analyzer の services 経由提案を無視）
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -115,25 +116,38 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
               ),
             ],
           ),
-          child: SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton.icon(
-              onPressed: paths.isEmpty ? null : _startUpload,
-              icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-              label: const Text(
-                'このお写真を送信する',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey.shade300,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: paths.isEmpty ? null : _startUpload,
+                  icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                  label: const Text(
+                    'このお写真を送信する',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey.shade300,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              // 未決済の注文を削除する導線（決済せず離脱した注文の救済用）
+              TextButton(
+                onPressed: _confirmDelete,
+                child: const Text(
+                  'お支払いしていない／この注文を削除',
+                  style: TextStyle(fontSize: 12, color: AppColors.textLight),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -439,6 +453,35 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
     }
   }
 
+  /// 未送信（pending）注文を削除してホームに戻る。
+  /// 決済せず離脱した注文をこの画面からも消せるようにする救済導線。
+  Future<void> _confirmDelete() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('この注文を削除しますか？'),
+        content: Text(
+          '受付番号 ${widget.order.orderNumber} の控えを削除します。\n'
+          'お支払い済みの場合は削除しないでください。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('削除', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await DatabaseService().deleteOrder(widget.order.orderNumber);
+      if (mounted) context.go('/');
+    }
+  }
+
   Future<void> _contactSupport() async {
     final uri = Uri(
       scheme: 'mailto',
@@ -449,10 +492,15 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
     );
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('メールアプリを開けませんでした（$_supportEmail）')),
-      );
+    } else {
+      await Clipboard.setData(const ClipboardData(text: _supportEmail));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('メールアプリが見つかりませんでした。アドレスをコピーしました'),
+          ),
+        );
+      }
     }
   }
 }
