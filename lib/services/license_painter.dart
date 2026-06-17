@@ -256,19 +256,27 @@ class LicensePainter extends CustomPainter {
     final birthNoPad = _formatBirthDateWarekiNoPad();
     if (birthNoPad.isNotEmpty) {
       final birthMaxW = fR - birthSep - 10 * s;
+      // Android のフォントメトリクス差で生年月日が上にずれて見えるため Android のみ下げる
+      final birthY = Platform.isAndroid ? -22 * s : -27 * s;
       _drawBirthMixed(canvas, birthNoPad,
-          Offset((birthSep + fR) / 2 - 7 * s, gT + (r1 - gT) / 2 - 27 * s),
+          Offset((birthSep + fR) / 2 - 7 * s, gT + (r1 - gT) / 2 + birthY),
           fontSize: 34 * s,
           maxWidth: (birthDateUnknown || birthDate == null) ? birthMaxW * 0.65 : birthMaxW,
           letterSpacing: 5 * s,
-          justify: birthDateUnknown || birthDate == null);
+          justify: birthDateUnknown || birthDate == null,
+          s: s);
     }
     canvas.drawLine(Offset(birthSep, gT), Offset(birthSep, r1), lp);
 
     // ── 品種（氏名行と住所行の間に小さく表示）──
     if (breed != null && breed!.isNotEmpty && breed != '不明') {
-      // Android のフォントメトリクス差を補正（2 * s 下げ）
-      final breedY = Platform.isAndroid ? -13 * s : -15 * s;
+      // Android のみ品種の Y 位置を調整（iOS は変更しない）。
+      // Android は漢字がカタカナより行内で上に寄るため、漢字を含む品種はさらに 3 * s 下げる
+      // （カタカナのみの品種は -15 * s のまま）。
+      final breedHasKanji = breed!.runes.any((r) => r >= 0x4E00 && r <= 0x9FFF);
+      final breedY = Platform.isAndroid
+          ? (breedHasKanji ? -12 * s : -15 * s)
+          : -15 * s;
       _drawText(canvas, breed!,
           Offset(vL + 10 * s, r1 + (r1b - r1) / 2 + breedY),
           fontSize: 18 * s,
@@ -418,8 +426,10 @@ class LicensePainter extends CustomPainter {
         ..color = _textBlack
         ..style = PaintingStyle.stroke
         ..strokeWidth = 4 * s);
+      // Android のフォントメトリクス差で「優良」が上にずれて見えるため Android のみ下げる
+      final yuuryoY = Platform.isAndroid ? -14 * s : -17 * s;
       _drawText(canvas, '優良',
-          Offset(badgeX + badgeW / 2 - 5 * s, badgeY + badgeH / 2 - 17 * s),
+          Offset(badgeX + badgeW / 2 - 5 * s, badgeY + badgeH / 2 + yuuryoY),
           fontSize: 24 * s, color: _textBlack, bold: true, center: true,
           maxWidth: badgeW);
     }
@@ -1593,10 +1603,15 @@ class LicensePainter extends CustomPainter {
     var y = start.dy;
     for (final rune in text.runes) {
       final char = String.fromCharCode(rune);
+      // Android はフォントメトリクス差で漢字が縦書き行内で上に寄るため、漢字だけ少し下げる。
+      // （カタカナ「ウチノ」は問題ないので触らない。CJK統合漢字: U+4E00〜U+9FFF）
+      final dyNudge = (Platform.isAndroid && rune >= 0x4E00 && rune <= 0x9FFF)
+          ? fontSize * 0.26
+          : 0.0;
       _drawText(
         canvas,
         char,
-        Offset(start.dx, y),
+        Offset(start.dx, y + dyNudge),
         fontSize: fontSize,
         color: color,
         bold: true,
@@ -1665,6 +1680,7 @@ class LicensePainter extends CustomPainter {
     double maxWidth = 500,
     double letterSpacing = 0,
     bool justify = false,
+    double s = 1.0,
   }) {
     final kanjiPattern = RegExp(r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]');
 
@@ -1696,7 +1712,18 @@ class LicensePainter extends CustomPainter {
       double x = offset.dx - totalW / 2;
 
       for (int i = 0; i < n; i++) {
-        canvas.drawParagraph(charParagraphs[i], Offset(x, offset.dy));
+        // Android のフォントメトリクス差で「ひ・み・つ」の平仮名と中点「・」の高さがずれるため補正。
+        // 平仮名を 5*s 上げ、中点を 1*s 下げる（iOS は変更しない）。
+        double dy = 0.0;
+        if (Platform.isAndroid) {
+          final r = text.codeUnitAt(i);
+          if (r >= 0x3040 && r <= 0x309F) {
+            dy = -5 * s; // 平仮名: 5px 上
+          } else if (text[i] == '・') {
+            dy = 1 * s; // 中点: 1px 下
+          }
+        }
+        canvas.drawParagraph(charParagraphs[i], Offset(x, offset.dy + dy));
         x += charWidths[i] + gap;
       }
       return;

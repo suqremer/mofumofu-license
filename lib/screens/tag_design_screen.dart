@@ -407,7 +407,11 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
   Future<String?> _saveToFile(Uint8List bytes) async {
     final dir = await getApplicationDocumentsDirectory();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final filePath = '${dir.path}/tag_${widget.card.petName}_$timestamp.png';
+    // ペット名にファイル名として使えない文字（/ \ : * ? " < > | 等）が含まれると
+    // パス区切りと誤解釈され保存に失敗するため、安全な文字に置換する。
+    final safeName =
+        widget.card.petName.replaceAll(RegExp(r'[\\/:*?"<>|\x00]'), '_');
+    final filePath = '${dir.path}/tag_${safeName}_$timestamp.png';
     final file = File(filePath);
     await file.writeAsBytes(bytes);
     return filePath;
@@ -432,6 +436,13 @@ class _TagDesignScreenState extends State<TagDesignScreen> {
 
       // 保存したパスを注文画面に返す
       Navigator.pop(context, path);
+    } catch (e) {
+      // 保存失敗を無反応にせず必ず知らせる（旧: 例外が握られ静かに失敗していた）
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('画像の保存に失敗しました。もう一度お試しください')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
