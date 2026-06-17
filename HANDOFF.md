@@ -1,7 +1,13 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-06-16（v1.1.2 **Phase D ＋ 3観点レビュー反映 ＋ Android実機テスト＆回帰テストまで完了・コミット＆push済み**。最新コミット `43023f7`、作業ツリー clean、origin/main 同期済み。①Firebaseルール（強化版）＝しゅーとConsole公開済み ②App Check＝コード実装＋iOS DeviceCheck登録済み（Android後回し・計測モード・未Enforce）③ディープリンク＝カスタムスキーム `mofumofulicense://`・着地ページ・ホーム救済バナー。レビュー指摘#1-9反映済み。**Android実機でPhase Dテスト1〜3＋回帰テスト全合格**。実機テストで見つけた不具合・改善も修正済み（下記）。**残りは iOS実機テスト(TestFlight)と Stripe Webhook（別タスク・リリース前提）**）
+2026-06-16（v1.1.2 **Phase D＋レビュー＋Android実機/回帰テスト＋修正＋Android Closed Testing 審査送信まで完了**。作業ツリー clean、origin/main 同期済み。①Firebaseルール（強化版）＝しゅーとConsole公開済み ②App Check＝コード実装＋iOS DeviceCheck登録済み（Android後回し・計測モード・未Enforce）③ディープリンク＝カスタムスキーム `mofumofulicense://`・着地ページ・ホーム救済バナー。レビュー指摘#1-9反映済み。Android実機でPhase Dテスト1〜3＋回帰テスト全合格＋発見した不具合/改善も修正済み（下記）。**バージョンを 1.1.2(552) に上げ、AABを Android Closed Testing(Alphaトラック)に審査送信＝審査中**。**残りは ①Closed Test審査通過→オプトインURL配布→テスター15人集め→14日 ②Stripe Webhook（次に着手）③iOS実機テスト(TestFlight)**）
+
+### Android Closed Testing（2026-06-16 審査送信）
+- **方針変更（しゅーと判断）**: 当初「現行旧フロー版でClosed Test」予定だったが、**新フロー込みの 1.1.2(552) で実施**に変更。理由＝テスターは初回起動＋14日放置＋NFC書き込み程度しか触らず、新フローの未完部分（決済/写真送信）はほぼ触られない。iOS未テストもAndroidテストには無関係。Android側は実機確認済み。
+- AAB は **ローカルで `flutter build appbundle --release`**（Codemagic不要）。`key.properties`で署名。kDevMode=false。
+- Closed Test「Alpha」トラックに審査送信済み（日本1か国・メーリングリスト設定・広告ID申告完了「広告,マーケティング」）。**審査中**（通過でメール通知）。
+- 通過後: トラックの「テスター数」タブの**オプトインURL**をテスターに配布→14日連続オプトイン（12人必須・15人募集推奨・遅れて集まる人はリスト追加でOK・リリース再公開不要）。テスターには「初回起動だけでOK、注文/決済はしないで」と案内。
 
 ※ 画面層 Phase A〜C は `e68bf14`、土台は `efbfc8b`。Phase D本体は `0731054`/`b1f3b05`、レビュー反映は `e3a718d`/`a6a6e7d`、AudioContext修正は `1b4ea69`、回帰テスト修正は `7feafd7`(fix)/`43023f7`(feat)。
 
