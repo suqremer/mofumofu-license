@@ -1,7 +1,21 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
-2026-06-16（v1.1.2 **Phase D＋レビュー＋Android実機/回帰テスト＋修正＋Android Closed Testing 審査送信まで完了**。作業ツリー clean、origin/main 同期済み。①Firebaseルール（強化版）＝しゅーとConsole公開済み ②App Check＝コード実装＋iOS DeviceCheck登録済み（Android後回し・計測モード・未Enforce）③ディープリンク＝カスタムスキーム `mofumofulicense://`・着地ページ・ホーム救済バナー。レビュー指摘#1-9反映済み。Android実機でPhase Dテスト1〜3＋回帰テスト全合格＋発見した不具合/改善も修正済み（下記）。**バージョンを 1.1.2(552) に上げ、AABを Android Closed Testing(Alphaトラック)に審査送信＝審査中**。**残りは ①Closed Test審査通過→オプトインURL配布→テスター15人集め→14日 ②Stripe Webhook（次に着手）③iOS実機テスト(TestFlight)**）
+2026-06-16（v1.1.2 **Phase D＋レビュー＋Android実機/回帰テスト＋修正＋Closed Testing審査送信＋規約対応＋Webhook環境構築/コードまで完了**。最新コミット `eebe1ea`、作業ツリー clean、origin/main 同期済み。①Firebaseルール（強化版）公開済み ②App Check＝コード実装＋iOS DeviceCheck登録済み（Android後回し・計測モード）③ディープリンク＝カスタムスキーム `mofumofulicense://`・着地ページ・ホーム救済バナー。レビュー#1-9反映。Android実機テスト全合格＋不具合/改善修正済み。**1.1.2(552) を Android Closed Testing に審査送信（審査中・新フロー込み）**。**規約対応（プライバシーポリシー改訂・データセーフティ正確申告・ストア文クリーン化）完了**。**Stripe Webhook はコード＆環境構築まで完了（デプロイ未）**。**残り＝①Closed Test完走（オプトインURL配布→テスター集め→14日）②Webhookデプロイ（Stripe設定→secrets→deploy→test）③iOS実機テスト(TestFlight)＋iOS App Privacy更新 ④App Check Enforce/Android登録 ⑤NFC実機確認**。詳細は下記の各セクション）
+
+### 2026-06-16 追加対応（規約まわり＋Webhook環境構築。最新コミット `eebe1ea`）
+**規約対応（写真の外部送信に伴う必須対応・完了）:**
+- プライバシーポリシー（`docs/privacy-policy/index.html`）を実態に全面改訂＝実物グッズ注文時に写真をFirebaseへ送信・保存／保持期間「発送後30日めど」／削除依頼可。最終更新2026-06-16（コミット `ea6e04d`）
+- Playストア「詳しい説明」を**叩き台の丸ごと貼り付け→クリーン版に差し替え**（メタ情報削除）＋プライバシー虚偽記載修正。`docs/google_play_store_listing.md` も整理（`74cd551`）
+- **データセーフティ申告を「収集しない」誤申告→正確申告に修正**（しゅーとConsole入力済み）。申告内容＝写真(収集/任意/アプリの機能)・購入履歴・おおよその位置・診断・クラッシュログ・アプリのインタラクション数・デバイスID。位置/診断/アクティビティ/デバイスIDは「共有」あり(AdMob)。暗号化はい・削除リクエスト可
+  - ⚠️ **iOS の App Privacy（栄養ラベル）も同様に「写真を収集」へ更新が必要**（iOSでv1.1.2を出す時）
+- 広告ID申告も完了（広告/マーケティング）
+
+**Stripe Webhook（環境構築＋コード＝完了、デプロイは未）:**
+- Node.js(v24)・Firebase CLI(15.22.0) をローカル導入。`firebase login` 済み（しゅーと手動。PowerShell実行ポリシーは `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` で解決）
+- `functions/index.js`（新規）: Stripe `checkout.session.completed` を署名検証→`orders/{受付番号}` に `paid=true`等を記録（Admin SDK・最小実装）。`firebase.json`/`.firebaserc`(project=`uchino-ko-license`)/`functions/package.json` 追加。依存 install 済み
+- **残り（次回）**: ①しゅーとがStripeで secret key 取得→`firebase functions:secrets:set STRIPE_SECRET_KEY`（手動・機密）②`STRIPE_WEBHOOK_SECRET` 仮設定→③`firebase deploy --only functions` でURL取得→④StripeにエンドポイントURL登録(イベント`checkout.session.completed`)→署名シークレット発行→⑤`STRIPE_WEBHOOK_SECRET`本物に更新→再deploy→⑥テスト
+  - Functions リージョン= us-east1。PowerShellは毎回 `$env:Path = [Environment]::GetEnvironmentVariable("Path","Machine")+";"+[Environment]::GetEnvironmentVariable("Path","User")` でPATH再読込が必要
 
 ### Android Closed Testing（2026-06-16 審査送信）
 - **方針変更（しゅーと判断）**: 当初「現行旧フロー版でClosed Test」予定だったが、**新フロー込みの 1.1.2(552) で実施**に変更。理由＝テスターは初回起動＋14日放置＋NFC書き込み程度しか触らず、新フローの未完部分（決済/写真送信）はほぼ触られない。iOS未テストもAndroidテストには無関係。Android側は実機確認済み。
