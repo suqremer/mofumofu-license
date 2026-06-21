@@ -1,5 +1,9 @@
 # 注文〜発送フロー
 
+> ⚠️ **このドキュメントは現行「旧方式（Stripe決済＋Googleフォーム写真送付）」の業務手順です。**
+> 新方式（アプリ内完結＝Firebase/Webhook）への移行が進行中で、本番Webhookは稼働開始済み（2026-06-21）。
+> **Android製品版リリース完了＋iOS版アップデート完了の両方が揃ったら、本ドキュメントの旧方式を撤去し、末尾「【新方式】注文処理」に総入れ替えする**（`HANDOFF.md` 2026-06-21セクション参照）。それまでは一般ユーザーの現行運用＝旧方式のため残置する。
+
 ## 全体の流れ
 
 ```
@@ -119,3 +123,38 @@
 | 発送日の自動入力 | ステータス「発送済」変更時 |
 | 会計スプレッドシートに売上自動連携 | ステータス「発送済」変更時 |
 | NFC未請求リマインダー | 毎日9時 |
+
+---
+
+## 【新方式】注文処理（アプリ内完結方式・製品版投入後の運用）
+
+> 本番Webhook稼働済み（2026-06-21・本番E2E検証済み）。**製品版リリース後はこちらが正の運用**になる。
+> 技術仕様・確認場所URLの詳細は `design_document.md` 8.4「本番Webhook構成と検証」「管理者の確認・突合先」を参照。
+
+### 本物の注文の見分け方（2条件）
+1. 受付番号が `UNK-YYYYMMDD-XXXXXX`（`UNK-`で始まる）。`UNK-`以外（`TEST-`等）は手動テストデータ＝無視
+2. `paid:true` が付いている。`paid`無し／falseは未決済＝**製造しない**
+
+### 1件の注文を処理する手順（確認場所つき）
+| 手順 | 何を確認 | どのサイトのどこ |
+|---|---|---|
+| 1 | 本物の注文を絞る | Firebase Console → Firestore `orders` を `paid==true` でフィルタ → 受付番号を控える |
+| 2 | 写真を入手 | Firebase Console → Storage `orders/{uid}/{受付番号}/` の `image_n.png` |
+| 3 | 配送先・氏名・メアド・金額 | Stripeダッシュボード → 決済で `client_reference_id`=受付番号 を検索 |
+| 4 | 商品内容 | Firestore の `productType`/`petNames`/`quantity`/`nfcProxy` |
+| 5 | 製造・発送（NFC代行ありなら +¥500 をStripe請求書で別請求） | — |
+
+### 確認場所URL
+| 確認する物 | URL |
+|---|---|
+| 注文メタ＋決済記録(`paid`) | https://console.firebase.google.com/project/uchino-ko-license/firestore/databases/-default-/data/~2Forders |
+| 写真本体 | https://console.firebase.google.com/project/uchino-ko-license/storage |
+| 配送先・氏名・メアド・金額 | https://dashboard.stripe.com/payments |
+| Webhookエンドポイント・配信ログ | https://dashboard.stripe.com/webhooks |
+| 関数ログ・デプロイ状況 | https://console.firebase.google.com/project/uchino-ko-license/functions |
+
+### 運用上の注意・手順
+- **返金したとき**: 現Webhookは返金イベント（`charge.refunded`）未対応のため、Firestore `orders/{受付番号}` の `paid` は `true` のまま残る。**返金したら手動で `paid` を `false` にする（またはドキュメントを削除）**ことで製造対象から外す。
+- **写真削除依頼が来たとき**: Firebase Console → Storage の `orders/{uid}/{受付番号}/` フォルダを削除する（プライバシーポリシーで「削除依頼可」と明記済み）。受付番号は問い合わせメールの件名から特定する。
+- **写真の保持期間（棚卸し）**: プライバシーポリシー記載どおり「発送後30日めど」で削除する。**月1回を目安に、発送済み注文の写真フォルダを棚卸しして削除**する（現状は手動運用。注文件数が増えたら Cloud Functions スケジューラでの自動化を検討）。
+- **App Check**: 現在計測モード（enforce未）。強制モード切替後は実機からの書き込みを再検証する。

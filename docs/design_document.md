@@ -463,8 +463,9 @@ Android では Documents パスが `/data/user/0/<package>/app_flutter/...` と�
 
 ### 8.4 注文フロー
 
-> **刷新設計（v1.1.2予定・未実装）**: 以下は「アプリ内完結方式」への刷新設計。
-> 現行は「アプリ内Stripe決済 + 別途Googleフォーム写真送付」方式（git `b884a04` 時点で稼働中、詳細はgit履歴参照）。
+> **刷新設計（v1.1.2・実装済み／本番Webhook稼働開始 2026-06-21）**: 以下は「アプリ内完結方式」。
+> 本番Webhookインフラは稼働開始し、Closed Test内部テスト版で**本番E2E検証済み**（→「本番Webhook構成と検証」参照）。
+> ただし**製品版（一般公開）への投入はClosed Test 14日完走後**のため、一般ユーザーの現行運用は当面「アプリ内Stripe決済 + 別途Googleフォーム写真送付」方式（git `b884a04` 時点、運用手順は `order_flow.md` / git履歴参照）が継続する。
 
 #### 刷新の目的（なぜ変えるか）
 - 現行は決済とGoogleフォームが独立した別チャネルで、フォームが決済前でも単独送信できる。
@@ -507,6 +508,36 @@ Android では Documents パスが `/data/user/0/<package>/app_flutter/...` と�
 - iOSの自動復帰（リダイレクトでのユニバーサルリンク発火）は不安定なため、**必ず着地ページに着地→ユーザーのタップでアプリ復帰**に統一（iOS/Android共通）。**復帰不発に備え、受付番号の手入力でアップロードを再開できるフォールバックを置く**。
 - **受付番号を `client_reference_id` でPayment Link URLに付与**しStripe側にも紐づけ（`session_id` と合わせた突合キー）。
 - **決済成功は Stripe Webhook が `orders/{受付番号}` に `paid=true` を記録**（決済の真実）。アプリの復帰可否に依存せず決済を捕捉できる。
+
+#### 本番Webhook構成と検証（2026-06-21 本番化完了）
+- **関数**: `stripeWebhook`（Cloud Functions 2nd gen / Node.js 20 / リージョン `us-east1` / メモリ256MB）。実装は `functions/index.js`。
+- **エンドポイントURL**: `https://us-east1-uchino-ko-license.cloudfunctions.net/stripeWebhook`
+- **リッスンイベント**: `checkout.session.completed` の1件のみ。
+- **secret（Secret Manager管理・コードに埋めない）**: `STRIPE_SECRET_KEY`（本番 `sk_live_…`）／`STRIPE_WEBHOOK_SECRET`（本番エンドポイントの `whsec_…`）。値を変更したら `firebase deploy --only functions --project uchino-ko-license` で反映。
+- **本番E2E検証（2026-06-21・実カード決済）**: Closed Test内部テスト版アプリでセット注文¥3,980を実決済し、以下を全確認。検証後に返金・テストデータ削除済み。
+  - Firestore `orders/{受付番号}`: `paid:true`（Webhookが記録）/ `uploaded:true` / `productType:"set"` / `imagePaths` 2件 / `amount:3980`
+  - Storage `orders/{uid}/{受付番号}/`: `image_0.png`(カード) / `image_1.png`(タグ)
+  - Stripe決済: 配送先・氏名・メアド・金額・`client_reference_id`（受付番号）
+  - アプリ: 「お写真未送信」バナー解消
+- **運用上の注意**:
+  - **返金してもFirestoreの`paid`は`true`のまま**。現Webhookは `checkout.session.completed` のみ処理し、`charge.refunded` 等の返金イベントは未対応。返金時はFirestoreを手動更新する（将来refundイベント対応の余地あり）。
+  - App Check は現在**計測モード**（enforce未）。強制モードへ切替後は、実機アプリからのStorage/Firestore書き込みを再検証すること。
+
+#### 管理者の確認・突合先（受付番号をキーに照合）
+| 確認する物 | 場所 | URL |
+|---|---|---|
+| 注文メタ＋決済記録(`paid`) | Firebase Console / Firestore `orders` | https://console.firebase.google.com/project/uchino-ko-license/firestore/databases/-default-/data/~2Forders |
+| 写真本体 | Firebase Console / Storage `orders/{uid}/{受付番号}/` | https://console.firebase.google.com/project/uchino-ko-license/storage |
+| 配送先・氏名・メアド・金額 | Stripeダッシュボード / 決済（本番） | https://dashboard.stripe.com/payments |
+| Webhookエンドポイント設定・配信ログ | Stripeダッシュボード / Webhook | https://dashboard.stripe.com/webhooks |
+| 関数のログ・デプロイ状況 | Firebase Console / Functions | https://console.firebase.google.com/project/uchino-ko-license/functions |
+
+#### 注文処理の判断基準（製造する／しないの見分け方）
+管理者が注文を捌くときは、**次の2条件を両方満たすものだけを本物の注文として製造**する。
+1. **受付番号が `UNK-YYYYMMDD-XXXXXX`（`UNK-`で始まる）**。`UNK-`で始まらないもの（例: `TEST-E2E-001`）はアプリ生成ではない手動テストデータ＝製造対象外。
+2. **`paid:true` が付いている**（Webhookが記録）。`paid` フィールドが無い／`false` は未決済＝製造しない（金を払わず写真だけ送った「抜け道」。`paid`×`uploaded` の状態判定は上記の状態判定表を参照）。
+- 実務では Firestore `orders` を **`paid == true` でフィルタ**すると本物の注文だけに絞れる。
+- ダブルチェックは Stripe決済で `client_reference_id`（受付番号）を検索し、決済の有無を確認する。
 
 #### 個人情報の扱い
 - 住所・メアド・氏名・NFC代行の飼い主連絡先は **Stripe側に集約**。Firebaseにはペット写真とメタ（ペット名等）のみ。

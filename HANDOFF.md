@@ -1,7 +1,16 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
+2026-06-21（**Stripe Webhook 本番化完了**＝本番エンドポイント登録・本番secret設定・`firebase deploy` 完了。**本番E2E検証成功**（Closed Test内部テスト版でセット¥3,980を実カード決済→Firestore `paid`/`uploaded`/写真2枚/Stripe配送先 全確認→返金・テストデータ削除済み）。`design_document.md` 8.4 と `order_flow.md` に確認手順・URL・判断基準を追記。詳細は下記「2026-06-21」セクション）<br>
 2026-06-16（v1.1.2 **Phase D＋レビュー＋Android実機/回帰テスト＋修正＋Closed Testing審査送信＋規約対応＋Webhook環境構築/コードまで完了**。最新コミット `eebe1ea`、作業ツリー clean、origin/main 同期済み。①Firebaseルール（強化版）公開済み ②App Check＝コード実装＋iOS DeviceCheck登録済み（Android後回し・計測モード）③ディープリンク＝カスタムスキーム `mofumofulicense://`・着地ページ・ホーム救済バナー。レビュー#1-9反映。Android実機テスト全合格＋不具合/改善修正済み。**1.1.2(552) を Android Closed Testing に審査送信（審査中・新フロー込み）**。**規約対応（プライバシーポリシー改訂・データセーフティ正確申告・ストア文クリーン化）完了**。**Stripe Webhook はコード＆環境構築まで完了（デプロイ未）**。**残り＝①Closed Test完走（オプトインURL配布→テスター集め→14日）②Webhookデプロイ（Stripe設定→secrets→deploy→test）③iOS実機テスト(TestFlight)＋iOS App Privacy更新 ④App Check Enforce/Android登録 ⑤NFC実機確認**。詳細は下記の各セクション）
+
+### 2026-06-21 Stripe Webhook 本番化＋本番E2E検証完了
+- **本番Webhook稼働開始**: Stripe本番モードでエンドポイント登録（名前「うちの子免許証 本番Webhook」・URL `https://us-east1-uchino-ko-license.cloudfunctions.net/stripeWebhook`・リッスン `checkout.session.completed` 1件）。本番secret（`STRIPE_SECRET_KEY`=`sk_live_…` / `STRIPE_WEBHOOK_SECRET`=本番エンドポイントの `whsec_…`）を `firebase functions:secrets:set ... --project uchino-ko-license` で設定→`firebase deploy --only functions --project uchino-ko-license` 完了。
+- **本番E2E検証成功**（実カード決済）: Closed Test内部テスト版でセット注文¥3,980を実決済し、Firestore `paid:true`/`uploaded:true`/`imagePaths`2件/`amount:3980`、Storage 写真2枚、Stripe決済の配送先・氏名・メアド・金額 をすべて確認。検証後に返金・テストデータ削除済み。
+- **設計書・フロー追記**: `design_document.md` 8.4 に「本番Webhook構成と検証」「管理者の確認・突合先（URL一覧）」「注文処理の判断基準（`UNK-`始まり＋`paid:true`の2条件）」。`order_flow.md` に「【新方式】注文処理（確認場所つき手順＋URL）」を併記し、旧方式に撤去予定の注記を追加。
+- **リリース前レビュー対応（チーム検討反映・2026-06-21）**: ①Stripe通知「Webhook の失敗」ON済み確認＋「Webhook イベント生成の失敗」もONに（配信失敗にメールで気づける）。②**特商法・返品ポリシーへのアプリ内導線を追加**＝`lib/screens/settings_screen.dart` 法的情報セクションに「特定商取引法に基づく表記」(`/tokushoho/`)「返品ポリシー」(`/refund-policy/`)のリンクを追加（従来はプライバシー/利用規約のみで、既存の法定ページにアプリから到達できなかった）。`flutter analyze` 追加分クリーン（既存 info `settings_screen.dart:325` は kDevMode の開発用コードで無関係）。③`order_flow.md`【新方式】に返金・写真削除依頼・30日棚卸しの運用手順を追記。
+- **運用注意**: ①返金してもFirestoreの`paid`は`true`のまま（現Webhookは `checkout.session.completed` のみ処理＝返金イベント未対応。返金時は手動対応）②App Checkは計測モード（enforce未）。
+- ⚠️ **旧方式撤去の未来タスク（条件付き・忘れない）**: **Android製品版リリース完了 ＋ iOS版アップデート完了 の両方が揃ったら**、`order_flow.md` の旧Googleフォーム方式を撤去し【新方式】に総入れ替えする。それまでは一般ユーザーの現行運用＝旧方式のため残置。
 
 ### 2026-06-16 追加対応（規約まわり＋Webhook環境構築。最新コミット `eebe1ea`）
 **規約対応（写真の外部送信に伴う必須対応・完了）:**
