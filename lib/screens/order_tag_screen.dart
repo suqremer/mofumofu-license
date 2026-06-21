@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -660,10 +662,11 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
         createdAt: DateTime.now(),
       );
 
-      // 決済往復後のアップロードで失敗しないよう、匿名認証を「温めて」おく。
-      try {
-        await OrderUploadService.instance.ensureSignedIn();
-      } catch (_) {}
+      // 決済往復後のアップロードに備え匿名認証を「温める」だけ（待たない＝決済ページ起動を遅らせない）。
+      // 失敗してもアップロード時に再試行するので無視。
+      unawaited(
+        OrderUploadService.instance.ensureSignedIn().catchError((_) => ''),
+      );
 
       final uri = Uri.parse('$_paymentUrl?client_reference_id=$orderNumber');
       if (!await canLaunchUrl(uri)) {
