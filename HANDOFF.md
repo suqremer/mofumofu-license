@@ -11,6 +11,7 @@
 - **リリース前レビュー対応（チーム検討反映・2026-06-21）**: ①Stripe通知「Webhook の失敗」ON済み確認＋「Webhook イベント生成の失敗」もONに（配信失敗にメールで気づける）。②**特商法・返品ポリシーへのアプリ内導線を追加**＝`lib/screens/settings_screen.dart` 法的情報セクションに「特定商取引法に基づく表記」(`/tokushoho/`)「返品ポリシー」(`/refund-policy/`)のリンクを追加（従来はプライバシー/利用規約のみで、既存の法定ページにアプリから到達できなかった）。`flutter analyze` 追加分クリーン（既存 info `settings_screen.dart:325` は kDevMode の開発用コードで無関係）。③`order_flow.md`【新方式】に返金・写真削除依頼・30日棚卸しの運用手順を追記。
 - **iOS 1.1.2 ビルド対応（Codemagic・2026-06-21）**: ①ビルド開始時に Apple PLA（最新 Program License Agreement）未同意で 403 → Account Holder（しゅーと）が App Store Connect で同意して解決。②`channel Stable` 最新化で Swift Package Manager(SPM) がデフォルトON化し、`google_mobile_ads`(CocoaPods) と `webview_flutter_wkwebview`(SPM) が衝突→`pod install` 失敗。**Codemagic の Pre-build script に `flutter config --no-enable-swift-package-manager` を追加**して解決（**次回以降のiOSビルドもこの設定が必要**）。③iOSビルド番号は Codemagic が `$PROJECT_BUILD_NUMBER + 70` で自動採番（pubspecの `+552` は不使用＝重複確認は不要）。→ TestFlight配信成功、実機テストへ。
 - **iOS製品版を新フロー先行リリースへ（2026-06-21・方針変更）**: 元は「Android先行」だったが、iOSはClosed Test 14日要件が無く早く出せるため**iOS先行に変更**。iOSで本番E2E（実カード決済→カスタムスキーム復帰→写真アップロード→Firestore/Storage/Stripe確認→返金・掃除）合格→App Privacyに「写真（ユーザコンテンツ）」追加（用途=アプリの機能／Not Linked／トラッキング無）→**iOS 1.1.2（新フロー）をApp Store審査提出済み（手動リリース選択）**。審査通過後にしゅーとが公開。Androidは引き続き Closed Test 14日→製品版。なお決済ページ起動の遅延修正（認証をunawaited化）も本ビルドに含む。
+- **App Check Android登録＋Closed Test最新化＋テスター進捗（2026-06-21）**: ①**App Check の Android Play Integrity を登録**（両OS登録済み・計測モード。SHA-256はPlay「アプリの署名」ページ＝メニューに無くURL直 `.../app-integrity` から取得）。②**Android Closed Test を 1.1.2+553**（特商法導線・決済高速化込みの最新コード）に更新→審査中（iOSと同コードで足並み）。③**Closed Testテスター進捗＝現在3人オプトイン**（製品版申請には12人×14日必要＝**あと9人募集**が次の宿題）。
 - **運用注意**: ①返金してもFirestoreの`paid`は`true`のまま（現Webhookは `checkout.session.completed` のみ処理＝返金イベント未対応。返金時は手動対応）②App Checkは計測モード（enforce未）。
 - ⚠️ **旧方式撤去の未来タスク（条件付き・忘れない）**: **Android製品版リリース完了 ＋ iOS版アップデート完了 の両方が揃ったら**、`order_flow.md` の旧Googleフォーム方式を撤去し【新方式】に総入れ替えする。それまでは一般ユーザーの現行運用＝旧方式のため残置。
 
@@ -52,7 +53,7 @@
 1. ✅ **Firebaseセキュリティルール**確定（`OrderUploadService` の実装と突合）＝`docs/design_document.md` 8.4「セキュリティルール（確定版）」が正。**しゅーとが Console に公開済み（Storage / Firestore 両方）**
 2. ✅ **App Check（コード）**：`firebase_app_check ^0.3.2`（解決 0.3.2+10）追加、`lib/main.dart` の `_initFirebase` で unawaited activate（debug=debug / リリース=iOS DeviceCheck・Android Play Integrity）。**段階導入＝計測モード（Console側 Enforce はまだOFF）**
    - ✅ iOS DeviceCheck 登録済み（Apple .p8 / **Key ID `63RRL34CJ7` / Team ID `6YBWD8ZH2K`**）
-   - ⏸ Android Play Integrity 登録は**後回し**（Play Consoleで「アプリの完全性」メニューが見つからず保留。計測モードゆえ実害なし。再開時は **Console 上部検索で「アプリの完全性」** を探す→Cloud project リンク→SHA-256登録）
+   - ✅ Android Play Integrity 登録**完了（2026-06-21）**。Play Consoleに「アプリの完全性」メニューが無かったため**URL直アクセス** `https://play.google.com/console/u/0/developers/{devId}/app/{appId}/app-integrity` でアプリ署名ページへ→**アプリ署名鍵証明書のSHA-256**をFirebase App Checkに登録（PLAY_RECOGNIZED必須・LICENSED任意OFF・トークン1時間）。**両OS登録済み・計測モード**
 3. ✅ **ディープリンク（カスタムスキーム方式）**：`app_links ^6.3.0`（解決 6.4.1）導入
    - iOS `Info.plist`：scheme `mofumofulicense` 登録＋`FlutterDeepLinkingEnabled=false`
    - Android `Manifest`：VIEW intent-filter（scheme `mofumofulicense`）＋`flutter_deeplinking_enabled=false`
@@ -87,17 +88,18 @@
 残り（次回以降）:
 - [x] ~~Android実機テスト（Step1）~~ → **全合格（上記6参照）**
 - [ ] **【次回ここから】iOS実機テスト（Codemagic手動ビルド→TestFlight）**：バージョンを 1.1.2 に上げる相談→ビルド。**iOS固有部分のみ確認すればよい**（共通Dartロジックの再確認は不要）：①🔴カスタムスキーム受信（iOSは FlutterSceneDelegate 経由＝Androidと別系統。最重要）②AudioContext修正後の音/マナーモード挙動（ambientはiOS向け設定）③App Check DeviceCheck のトークン取得 ④Firアップロード（念のため）
-- [ ] Android App Check（Play Integrity）登録（後回し可。Console上部検索で「アプリの完全性」→Cloudプロジェクトリンク→SHA-256）
+- [x] ~~Android App Check（Play Integrity）登録~~ → **完了（2026-06-21、アプリ署名鍵証明書のSHA-256をURL直アクセス `.../app-integrity` から取得・登録）**
 - [ ] App Check を計測→**Enforce 切替**（計測データ確認後）
 - [ ] **Stripe Webhook（Cloud Functions）= 別タスクだがリリース前提**（paid記録・製造ゲート・突合用）。実装まで「`uploaded`だけで製造しない・必ずStripe入金と受付番号で突合」運用
 - [ ] リリースは段階公開（Android Closed Testing 14日→製品版申請→**その後**に新フロー投入。詳細は本HANDOFF「リリース順序」）
 
-次回セッション開始時、まずやること:
-1. `git status` がクリーン・origin同期済みを確認（前回 `1b4ea69` まで push 済み）
-2. `docs/design_document.md` 8.4 と本セクションで設計・進捗を把握
-3. **iOS実機テスト（TestFlight）から再開**。バージョン1.1.2への引き上げをしゅーとに相談→Codemagic手動ビルド。確認はiOS固有部分のみ（上記「残り」参照）
-4. しゅーとに「Android Closed Testing の進捗」も確認（継続宿題）
-5. ⚠️ **既存テスト15件failはスコープ外の別件**（costume_test／license_template_test／pet_test／widget_test=home起動 pumpAndSettle timeout）。注文フロー刷新とは無関係。テスト追従は別タスク
+次回セッション開始時、まずやること（2026-06-21 更新）:
+1. `git status` クリーン・origin同期を確認。`docs/design_document.md` 8.4 と冒頭「2026-06-21」セクションで最新進捗を把握
+2. **iOS 1.1.2（新フロー）の審査結果を確認** → 通過していたら手動で公開（iOS先行リリース。手動リリース選択済み）
+3. **Android Closed Test：テスター募集（現在3人→あと9人）** → 12人×14日完走 → 製品版申請
+4. App Check は **両OS登録済み・計測モード**。**Enforce切替は両OS製品版が安定してから**（誤って正規ユーザーを弾かないため）
+5. 両OS製品版公開後 → **旧Googleフォーム方式の撤去・新方式へ総入れ替え**（order_flow.md）
+6. ⚠️ **既存テスト15件failはスコープ外の別件**（costume_test／license_template_test／pet_test／widget_test）。注文フロー刷新とは無関係
 
 ## v1.1.2 注文フロー刷新（2026-06-15 設計確定・実装待ち）
 

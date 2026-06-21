@@ -499,6 +499,7 @@ Android では Documents パスが `/data/user/0/<package>/app_flutter/...` と�
 - **写真・注文メタの受け皿**: Firebase Storage（画像）＋ Firestore（注文メタ）。`firebase_core`/Crashlytics は導入済み。
   Storage は 2024/10 以降 **Blazeプラン必須**（無料枠5GB内で実質¥0、予算アラート設定）。
 - **認証**: 匿名認証（書き込みを認証必須化）。**App Check**（Play Integrity / App Attest）で不正アップロード・課金荒らしを防ぐ。**いきなり強制せず計測モードから段階導入**（正規ユーザーを誤って弾かないため）。
+  - **2026-06-21時点の状態**: iOS（DeviceCheck）・Android（Play Integrity）とも**登録完了・計測モードで運用中**。AndroidのSHA-256は **Play App Signing のアプリ署名鍵証明書**を使用（Play Console「アプリの署名」ページ＝メニューに無い場合は `.../app/{appId}/app-integrity` にURL直アクセスで取得）。**Enforce（強制）切替は両OS製品版が安定してから**（計測データで正規ユーザーが通っていることを確認後）。
 - **Stripe Webhook 1本（Cloud Functions）を使う**。役割は「決済成功（`checkout.session.completed`）を Firestore に記録する」のみ＝決済の真実をサーバー側に持つ。Functions 無料枠（月200万回）内で実質¥0。署名検証必須、受信→検証→Firestore書き込みのみの最小実装。
   - **方針変更（v2→v3、設計レビュー反映）**: サーバーレス完全固持をやめ Webhook 1本を導入。これにより突合・救済・計測が自動化され、その便益が実装コストを上回ると判断。
 - **通知は Stripe 標準の決済通知メールを継続**（しゅーとが注文発生を知る手段）。Function はメール送信しない（最小実装）。
