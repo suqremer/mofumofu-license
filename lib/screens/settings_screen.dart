@@ -23,6 +23,10 @@ class SettingsScreen extends ConsumerWidget {
       'https://uchinoko-license.com/privacy-policy/';
   static const _termsUrl =
       'https://uchinoko-license.com/terms/';
+  static const _tokushohoUrl =
+      'https://uchinoko-license.com/tokushoho/';
+  static const _refundPolicyUrl =
+      'https://uchinoko-license.com/refund-policy/';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -275,6 +279,20 @@ class SettingsScreen extends ConsumerWidget {
                     title: const Text('利用規約'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => _launchUrl(context, _termsUrl),
+                  ),
+                  _thinDivider(),
+                  ListTile(
+                    leading: const Icon(Icons.gavel_outlined),
+                    title: const Text('特定商取引法に基づく表記'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _launchUrl(context, _tokushohoUrl),
+                  ),
+                  _thinDivider(),
+                  ListTile(
+                    leading: const Icon(Icons.assignment_return_outlined),
+                    title: const Text('返品ポリシー'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _launchUrl(context, _refundPolicyUrl),
                   ),
                   _thinDivider(),
                   ListTile(
