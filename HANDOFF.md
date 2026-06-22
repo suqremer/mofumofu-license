@@ -1,6 +1,7 @@
 # 引き継ぎメモ（セッション終了時に上書き更新）
 
 ## 最終作業日
+2026-06-22（**Android免許証フォントを IBM Plex Sans JP に統一**＝iOSヒラギノに寄せる。Android限定で `license_painter` のテキスト `fontFamily` を IBM Plex Sans JP に指定＋氏名/住所/交付/期間/ハンコ/番号/二小原他二種/品種/ひみつ の縦位置を実機で微調整。**iOSは不変（ヒラギノ維持）**。採用しなかった候補(BIZ UDP/Zen Kaku)は削除。詳細は `design_document.md` 6.2。コミット `9402ddc`・push済み。→ **1.1.2+554 でAABビルドし Android Closed Test を更新予定**）<br>
 2026-06-21（**Stripe Webhook 本番化完了**＝本番エンドポイント登録・本番secret設定・`firebase deploy` 完了。**本番E2E検証成功**（Closed Test内部テスト版でセット¥3,980を実カード決済→Firestore `paid`/`uploaded`/写真2枚/Stripe配送先 全確認→返金・テストデータ削除済み）。`design_document.md` 8.4 と `order_flow.md` に確認手順・URL・判断基準を追記。詳細は下記「2026-06-21」セクション）<br>
 2026-06-16（v1.1.2 **Phase D＋レビュー＋Android実機/回帰テスト＋修正＋Closed Testing審査送信＋規約対応＋Webhook環境構築/コードまで完了**。最新コミット `eebe1ea`、作業ツリー clean、origin/main 同期済み。①Firebaseルール（強化版）公開済み ②App Check＝コード実装＋iOS DeviceCheck登録済み（Android後回し・計測モード）③ディープリンク＝カスタムスキーム `mofumofulicense://`・着地ページ・ホーム救済バナー。レビュー#1-9反映。Android実機テスト全合格＋不具合/改善修正済み。**1.1.2(552) を Android Closed Testing に審査送信（審査中・新フロー込み）**。**規約対応（プライバシーポリシー改訂・データセーフティ正確申告・ストア文クリーン化）完了**。**Stripe Webhook はコード＆環境構築まで完了（デプロイ未）**。**残り＝①Closed Test完走（オプトインURL配布→テスター集め→14日）②Webhookデプロイ（Stripe設定→secrets→deploy→test）③iOS実機テスト(TestFlight)＋iOS App Privacy更新 ④App Check Enforce/Android登録 ⑤NFC実機確認**。詳細は下記の各セクション）
 
