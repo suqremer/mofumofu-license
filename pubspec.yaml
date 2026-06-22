@@ -109,3 +109,10 @@ flutter:
           weight: 400
         - asset: assets/fonts/NotoSansJP-SemiBold.ttf
           weight: 600
+    # 免許証フォント（Android限定でヒラギノに似せる採用フォント＝IBM Plex Sans JP）
+    - family: IBM Plex Sans JP
+      fonts:
+        - asset: assets/fonts/IBMPlexSansJP-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexSansJP-Bold.ttf
+          weight: 700

@@ -58,6 +58,11 @@ class LicensePainter extends CustomPainter {
 
   late final String _licenseNumber;
 
+  /// Android免許証フォント＝IBM Plex Sans JP（ヒラギノに寄せる採用フォント）。
+  /// iOSは null＝OSのヒラギノを維持。
+  String? get _licenseFont =>
+      Platform.isAndroid ? 'IBM Plex Sans JP' : null;
+
   LicensePainter({
     required this.template,
     required this.frameColorId,
@@ -234,7 +239,7 @@ class LicensePainter extends CustomPainter {
     // ══════════ Row 0: 氏名 (gT → r1, full width gL→fR) ══════════
     // Android のフォントメトリクス差で「氏名」ラベルが iOS より上にずれて見えるため、
     // Android のみ Y 座標を 3 * s 下げて補正（iOS は v1.1.0 と同一の位置を維持）
-    final shimeiY = Platform.isAndroid ? -16 * s : -20 * s;
+    final shimeiY = Platform.isAndroid ? -17 * s : -20 * s;
     _drawText(canvas, '氏名',
         Offset(gL + lW / 2 - 10 * s, gT + (r1 - gT) / 2 + shimeiY),
         fontSize: 25 * s,
@@ -244,9 +249,10 @@ class LicensePainter extends CustomPainter {
         maxWidth: lW - 10 * s);
     // 名前と生年月日の区切り線位置（参考: x=270/441 → 627*s）
     final double birthSep = 627 * s;
-    // 名前（左揃え、縦中央）
+    // 名前（左揃え、縦中央）。Android(IBM Plex)は3px下げる
+    final petNameY = Platform.isAndroid ? -24 * s : -27 * s;
     _drawText(canvas, petName,
-        Offset(vL + 10 * s, gT + (r1 - gT) / 2 - 27 * s),
+        Offset(vL + 10 * s, gT + (r1 - gT) / 2 + petNameY),
         fontSize: 34 * s,
         color: _textBlack,
         bold: true,
@@ -275,7 +281,7 @@ class LicensePainter extends CustomPainter {
       // （カタカナのみの品種は -15 * s のまま）。
       final breedHasKanji = breed!.runes.any((r) => r >= 0x4E00 && r <= 0x9FFF);
       final breedY = Platform.isAndroid
-          ? (breedHasKanji ? -12 * s : -15 * s)
+          ? (breedHasKanji ? -11 * s : -14 * s)
           : -15 * s;
       _drawText(canvas, breed!,
           Offset(vL + 10 * s, r1 + (r1b - r1) / 2 + breedY),
@@ -294,8 +300,10 @@ class LicensePainter extends CustomPainter {
         bold: true,
         center: true,
         maxWidth: lW - 10 * s);
+    // 住所（Android(IBM Plex)は4px下げる）
+    final addressValueY = Platform.isAndroid ? -23 * s : -27 * s;
     _drawText(
-        canvas, _generateJapanAddressSingle(), Offset(vL + 10 * s, r1b + (r2 - r1b) / 2 - 27 * s),
+        canvas, _generateJapanAddressSingle(), Offset(vL + 10 * s, r1b + (r2 - r1b) / 2 + addressValueY),
         fontSize: 34 * s,
         color: _textBlack,
         bold: true,
@@ -305,7 +313,7 @@ class LicensePainter extends CustomPainter {
     // Android のフォントメトリクス差で「交付」ラベルと値が上にずれて見えるため、
     // 氏名・住所と同様に Android のみ Y 座標を 4 * s 下げて補正
     final koufuLabelY = Platform.isAndroid ? -16 * s : -20 * s;
-    final koufuValueY = Platform.isAndroid ? -19 * s : -27 * s;
+    final koufuValueY = Platform.isAndroid ? -21 * s : -27 * s;
     _drawText(canvas, '交付',
         Offset(gL + lW / 2 - 10 * s, r2 + (r3 - r2) / 2 + koufuLabelY),
         fontSize: 25 * s,
@@ -373,8 +381,10 @@ class LicensePainter extends CustomPainter {
         : validityText.length <= 7
             ? 63 * s
             : 0;
+    // 有効期間（Android(IBM Plex)は1px下げる）
+    final validityY = Platform.isAndroid ? -25 * s : -26 * s;
     _drawText(canvas, validityText,
-        Offset((gL + greenR) / 2 - 112 * s - validityDx, r3 + (r4 - r3) / 2 - 26 * s),
+        Offset((gL + greenR) / 2 - 112 * s - validityDx, r3 + (r4 - r3) / 2 + validityY),
         fontSize: 38 * s,
         color: _textBlack,
         bold: true,
@@ -444,7 +454,9 @@ class LicensePainter extends CustomPainter {
         bold: true,
         center: true,
         maxWidth: numLabelRight - gL - 6 * s);
-    _paintLicenseNumber(canvas, s, numLabelRight + 10 * s, r5 - 5 * s, ugR - numLabelRight - 20 * s);
+    // 番号の値（Android(IBM Plex)は2px上げる）
+    final numberY = Platform.isAndroid ? r5 - 7 * s : r5 - 5 * s;
+    _paintLicenseNumber(canvas, s, numLabelRight + 10 * s, numberY, ugR - numLabelRight - 20 * s);
 
     canvas.drawLine(Offset(numLabelRight, r5), Offset(numLabelRight, r6), lp);
     // 番号行下辺（ラベル列のみ）
@@ -508,7 +520,7 @@ class LicensePainter extends CustomPainter {
         '${now.day.toString().padLeft(2, '0')}日';
     // 種類欄の日付値の Y オフセット（Android のフォントメトリクス差で
     // 上にずれて見えるため、交付値と同じく 8 * s 下げて補正）
-    final dateValueY = Platform.isAndroid ? -17 * s : -23 * s;
+    final dateValueY = Platform.isAndroid ? -19 * s : -23 * s;
 
     // Row 0: 二・小・原
     _drawText(canvas, '二・小・原', Offset(gL + 7 * s, startY + rowH / 2 - 8 * s),
@@ -1587,20 +1599,24 @@ class LicensePainter extends CustomPainter {
     final double colSpacing = fontSize * 1.15;
     final double topY = center.dy - fontSize * 0.9 - 9 * sc;
     final double shiftX = -5 * sc;
+    // Android(IBM Plex)の微調整: ウ・チを2px下、ノを2px下・子を2px上（見た目px=sc）
+    final uchiExtra = Platform.isAndroid ? <double>[2 * sc, 2 * sc] : null;
+    final noKoExtra = Platform.isAndroid ? <double>[2 * sc, -2 * sc] : null;
     // 右列「ウチ」
     _paintVerticalText(canvas, 'ウチ',
         Offset(center.dx + colSpacing * 0.25 + shiftX, topY),
-        fontSize, sealColor, spacing: 1.1);
+        fontSize, sealColor, spacing: 1.1, extraDy: uchiExtra);
     // 左列「ノ子」
     _paintVerticalText(canvas, 'ノ子',
         Offset(center.dx - colSpacing * 0.75 + shiftX, topY),
-        fontSize, sealColor, spacing: 1.1);
+        fontSize, sealColor, spacing: 1.1, extraDy: noKoExtra);
   }
 
   /// 縦書きテキスト描画
   void _paintVerticalText(Canvas canvas, String text, Offset start,
-      double fontSize, Color color, {double spacing = 1.2}) {
+      double fontSize, Color color, {double spacing = 1.2, List<double>? extraDy}) {
     var y = start.dy;
+    var i = 0;
     for (final rune in text.runes) {
       final char = String.fromCharCode(rune);
       // Android はフォントメトリクス差で漢字が縦書き行内で上に寄るため、漢字だけ少し下げる。
@@ -1608,10 +1624,12 @@ class LicensePainter extends CustomPainter {
       final dyNudge = (Platform.isAndroid && rune >= 0x4E00 && rune <= 0x9FFF)
           ? fontSize * 0.26
           : 0.0;
+      // 文字ごとの追加オフセット（ハンコのウチ/ノ/子の個別微調整に使用）
+      final extra = (extraDy != null && i < extraDy.length) ? extraDy[i] : 0.0;
       _drawText(
         canvas,
         char,
-        Offset(start.dx, y + dyNudge),
+        Offset(start.dx, y + dyNudge + extra),
         fontSize: fontSize,
         color: color,
         bold: true,
@@ -1619,6 +1637,7 @@ class LicensePainter extends CustomPainter {
         maxWidth: fontSize * 2,
       );
       y += fontSize * spacing;
+      i++;
     }
   }
 
@@ -1647,6 +1666,7 @@ class LicensePainter extends CustomPainter {
       ellipsis: '...',
     );
     final textStyle = ui.TextStyle(
+      fontFamily: _licenseFont,
       color: color,
       fontSize: fontSize,
       fontWeight: bold ? FontWeight.bold : FontWeight.normal,
@@ -1693,6 +1713,7 @@ class LicensePainter extends CustomPainter {
         final ch = text[i];
         final isBold = birthDateUnknown || birthDate == null || !kanjiPattern.hasMatch(ch);
         final style = ui.TextStyle(
+            fontFamily: _licenseFont,
             color: _textBlack,
             fontSize: fontSize,
             fontWeight: isBold ? FontWeight.bold : FontWeight.normal);
@@ -1718,9 +1739,9 @@ class LicensePainter extends CustomPainter {
         if (Platform.isAndroid) {
           final r = text.codeUnitAt(i);
           if (r >= 0x3040 && r <= 0x309F) {
-            dy = -5 * s; // 平仮名: 5px 上
+            dy = -1 * s; // 平仮名(ひ・み・つ): IBM Plex調整で4px下げ(-5→-1)
           } else if (text[i] == '・') {
-            dy = 1 * s; // 中点: 1px 下
+            dy = 1 * s; // 中点(・): 移動しない（現状維持）
           }
         }
         canvas.drawParagraph(charParagraphs[i], Offset(x, offset.dy + dy));
@@ -1735,12 +1756,14 @@ class LicensePainter extends CustomPainter {
       maxLines: 1,
     );
     final boldStyle = ui.TextStyle(
+      fontFamily: _licenseFont,
       color: _textBlack,
       fontSize: fontSize,
       fontWeight: FontWeight.bold,
       letterSpacing: letterSpacing > 0 ? letterSpacing : null,
     );
     final normalStyle = ui.TextStyle(
+      fontFamily: _licenseFont,
       color: _textBlack,
       fontSize: fontSize,
       fontWeight: FontWeight.normal,
@@ -1947,6 +1970,7 @@ class LicensePainter extends CustomPainter {
     double measure(String text, double fontSize) {
       final ps = ui.ParagraphStyle(textAlign: TextAlign.left);
       final ts = ui.TextStyle(
+          fontFamily: _licenseFont,
           color: _textBlack, fontSize: fontSize, fontWeight: FontWeight.bold);
       final b = ui.ParagraphBuilder(ps)..pushStyle(ts)..addText(text);
       final p = b.build();
@@ -1964,8 +1988,10 @@ class LicensePainter extends CustomPainter {
     // 混合スタイルで描画（第・号=32*s, 数字=40*s）
     final paragraphStyle = ui.ParagraphStyle(textAlign: TextAlign.left, maxLines: 1);
     final kanjiStyle = ui.TextStyle(
+        fontFamily: _licenseFont,
         color: _textBlack, fontSize: kanjiSize, fontWeight: FontWeight.bold);
     final numStyle = ui.TextStyle(
+        fontFamily: _licenseFont,
         color: _textBlack, fontSize: numSize, fontWeight: FontWeight.bold);
     final builder = ui.ParagraphBuilder(paragraphStyle);
     builder.pushStyle(kanjiStyle);
