@@ -584,6 +584,11 @@
 - NFC待機アニメーションが1回で止まる（UX改善レベル）
 - AppPreferencesのinit前アクセス（現状問題なし）
 - DB初期化のレースコンディション（現実的に発生しない）
+- **SafetyNet非推奨**（`play-services-safetynet`）: 依存ライブラリ（Firebase系）を新しいバージョンに更新すると Play Integrity へ移行して解消。App Check自体は既にPlay Integrity使用済み＝**実害なし・低優先**（2026-06-22 Play Console通知。依存更新はbreaking changeありなので計画的に）
+
+**手が空いた時のタスク（2026-06-22 しゅーと依頼）:**
+- App Store のアプリページの**スクリーンショット画像を最新版に見直し・修正**（古い版の可能性）
+- Play Console（Android）も同様にストア掲載画像を見直し・修正
 
 ## リリース後タスク
 
