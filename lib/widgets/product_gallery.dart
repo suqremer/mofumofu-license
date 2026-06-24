@@ -47,12 +47,14 @@ class ProductGallery extends StatefulWidget {
   final List<ProductPhoto> photos;
   final double height;
   final bool compact;
+  final VoidCallback? onTap;
 
   const ProductGallery({
     super.key,
     required this.photos,
     this.height = 200,
     this.compact = false,
+    this.onTap,
   });
 
   @override
@@ -139,28 +141,31 @@ class _ProductGalleryState extends State<ProductGallery> {
   Widget _buildPhotoCard(ProductPhoto photo) {
     final hasImage = photo.assetPath != null;
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: hasImage
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(photo.assetPath!, fit: BoxFit.cover),
+                  _buildLabel(photo.label),
+                ],
+              )
+            : _buildPlaceholder(photo),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: hasImage
-          ? Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.asset(photo.assetPath!, fit: BoxFit.cover),
-                _buildLabel(photo.label),
-              ],
-            )
-          : _buildPlaceholder(photo),
     );
   }
 

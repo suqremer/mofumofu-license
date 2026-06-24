@@ -108,7 +108,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
                 if (!AppPreferences.hasOrdered) ...[
                   // 未注文: スライドショーを目立つ位置に
-                  _buildProductShowcase(),
+                  _buildProductShowcase(context),
                   const SizedBox(height: 20),
                   _buildTicketCta(context),
                   const SizedBox(height: 12),
@@ -131,7 +131,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   const SizedBox(height: 20),
                   _buildCounterGuide(context),
                   const SizedBox(height: 20),
-                  _buildProductShowcase(compact: true),
+                  _buildProductShowcase(context, compact: true),
                 ],
 
                 const SizedBox(height: AppSpacing.md),
@@ -373,8 +373,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           onTap: () => context.push('/order'),
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           child: Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md, vertical: 14),
             decoration: BoxDecoration(
               color: AppColors.accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
@@ -383,49 +381,71 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 width: 1.5,
               ),
             ),
-            child: Row(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.credit_card_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
+                // 実物グッズ写真（カード＋タグが一目で伝わる）
+                Image.asset(
+                  'assets/product_photos/set_overview.jpg',
+                  height: 150,
+                  fit: BoxFit.cover,
                 ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Row(
                     children: [
-                      Text(
-                        'うちの子を実物カードに',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textDark,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'うちの子を、手に取れるグッズに。',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textDark,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '本格カード＆タグ',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textMedium,
+                              ),
+                            ),
+                            const SizedBox(height: 1),
+                            Text(
+                              '¥2,280〜 お家にお届け',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textMedium,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'お家に届ける  ¥2,280〜',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textMedium,
+                      const SizedBox(width: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          '作ってみる ›',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.accent,
-                  size: 24,
                 ),
               ],
             ),
@@ -674,7 +694,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // 商品スライドショー
   // ─────────────────────────────────────────────
 
-  Widget _buildProductShowcase({bool compact = false}) {
+  Widget _buildProductShowcase(BuildContext context, {bool compact = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -682,15 +702,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         children: [
           Padding(
             padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: 10),
-            child: Text(
-              compact ? 'うちの子グッズ' : 'うちの子グッズ',
-              style: AppTypography.headingSmall,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('うちの子グッズ', style: AppTypography.headingSmall),
+                Text(
+                  'タップで詳しく ›',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ],
             ),
           ),
           ProductGallery(
             photos: kAllProductPhotos,
             height: compact ? 140 : 200,
             compact: compact,
+            onTap: () => context.push('/order'),
           ),
         ],
       ),
