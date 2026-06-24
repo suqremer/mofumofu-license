@@ -393,56 +393,62 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 Padding(
                   padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'うちの子を、手に取れるグッズに。',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textDark,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              '本格カード＆タグ',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textMedium,
-                              ),
-                            ),
-                            const SizedBox(height: 1),
-                            Text(
-                              '¥2,280〜 お家にお届け',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textMedium,
-                              ),
-                            ),
-                          ],
+                      // キャッチは全幅で1行表示（折り返さないように独立）
+                      Text(
+                        'うちの子を、手に取れるグッズに。',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textDark,
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.accent,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          '作ってみる ›',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '本格カード＆タグ',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textMedium,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  '¥2,280〜 お家にお届け',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textMedium,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text(
+                              '作ってみる ›',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -915,14 +921,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   /// FTUE: サンプル免許証カード（プレースホルダ）
   Widget _buildSampleLicenseCard() {
+    // 実際にアプリで作ったデジタル免許証のサンプル画像（完成例）
     return Container(
-      width: double.infinity,
       constraints: const BoxConstraints(maxWidth: 340),
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.secondaryLight.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        border: Border.all(color: AppColors.accent, width: 2),
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withValues(alpha: 0.4),
@@ -931,87 +934,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'うちの子公安委員会',
-            style: GoogleFonts.zenMaruGothic(
-              fontSize: 12,
-              color: AppColors.textMedium,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'にゃん転免許',
-            style: GoogleFonts.zenMaruGothic(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _sampleInfoRow('氏名', 'もふたろう'),
-                    _sampleInfoRow('住所', 'にゃんこ市おひるね町'),
-                    _sampleInfoRow('有効', 'うたた寝するまで'),
-                    _sampleInfoRow('条件', '魚アプリDLしない事'),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                width: 80,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: AppColors.secondary,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                ),
-                child: const Icon(
-                  Icons.pets,
-                  size: 40,
-                  color: Colors.white70,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '発行: もふもふ免許センター',
-            style: AppTypography.caption.copyWith(fontSize: 10),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sampleInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 40,
-            child: Text(label, style: AppTypography.caption.copyWith(fontSize: 11)),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: AppTypography.caption.copyWith(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textDark,
-              ),
-            ),
-          ),
-        ],
+      clipBehavior: Clip.antiAlias,
+      child: Image.asset(
+        'assets/tutorial/sample_license.png',
+        fit: BoxFit.cover,
       ),
     );
   }
