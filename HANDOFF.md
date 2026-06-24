@@ -14,7 +14,7 @@
 - **iOS製品版を新フロー先行リリースへ（2026-06-21・方針変更）**: 元は「Android先行」だったが、iOSはClosed Test 14日要件が無く早く出せるため**iOS先行に変更**。iOSで本番E2E（実カード決済→カスタムスキーム復帰→写真アップロード→Firestore/Storage/Stripe確認→返金・掃除）合格→App Privacyに「写真（ユーザコンテンツ）」追加（用途=アプリの機能／Not Linked／トラッキング無）→**iOS 1.1.2（新フロー）をApp Store審査提出済み（手動リリース選択）**。審査通過後にしゅーとが公開。Androidは引き続き Closed Test 14日→製品版。なお決済ページ起動の遅延修正（認証をunawaited化）も本ビルドに含む。
 - **App Check Android登録＋Closed Test最新化＋テスター進捗（2026-06-21）**: ①**App Check の Android Play Integrity を登録**（両OS登録済み・計測モード。SHA-256はPlay「アプリの署名」ページ＝メニューに無くURL直 `.../app-integrity` から取得）。②**Android Closed Test を 1.1.2+553**（特商法導線・決済高速化込みの最新コード）に更新→審査中（iOSと同コードで足並み）。③**Closed Testテスター進捗＝現在3人オプトイン**（製品版申請には12人×14日必要＝**あと9人募集**が次の宿題）。
 - **運用注意**: ①返金してもFirestoreの`paid`は`true`のまま（現Webhookは `checkout.session.completed` のみ処理＝返金イベント未対応。返金時は手動対応）②App Checkは計測モード（enforce未）。
-- ⚠️ **旧方式撤去の未来タスク（条件付き・忘れない）**: **Android製品版リリース完了 ＋ iOS版アップデート完了 の両方が揃ったら**、`order_flow.md` の旧Googleフォーム方式を撤去し【新方式】に総入れ替えする。それまでは一般ユーザーの現行運用＝旧方式のため残置。
+- ⚠️ **旧方式撤去の未来タスク（条件付き・忘れない）**: `order_flow.md` の手順書は **新フロー＋DM直接購入 中心に整理済み（2026-06-22、旧Googleフォーム手順はgit履歴）**。残るは **Android製品版リリース完了 ＋ iOS版アップデート完了 の両方が揃ったら**、アプリ側の旧フロー（コード・Remote Config killスイッチ・旧Googleフォーム/管理シート/GAS）を撤去すること。
 
 ### 2026-06-16 追加対応（規約まわり＋Webhook環境構築。最新コミット `eebe1ea`）
 **規約対応（写真の外部送信に伴う必須対応・完了）:**
