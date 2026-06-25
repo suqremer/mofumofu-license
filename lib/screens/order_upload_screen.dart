@@ -478,7 +478,14 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
     );
     if (ok == true) {
       await DatabaseService().deleteOrder(widget.order.orderNumber);
-      if (mounted) context.go('/');
+      if (!mounted) return;
+      // pop で戻ると、ホームの _resumePendingOrder の await が解決され
+      // 未送信バナーが再取得されて即座に消える。push経由でなければ go('/') で戻る。
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/');
+      }
     }
   }
 
