@@ -634,6 +634,7 @@ service cloud.firestore {
 #### 復帰導線（決済→写真送付）の設計判断（2026-06-16 Phase D）
 決済往復後にユーザーをアプリの写真送付へ確実に戻すため、**3層**で担保する。
 - **本命＝起動時検知**: アプリ起動時に端末ローカルの pending 注文（写真未送信）を検知し、ホーム最上部にバナーを出す。ディープリンクが不発でも**アプリを開き直すだけで復帰できる**最も確実な層。
+  - **バナーの消去タイミング（2026-06-25 不具合修正）**: 未送信注文を削除したら、削除画面（`order_upload_screen`）から `context.pop()` で戻ることで、ホームの `home_screen._resumePendingOrder` の `await push` 後の `_pendingOrdersFuture` 再取得を発火させて**即座にバナーを消す**。`context.go('/')` で戻ると再取得が走らずバナーが残る（画面遷移で戻ると消える）不具合があったため、削除後の戻りは `context.canPop() ? context.pop() : context.go('/')` で分岐する。
 - **便利＝ディープリンク**: 着地ページの「アプリでお写真を送る」ボタンからアプリ復帰。
   - **方式はカスタムURLスキーム `mofumofulicense://` を採用**（ユニバーサルリンクは不採用）。理由＝決済後はユーザーが `uchinoko-license.com` を Safari で開いている状態で、**同一ドメインのユニバーサルリンクはiOSで不発になりやすい**（Apple仕様）。カスタムスキームはこの制約がなく、設定も軽い（Apple Developer の Associated Domains・AASA・assetlinks・SHA-256・autoVerify が不要）。未インストール時のストア誘導は着地ページ側で補う。
   - どの注文かは**端末ローカルの pending から特定**する（Stripeのリダイレクトに乗るのは session_id で受付番号ではないため、リンクに注文情報は載せない）。`app_links` で受信、Flutter標準ディープリンクは無効化して二重処理を防ぐ。
