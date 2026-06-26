@@ -7,7 +7,6 @@ import '../models/license_card.dart';
 import '../models/order_record.dart';
 import '../providers/database_provider.dart';
 import '../services/app_preferences.dart';
-import '../services/database_service.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
@@ -37,14 +36,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
-  /// 写真未送信（pending）の注文。決済済みなのに写真を送り損ねた人の救済導線に使う。
-  late Future<List<OrderRecord>> _pendingOrdersFuture;
-
   @override
   void initState() {
     super.initState();
-    // 起動時に未送信注文を検知（バナーで再開導線を出す）
-    _pendingOrdersFuture = DatabaseService().getPendingOrders();
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -466,13 +460,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // ─────────────────────────────────────────────
 
   Widget _buildPendingOrderBanner() {
-    return FutureBuilder<List<OrderRecord>>(
-      future: _pendingOrdersFuture,
-      builder: (context, snapshot) {
-        final pending = snapshot.data ?? const <OrderRecord>[];
-        if (pending.isEmpty) return const SizedBox.shrink();
-        final multiple = pending.length > 1;
-        return Padding(
+    final pendingAsync = ref.watch(pendingOrdersProvider);
+    final pending = pendingAsync.valueOrNull ?? const <OrderRecord>[];
+    if (pending.isEmpty) return const SizedBox.shrink();
+    final multiple = pending.length > 1;
+    return Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           child: Container(
             width: double.infinity,
@@ -537,8 +529,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ),
         );
-      },
-    );
   }
 
   /// バナーから写真送付を再開する。
@@ -549,12 +539,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     } else {
       await context.push('/order/history');
     }
-    // 送信完了後に戻ってくる可能性があるので再検知してバナーを更新
-    if (mounted) {
-      setState(() {
-        _pendingOrdersFuture = DatabaseService().getPendingOrders();
-      });
-    }
+    // 戻ってきたタイミングで未送信注文を再取得してバナーを更新
+    if (mounted) ref.invalidate(pendingOrdersProvider);
   }
 
   // ─────────────────────────────────────────────

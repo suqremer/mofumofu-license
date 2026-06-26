@@ -682,6 +682,8 @@ class _OrderTagScreenState extends ConsumerState<OrderTagScreen> {
       // 決済ページを開けた後にだけ pending を保存する。
       // （開けなかった場合に幽霊pendingを残さない。setHasOrdered は写真送付完了時に行う）
       await DatabaseService().upsertOrder(order);
+      // ホームの未送信バナーを即時更新（どの画面から注文しても反映される）
+      ref.invalidate(pendingOrdersProvider);
 
       if (mounted) {
         setState(() {

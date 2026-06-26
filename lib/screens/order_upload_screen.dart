@@ -3,10 +3,12 @@ import 'dart:io'; // File を明示的に使用（analyzer の services 経由�
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/order_record.dart';
+import '../providers/database_provider.dart';
 import '../services/app_preferences.dart';
 import '../services/database_service.dart';
 import '../services/order_upload_service.dart';
@@ -19,18 +21,18 @@ import '../theme/spacing.dart';
 /// - 送信前にサムネを確認（誤写真の送付防止）
 /// - 全画像のアップロード成功後に Firestore へ1回書き込み（[OrderUploadService] が担保）
 /// - 成功したらローカルの注文を [OrderStatus.uploaded] に更新し、完了画面を表示
-class OrderUploadScreen extends StatefulWidget {
+class OrderUploadScreen extends ConsumerStatefulWidget {
   final OrderRecord order;
 
   const OrderUploadScreen({super.key, required this.order});
 
   @override
-  State<OrderUploadScreen> createState() => _OrderUploadScreenState();
+  ConsumerState<OrderUploadScreen> createState() => _OrderUploadScreenState();
 }
 
 enum _UploadPhase { confirm, uploading, done, error }
 
-class _OrderUploadScreenState extends State<OrderUploadScreen> {
+class _OrderUploadScreenState extends ConsumerState<OrderUploadScreen> {
   _UploadPhase _phase = _UploadPhase.confirm;
   String? _errorMessage;
 
@@ -435,6 +437,8 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
       // ローカルの控えを「写真送信済み」に更新
       await DatabaseService()
           .upsertOrder(widget.order.copyWith(status: OrderStatus.uploaded));
+      // 送信完了でこの注文はpendingから外れる→ホームのバナーを更新
+      ref.invalidate(pendingOrdersProvider);
       if (mounted) setState(() => _phase = _UploadPhase.done);
     } on OrderUploadException catch (e) {
       if (mounted) {
@@ -478,9 +482,9 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
     );
     if (ok == true) {
       await DatabaseService().deleteOrder(widget.order.orderNumber);
+      // 削除をホームの未送信バナーに即時反映（providerを更新）
+      ref.invalidate(pendingOrdersProvider);
       if (!mounted) return;
-      // pop で戻ると、ホームの _resumePendingOrder の await が解決され
-      // 未送信バナーが再取得されて即座に消える。push経由でなければ go('/') で戻る。
       if (context.canPop()) {
         context.pop();
       } else {
