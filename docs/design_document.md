@@ -267,6 +267,20 @@ Android では Documents パスが `/data/user/0/<package>/app_flutter/...` と�
 | `/help` | HelpScreen | ヘルプ・よくある質問の一覧（カテゴリ別） |
 | `/help/detail` | HelpDetailScreen | ヘルプ詳細（本文、SelectableTextでコピー可） |
 
+### 4.4 注文への導線（「気軽に注文しやすい」の一元管理）
+
+グッズ注文（`/order`）への入口は複数ある。**導線を追加・変更したらこの表を更新**し、文言と目立ち方の一貫性を保つ。
+
+| 入口 | 場所 | 遷移先 | 文言・意図 |
+|------|------|--------|-----------|
+| グッズバナー | ホーム `_buildMerchandiseBanner` | `/order` | `set_overview.jpg`＋「うちの子を、手に取れるグッズに。」＋CTA「作ってみる ›」 |
+| 商品ギャラリー | ホーム `ProductGallery` | `/order` | 商品写真スライドショーをタップ（見出し「タップで詳しく ›」） |
+| 完成直後 | プレビュー画面 `preview_screen` | `/order` | 免許証が完成した"熱い"タイミングで注文へ誘導 |
+| コレクション | コレクション画面 `collection_screen` | `/order` | 保存済み免許証からの注文 |
+
+- **未送信バナー**（決済済み・写真未送信の救済）は上記とは別系統。`pendingOrdersProvider` を `home_screen` が watch し、注文作成・写真送信完了・削除で自動更新（詳細は 8.4「復帰導線の設計判断」）。
+- 新しい注文導線を足すときは、注文作成時に `ref.invalidate(pendingOrdersProvider)` が走る経路になっているか確認する（未送信バナーの即時反映のため）。
+
 ---
 
 ## 5. データベース設計
@@ -466,9 +480,8 @@ Android では Documents パスが `/data/user/0/<package>/app_flutter/...` と�
 
 ### 8.4 注文フロー
 
-> **刷新設計（v1.1.2・実装済み／本番Webhook稼働開始 2026-06-21）**: 以下は「アプリ内完結方式」。
-> 本番Webhookインフラは稼働開始し、Closed Test内部テスト版で**本番E2E検証済み**（→「本番Webhook構成と検証」参照）。
-> ただし**製品版（一般公開）への投入はClosed Test 14日完走後**のため、一般ユーザーの現行運用は当面「アプリ内Stripe決済 + 別途Googleフォーム写真送付」方式（git `b884a04` 時点、運用手順は `order_flow.md` / git履歴参照）が継続する。
+> **刷新設計（v1.1.2〜・実装済み・本番稼働中）**: 以下は「アプリ内完結方式」。本番Webhookは稼働開始し（2026-06-21）、本番E2E検証済み（→「本番Webhook構成と検証」参照）。
+> **iOSはv1.1.2で新フロー込みでApp Storeリリース済み**。Androidは Closed Test 14日完走後に製品版へ。旧「Stripe決済＋別途Googleフォーム写真送付」方式は**廃止**（運用手順は `order_flow.md` を参照。過去手順が必要なら git履歴）。
 
 #### 刷新の目的（なぜ変えるか）
 - 現行は決済とGoogleフォームが独立した別チャネルで、フォームが決済前でも単独送信できる。
@@ -488,7 +501,7 @@ Android では Documents パスが `/data/user/0/<package>/app_flutter/...` と�
      ↓ 決済成功時のみリダイレクト（session_id付き）
    着地ページ（uchinoko-license.com / GitHub Pages）
    「お支払い完了。二重に払う必要はありません。下のボタンで写真を送信」
-     ↓ ボタンを"タップ"してアプリ復帰（ユニバーサルリンク/App Links）
+     ↓ ボタンを"タップ"してアプリ復帰（カスタムURLスキーム mofumofulicense://）
 ③写真アップロード（アプリ）
    一時保存した注文を読み出し→サムネ確認→送信
    Firebase Storage へ自動アップロード（ユーザーは写真選び直し不要）
@@ -509,7 +522,7 @@ Android では Documents パスが `/data/user/0/<package>/app_flutter/...` と�
 
 #### 決済との接続（実機検証済み）
 - Stripe Payment Link の `after_completion` で、**決済成功時のみ**着地ページ（`uchinoko-license.com`/GitHub Pages）へ `?session_id={CHECKOUT_SESSION_ID}` 付きでリダイレクト（検証済み：session_id がURLに乗る）。
-- iOSの自動復帰（リダイレクトでのユニバーサルリンク発火）は不安定なため、**必ず着地ページに着地→ユーザーのタップでアプリ復帰**に統一（iOS/Android共通）。**復帰不発に備え、受付番号の手入力でアップロードを再開できるフォールバックを置く**。
+- リダイレクトでの自動復帰は不安定なため、**必ず着地ページに着地→ユーザーのタップでアプリ復帰（カスタムURLスキーム `mofumofulicense://`）**に統一（iOS/Android共通。方式選定の理由は「復帰導線の設計判断」を参照）。**復帰不発に備え、起動時検知バナー＋注文履歴からの再開をフォールバックに置く**。
 - **受付番号を `client_reference_id` でPayment Link URLに付与**しStripe側にも紐づけ（`session_id` と合わせた突合キー）。
 - **決済成功は Stripe Webhook が `orders/{受付番号}` に `paid=true` を記録**（決済の真実）。アプリの復帰可否に依存せず決済を捕捉できる。
 
@@ -958,12 +971,10 @@ enum AnchorPosition {
 **概要**: 注文数増加に伴うシステム拡張。
 
 **段階**:
-1. **現状（案C）**: Stripe Payment Links + Google フォーム（サーバー不要）
-2. **中期**: 注文管理ダッシュボード（Notion or Airtable連携）
-3. **長期**: Firebase Functions + Firestore でフルバックエンド化
-   - アプリ内画像アップロード（Firebase Storage）
-   - 注文ステータスのリアルタイム追跡
-   - 発送通知のプッシュ通知
+1. ~~現状: Stripe Payment Links + Googleフォーム~~ → **実装済み（v1.1.2でアプリ内完結方式へ刷新）**。Stripe Payment Link + Webhook（Cloud Functions）+ Firebase Storage/Firestore でアプリ内画像アップロードまで完了。
+2. **決済の"気軽さ"向上（「気軽に注文しやすい」の本丸）**: 現状は「アプリ→外部ブラウザ→着地ページ→タップで復帰」の往復が最大の離脱点。**Apple Pay / Google Pay 対応**で住所・カード入力を最小化して往復の負担を減らす。将来的には Payment Element 等でのアプリ内決済（ブラウザ往復の撤廃）も検討。
+3. **中期**: 注文管理ダッシュボード（Notion or Airtable連携）で受注・製造・発送を一元管理。返金イベント（`charge.refunded`）のWebhook対応で `paid` を自動整合（現状は手動）。
+4. **長期**: 注文ステータスのリアルタイム追跡・発送通知のプッシュ通知。写真の保持期間（発送後30日）自動削除を Cloud Functions スケジューラ化。
 
 ---
 
@@ -1036,9 +1047,15 @@ enum AnchorPosition {
 - v1.0.5: NFC URIレコード対応（iPhoneでアプリ不要で読み取り可能、URIレコード1本のみ書き込み、読み取りはテキストレコードへフォールバック）+ NFC書き込み画面の文字数制限追加（飼い主名20/電話15/特記50）+ 写真パスバグ修正（PathResolverセルフヒーリング、DBバージョン4マイグレーション、preview_screen保存時相対化）
 - v1.0.6: ヘルプ・よくある質問機能追加（設定タブ、2画面構成、計7項目: NFC関連4 + 注文関連3）
 - v1.0.7: 注文画面カード画像保存バグ修正（savedImagePath → resolvedSavedImagePath）
+- **v1.1.0/1.1.1**: 実物グッズ注文フロー刷新の下地（NFC強化・ペット手帳・ディープリンク基盤ほか）
+- **v1.1.2**: 注文フロー刷新（アプリ内完結）＋ Stripe Webhook本番化＋ App Check（両OS計測モード）＋ Android免許証フォントを IBM Plex Sans JP に統一。**iOS App Storeリリース済み** ／ Android Closed Test
+- **v1.1.3**: ホーム画面UI改善（グッズ導線バナー・FTUE免許証サンプル）＋ 未送信バナーの不具合修正 → riverpod（`pendingOrdersProvider`）で一元管理し全経路で即時反映。**両OS審査提出済み**（ビルド557。詳細は `HANDOFF.md`）
 
 ### 未完了（リリース後）
-- ~~AdMob app-ads.txt認証待ち~~ → 完了（2026-04-07）
-- オファーコード作成（友人向けプレミアム無料配布）
+- **v1.1.3 の審査通過待ち**: iOS→公開（手動リリース）／Android→Closed Test 14日完走→製品版申請
+- **App Check の Enforce（強制）切替＋NFC実機再確認**（両OS製品版が安定してから）
+- **旧方式の撤去**（アプリ側コード/Remote Config killスイッチ/旧Googleフォーム）＝両OS製品版リリース後
+- SafetyNet依存の解消（次バージョンの依存更新時）
+- Stripe決済に PayPay 追加（将来検討）
 - iPad最適化（スクリーンショット・UI対応）
 - 物理商品製造ライン構築

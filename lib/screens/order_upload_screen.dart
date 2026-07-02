@@ -437,9 +437,11 @@ class _OrderUploadScreenState extends ConsumerState<OrderUploadScreen> {
       // ローカルの控えを「写真送信済み」に更新
       await DatabaseService()
           .upsertOrder(widget.order.copyWith(status: OrderStatus.uploaded));
-      // 送信完了でこの注文はpendingから外れる→ホームのバナーを更新
-      ref.invalidate(pendingOrdersProvider);
-      if (mounted) setState(() => _phase = _UploadPhase.done);
+      if (mounted) {
+        // 送信完了でこの注文はpendingから外れる→ホームのバナーを更新
+        ref.invalidate(pendingOrdersProvider);
+        setState(() => _phase = _UploadPhase.done);
+      }
     } on OrderUploadException catch (e) {
       if (mounted) {
         setState(() {
@@ -482,9 +484,9 @@ class _OrderUploadScreenState extends ConsumerState<OrderUploadScreen> {
     );
     if (ok == true) {
       await DatabaseService().deleteOrder(widget.order.orderNumber);
+      if (!mounted) return;
       // 削除をホームの未送信バナーに即時反映（providerを更新）
       ref.invalidate(pendingOrdersProvider);
-      if (!mounted) return;
       if (context.canPop()) {
         context.pop();
       } else {
